@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { registerPatient } from "@/lib/actions/patient.actions";
+import { registerPatient, verifyNationalID } from "@/lib/actions/patient.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,23 +14,86 @@ export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
   const [successId, setSuccessId] = useState<string | null>(null);
 
+  // Phase 11 State
+  const [nationalId, setNationalId] = useState("");
+  const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
+  const [isVerifying, setIsVerifying] = useState(false);
+  const [showOtp, setShowOtp] = useState(false);
+  const [otp, setOtp] = useState("");
+  const [isVerified, setIsVerified] = useState(false);
+  const [sendingSms, setSendingSms] = useState(false);
+
+  const handleNationalIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Only allow numbers
+    const val = e.target.value.replace(/\D/g, '');
+    let formatted = val.substring(0, 12);
+    if (formatted.length > 4) formatted = formatted.substring(0, 4) + ' ' + formatted.substring(4);
+    if (formatted.length > 9) formatted = formatted.substring(0, 9) + ' ' + formatted.substring(9);
+    setNationalId(formatted);
+    // Reset states if user types again
+    setMaskedPhone(null);
+    setShowOtp(false);
+    setIsVerified(false);
+  };
+
+  const handleVerifyId = async () => {
+    if (nationalId.replace(/\s/g, '').length !== 12) return;
+    setIsVerifying(true);
+    try {
+      const res = await verifyNationalID(nationalId);
+      if (res.success) {
+        setMaskedPhone(res.maskedPhone);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
+  const handleSendCode = async () => {
+    setSendingSms(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setShowOtp(true);
+    setSendingSms(false);
+  };
+
+  const handleVerifyOtp = () => {
+    if (otp === "123456") {
+      setIsVerified(true);
+    } else {
+      alert("Invalid OTP. Try 123456 for demo.");
+    }
+  };
+
+  const handleSkipId = () => {
+    setNationalId("");
+    setIsVerified(true);
+  };
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     const formData = new FormData(e.currentTarget);
 
-    const nationalId = formData.get("nationalId") as string;
+    const nationalIdVal = nationalId.replace(/\s/g, '');
 
     // Frontend validation check before calling the server
-    if (nationalId && nationalId.length !== 16 && nationalId.length !== 12) {
-      alert("Invalid ID length. Please enter a 16-digit FCN or 12-digit FIN.");
+    if (nationalIdVal && nationalIdVal.length !== 12 && nationalIdVal.length !== 16) {
+      alert("Invalid ID length. Please enter a 12-digit Fayda National ID.");
+      setLoading(false);
+      return;
+    }
+
+    if (nationalIdVal && !isVerified) {
+      alert("Please verify the National ID before submitting.");
       setLoading(false);
       return;
     }
 
     const data: any = {
       fullName: formData.get("fullName") as string,
-      nationalId: nationalId,
+      nationalId: nationalIdVal ? nationalIdVal : undefined,
       age: parseInt(formData.get("age") as string, 10) || 0,
       sex: formData.get("sex") as string,
       reasonForVisit: formData.get("chiefComplaint") as string, // map it here optionally, but we have chiefComplaint too
@@ -116,16 +179,69 @@ export default function RegisterPage() {
                   <Input id="fullName" name="fullName" placeholder="Full Name" required />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="nationalId">National ID</Label>
-                  <Input
-                    id="nationalId"
-                    name="nationalId"
-                    placeholder="16-digit FCN or 12-digit FIN (Optional)"
-                    maxLength={16}
-                    onChange={(e) => {
-                      e.target.value = e.target.value.replace(/[^0-9]/g, "");
-                    }}
-                  />
+                  <Label htmlFor="nationalId">Fayda National ID (Optional)</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="nationalId"
+                      name="nationalId"
+                      placeholder="XXXX XXXX XXXX"
+                      value={nationalId}
+                      onChange={handleNationalIdChange}
+                      disabled={isVerified}
+                      className={isVerified ? "bg-green-50 border-green-200" : ""}
+                    />
+                    {!isVerified && nationalId.replace(/\s/g, '').length === 12 && !maskedPhone && (
+                      <Button type="button" onClick={handleVerifyId} disabled={isVerifying} variant="secondary">
+                        {isVerifying ? "Verifying..." : "Verify ID"}
+                      </Button>
+                    )}
+                    {!isVerified && !nationalId && (
+                      <Button type="button" onClick={handleSkipId} variant="outline" className="text-slate-500 whitespace-nowrap">
+                        Skip / No ID
+                      </Button>
+                    )}
+                  </div>
+                  
+                  {/* SMS Simulation UI */}
+                  {maskedPhone && !isVerified && (
+                    <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm transition-all">
+                      <p className="text-slate-600 mb-2">
+                        Linked Phone: <span className="font-mono font-medium text-blue-700">{maskedPhone}</span>
+                      </p>
+                      
+                      {!showOtp ? (
+                        <Button 
+                          type="button" 
+                          size="sm" 
+                          onClick={handleSendCode} 
+                          disabled={sendingSms}
+                          className="w-full bg-blue-600 hover:bg-blue-700"
+                        >
+                          {sendingSms ? "Sending SMS to +251..." : "Send Verification Code"}
+                        </Button>
+                      ) : (
+                        <div className="space-y-2 mt-2">
+                          <Label className="text-xs text-slate-500">Enter 6-digit OTP (Try 123456)</Label>
+                          <div className="flex gap-2">
+                            <Input 
+                              value={otp} 
+                              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').substring(0, 6))}
+                              placeholder="000000" 
+                              className="font-mono text-center tracking-widest"
+                            />
+                            <Button type="button" onClick={handleVerifyOtp} size="sm" variant="default">Verify</Button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isVerified && nationalId && (
+                    <div className="text-sm text-green-600 flex items-center mt-1">
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      ID & Phone Verified Successfully
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -189,8 +305,19 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* 2. Address & Contact */}
-            <div className="space-y-4 pt-4">
+            {/* Lock Overlay Content */}
+            {!isVerified ? (
+              <div className="py-12 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex flex-col items-center justify-center text-center opacity-70">
+                <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+                  <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+                </div>
+                <h3 className="text-lg font-semibold text-slate-700">Action Required</h3>
+                <p className="text-slate-500 max-w-sm mt-1">Please verify National ID or Skip to unlock Patient History and Next Steps.</p>
+              </div>
+            ) : (
+              <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-8">
+                {/* 2. Address & Contact */}
+                <div className="space-y-4 pt-2">
               <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">2. Address & Contact Information</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -309,11 +436,12 @@ export default function RegisterPage() {
                 <Textarea id="detailedSituation" name="detailedSituation" placeholder="Optional background, history of present illness or other notes..." className="min-h-[100px]" />
               </div>
             </div>
-
+          </div>
+          )}
           </CardContent>
 
           <CardFooter>
-            <Button className="w-full" size="lg" disabled={loading} type="submit">
+            <Button className="w-full" size="lg" disabled={loading || !isVerified} type="submit">
               {loading ? "Registering..." : "Complete Registration"}
             </Button>
           </CardFooter>

@@ -340,3 +340,24 @@ export async function getPatientQueueStatus(identifier: string) {
     throw new Error(error.message || "Failed to fetch patient queue status.");
   }
 }
+
+export async function verifyNationalID(nationalId: string) {
+  try {
+    const rawId = nationalId.replace(/\s/g, '');
+    if (rawId.length !== 12) {
+      throw new Error("Fayda National ID must be exactly 12 digits.");
+    }
+    
+    // Simulate database lookup delay for realism
+    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    // Mock National Linkage logic: return masked phone number
+    return {
+      success: true,
+      maskedPhone: "+251 911 *** *88"
+    };
+  } catch (error: any) {
+    console.error("❌ Linkage Error:", error.message);
+    throw new Error(error.message || "Failed to verify National ID.");
+  }
+}
