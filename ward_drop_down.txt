@@ -1,0 +1,185 @@
+🇪🇪 National Health System — Universal Ward Dropdown
+(Works for: Referral Hospital → General Hospital → Primary Hospital → Health Center)
+
+1. OPD / Outpatient ▼
+
+
+
+
+
+
+
+
+
+
+
+
+
+General OPD
+Medical OPD
+Surgical OPD
+Pediatric OPD
+ANC (Antenatal Care)
+Family Planning
+Chronic Care Clinic
+TB Clinic
+HIV Clinic
+Immunization
+Nutrition Clinic
+Minor Procedure Room
+
+2. Emergency ▼
+
+
+
+
+
+
+
+Triage Area
+Emergency Room
+Observation Room
+Minor Procedure Room
+Resuscitation Room
+Isolation Room
+
+3. Medical Ward ▼
+
+
+
+
+General Medical Ward
+Observation Ward
+Isolation Ward
+
+
+
+Chronic Care Ward
+
+4. Surgical Ward ▼
+
+
+
+
+
+
+Surgical Ward
+Pre-operative Ward
+Post-operative Ward
+Minor Surgery Room
+Dressing Room
+
+5. Maternity Ward ▼
+
+
+
+
+
+
+
+ANC Ward
+Labor Room
+Delivery Room
+Postnatal Ward
+High-Risk Pregnancy
+Observation Room
+
+6. Gynecology ▼
+
+
+
+
+Gynecology Ward
+Procedure Room
+Observation Room
+
+7. Pediatric Ward ▼
+
+
+
+
+
+Pediatric Ward
+Pediatric Observation
+Pediatric Isolation
+Malnutrition Unit
+
+8. Newborn / Neonatal ▼
+
+
+
+
+Newborn Care Room
+Neonatal Observation
+Kangaroo Mother Care (KMC)
+
+9. Inpatient / General Ward ▼
+
+
+
+
+
+Male Ward
+Female Ward
+General Admission
+Observation
+
+10. Laboratory ▼
+
+
+
+
+
+
+Sample Collection
+Hematology
+Chemistry
+Microbiology
+Result Reporting
+
+11. Pharmacy ▼
+
+
+
+
+
+OPD Pharmacy
+Emergency Pharmacy
+Inpatient Pharmacy
+Drug Store
+
+12. Procedure / Minor Operation ▼
+
+
+
+
+
+
+Minor Procedure Room
+Injection Room
+Dressing Room
+Suturing Room
+
+13. Isolation ▼
+
+
+
+
+TB Isolation
+Respiratory Isolation
+Infectious Disease Isolation
+
+14. Support Units ▼
+
+
+
+
+
+
+Registration
+Triage
+Referral Unit
+Ambulance
+Health Education Room
+
+

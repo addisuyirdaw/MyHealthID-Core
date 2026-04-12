@@ -1,0 +1,188 @@
+1. Patient Registration (Online / First Login)
+Required Identification Data:
+Field
+
+Details / Notes
+
+Full Name
+
+__________________________________
+
+Age
+
+______
+
+Sex
+
+______
+
+Religion
+
+__________________
+
+Occupation
+
+__________________
+
+Marital Status
+
+__________________
+
+Educational Status
+
+__________________
+
+Date of Admission
+
+Auto-filled or chosen
+
+Address
+
+Country / Region / Zone / Woreda / Kebele
+
+Date of Birth (Optional) __________________
+
+Optional / Smart Fields:
+
+
+
+
+Pre-existing conditions
+Allergy information
+Trauma or emergency flag
+
+Patients submit online, and a unique Patient ID is generated. Submission time is
+recorded for queuing.
+
+2. Queue Management & Prioritization
+Smart Queuing Features:
+
+
+
+Patients are queued based on submission time by default.
+Emergency prioritization:
+
+o
+
+
+
+Trauma, labor, or life-threatening conditions jump the queue
+automatically.
+Notification system:
+o Patient receives SMS or app notification:
+“Hello [Patient Name], you are number 10 in the queue. Please be ready to
+be evaluated at [Hospital Name].”
+
+
+
+Doctors see real-time queue updates, including emergency tags.
+
+3. Doctor Portal
+Dashboard View:
+
+
+
+
+Patient Identification Data (all submitted info)
+Queue position and arrival time
+Editable sections for:
+o Physical examination findings
+o Vital signs
+o Investigations / lab orders
+o Diagnosis and treatment plan
+
+Lab Orders & Follow-up:
+
+
+
+Doctor can submit lab requests through the system.
+System automatically notifies the patient when results are ready:
+“Hello [Patient Name], your lab result is ready. Please contact [Hospital Name]
+for follow-up. Our AI assistant can summarize the findings if needed.”
+
+4. Notification System
+Types of notifications:
+1.
+2.
+3.
+4.
+
+Queue Updates: SMS / app notification when approaching the doctor.
+Lab Results: SMS / app message when results are ready.
+Reminders: Follow-up, medication, or appointment reminders.
+Emergency Alerts: Immediate notification if conditions change or urgent action
+is required.
+
+5. History Tracking
+
+
+
+
+
+All patient visits are stored securely.
+Includes:
+o Vitals
+o Lab results
+o Imaging and radiology reports
+o Prescriptions and procedures
+Doctors can view previous hospitalizations and monitor trends.
+
+6. Access Control
+
+
+
+
+Doctor access is partitioned per hospital to maintain confidentiality.
+Referrals allow selective sharing between hospitals.
+Lab technicians and administrative staff have role-based access to relevant data
+only.
+
+7. Smart Features / Future Add-ons
+
+
+
+
+
+AI-assisted insights: System can flag unusual results, suggest preliminary
+interpretations, and guide doctors.
+Analytics dashboard: Hospital administrators can monitor patient flow, lab
+workload, and wait times.
+Mobile app for patients: Track queue, lab results, and receive notifications
+without visiting the hospital.
+Integration with national health records: For future nationwide access.
+
+Doctor fills after patient logs in; optional
+email/phone for notifications)
+(
+
+---- B. General Appearance
+---- C. Vital Signs – Mandatory
+
+
+
+
+
+
+
+Blood Pressure (BP)
+Pulse Rate (PR)
+Respiratory Rate (RR)
+Temperature (T°)
+SpO₂
+Body Mass Index (BMI)
+
+
+
+Pain Level
+
+---- D. HEENT (Head, Eyes, Ears, Nose, Throat)
+---- E. Lymphoglandular System
+---- F. Respiratory System
+---- G. Cardiovascular System
+---- H. Abdomen (Gastrointestinal)
+---- I. Genitourinary (GUT)
+---- J. Musculoskeletal System (MSK)
+---- K. Integumentary System
+---- L. Neurological System
+
+

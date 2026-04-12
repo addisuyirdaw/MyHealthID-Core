@@ -1,0 +1,228 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  LAB_TECH
+  PHARMACIST
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  role      Role     @default(DOCTOR)
+  
+  firstName String?
+  lastName  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  investigations Investigation[]
+}
+
+enum Ward {
+  OPD_OUTPATIENT             @map("OPD / Outpatient")
+  EMERGENCY                  @map("Emergency")
+  MEDICAL_WARD               @map("Medical Ward")
+  SURGICAL_WARD              @map("Surgical Ward")
+  MATERNITY_WARD             @map("Maternity Ward")
+  GYNECOLOGY                 @map("Gynecology")
+  PEDIATRIC_WARD             @map("Pediatric Ward")
+  NEWBORN_NEONATAL           @map("Newborn / Neonatal")
+  INPATIENT_GENERAL_WARD     @map("Inpatient / General Ward")
+  LABORATORY                 @map("Laboratory")
+  PHARMACY                   @map("Pharmacy")
+  PROCEDURE_MINOR_OPERATION  @map("Procedure / Minor Operation")
+  ISOLATION                  @map("Isolation")
+  SUPPORT_UNITS              @map("Support Units")
+}
+
+enum TriageStatus {
+  RED
+  YELLOW
+  GREEN
+  WAITING_FOR_TRIAGE
+}
+
+model Patient {
+  id                String   @id @default(uuid())
+  healthId          String   @unique
+  nationalId        String?  @unique
+  isSynced          Boolean  @default(false)
+
+  // Queue Information
+  phoneNumber       String?
+  queuePosition     Int      @default(0)
+  estimatedWait     Int      @default(0)
+
+  // 1. Patient Registration Data (From DATA 1)
+  fullName          String
+  age               Int
+  sex               String
+  religion          String?
+  occupation        String?
+  maritalStatus     String?
+  educationalStatus String?
+  dateOfAdmission   DateTime @default(now())
+
+  // Address broken down
+  addressCountry    String?
+  addressRegion     String?
+  addressZone       String?
+  addressWoreda     String?
+  addressKebele     String?
+
+  dateOfBirth       DateTime?
+
+  // Contacts
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  // Smart Fields
+  chiefComplaint        String?
+  detailedSituation     String?
+  reasonForVisit        String?
+  preExistingConditions String?
+  allergyInformation    String?
+  emergencyFlag         Boolean  @default(false)
+  serviceType           String?  @default("OPD")
+
+  ward                  Ward     @default(OPD_OUTPATIENT)
+  triageStatus          TriageStatus @default(WAITING_FOR_TRIAGE)
+  examStatus            String   @default("PENDING")
+  status                String?  @default("ACTIVE")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  vitals            Vitals[]
+  investigations    Investigation[]
+  prescriptions     Prescription[]
+  referrals         Referral[]
+  clinicalExam      ClinicalExamination?
+}
+
+model ClinicalExamination {
+  id                String   @id @default(uuid())
+  patientId         String   @unique
+  
+  generalAppearance String?
+  heent             String?
+  lymphoglandular   String?
+  respiratory       String?
+  cardiovascular    String?
+  abdomen           String?
+  genitourinary     String?
+  musculoskeletal   String?
+  integumentary     String?
+  neurological      String?
+  
+  clinicalNotes     String?  // Final impressions
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  patient           Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model Vitals {
+  id        String   @id @default(uuid())
+  patientId String
+  
+  // Mandatory Vital Signs
+  bp        String   // Blood Pressure e.g., "120/80"
+  pulse     Int      // Pulse Rate (PR)
+  rr        Int      // Respiratory Rate (RR)
+  temp      Float    // Temperature (T°)
+  spO2      Float    // Blood Oxygen
+  bmi       Float?   // Body Mass Index
+  painLevel Int?     // Pain Level 1-10
+  
+  createdAt DateTime @default(now())
+
+  // Relations
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+enum InvestigationStatus {
+  PENDING
+  COMPLETED
+}
+
+model Investigation {
+  id          String   @id @default(uuid())
+  patientId   String
+  doctorId    String?
+  
+  testName    String
+  category    String? 
+  department  String?
+
+  status      InvestigationStatus @default(PENDING)
+  result      String?  
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor      User?    @relation(fields: [doctorId], references: [id])
+}
+
+enum PrescriptionStatus {
+  PENDING
+  DISPENSED
+}
+
+model Prescription {
+  id          String   @id @default(uuid())
+  patientId   String
+  doctorId    String?
+  
+  drugName    String   @map("medication")
+  dosage      String
+  frequency   String   @default("N/A")
+  duration    String   @default("N/A")
+  notes       String?
+
+  status      PrescriptionStatus @default(PENDING)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model Referral {
+  id                  String   @id @default(uuid())
+  patientId           String
+  
+  reason              String
+  destinationFacility String
+
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Relations
+  patient             Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model SystemSettings {
+  id          String   @id @default(uuid())
+  isBreakTime Boolean  @default(false)
+  updatedAt   DateTime @updatedAt
+}

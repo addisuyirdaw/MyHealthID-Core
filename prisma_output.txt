@@ -1,0 +1,13 @@
+Loaded Prisma config from prisma.config.ts.
+
+Prisma schema loaded from prisma/schema.prisma.
+Datasource "db": PostgreSQL database "myhealthid", schema "public" at "localhost:5432"
+Error: ERROR: invalid input value for enum "Ward_new": "GENERAL_OPD"
+   0: sql_schema_connector::apply_migration::migration_step
+           with step=AlterEnum(AlterEnum { id: MigrationPair { previous: EnumId(3), next: EnumId(1) }, created_variants: ["OPD / Outpatient", "Emergency", "Medical Ward", "Surgical Ward", "Maternity Ward", "Gynecology", "Pediatric Ward", "Newborn / Neonatal", "Inpatient / General Ward", "Laboratory", "Pharmacy", "Procedure / Minor Operation", "Isolation", "Support Units"], dropped_variants: ["GENERAL_OPD", "EMERGENCY_ROOM", "SURGICAL_WARD", "INTERNAL_MEDICINE", "MATERNITY_WARD", "PEDIATRIC_WARD", "ICU"], previous_usages_as_default: [(TableColumnId(34), Some(TableColumnId(29)))] })
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:28
+   1: sql_schema_connector::apply_migration::apply_migration
+             at schema-engine/connectors/sql-schema-connector/src/apply_migration.rs:11
+   2: schema_core::state::SchemaPush
+             at schema-engine/core/src/state.rs:547
+
