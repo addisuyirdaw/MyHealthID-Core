@@ -103,7 +103,7 @@ export default async function DashboardPage({
             </p>
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-4">
-            <form method="GET" action="/dashboard" className="flex items-center gap-2 w-full sm:w-auto">
+            <form method="GET" action="/doctor/dashboard" className="flex items-center gap-2 w-full sm:w-auto">
               <Input
                 name="search"
                 type="text"
@@ -114,7 +114,7 @@ export default async function DashboardPage({
               {currentWard && !searchQuery && <input type="hidden" name="ward" value={currentWard} />}
               <Button type="submit" variant="secondary">Search</Button>
               {searchQuery && (
-                <Link href="/dashboard" className="text-sm font-medium text-slate-500 hover:text-slate-800 ml-2 shrink-0">Clear</Link>
+                <Link href="/doctor/dashboard" className="text-sm font-medium text-slate-500 hover:text-slate-800 ml-2 shrink-0">Clear</Link>
               )}
             </form>
             <div className="bg-white px-4 py-2 rounded-xl shadow-sm border border-slate-200 flex space-x-4 text-sm font-medium shrink-0">

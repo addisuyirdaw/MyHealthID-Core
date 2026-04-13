@@ -14,8 +14,7 @@ export default function ScanPage() {
   const handleScan = (e: React.FormEvent) => {
     e.preventDefault();
     if (!scanData.trim()) return;
-    // Simulate instantaneous "scan" redirect
-    router.push(`/dashboard?search=${encodeURIComponent(scanData.trim())}`);
+    router.push(`/doctor/dashboard?search=${encodeURIComponent(scanData.trim())}`);
   };
 
   return (

@@ -12,28 +12,33 @@ export function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Protect Dashboard
-  if (path.startsWith('/dashboard') && userRole !== 'DOCTOR' && userRole !== 'ADMIN') {
-    // If not a doctor, redirect them appropriately or to login.
-    // For this basic check, we'll imagine a /login page exists.
-    return NextResponse.redirect(new URL('/login', request.url));
+  // Protect Admin Dashboard
+  if (path.startsWith('/admin') && userRole !== 'ADMIN') {
+    return NextResponse.redirect(new URL('/unauthorized', request.url));
+  }
+
+  // Protect Doctor Dashboard
+  if (path.startsWith('/doctor') && userRole !== 'DOCTOR' && userRole !== 'ADMIN') {
+    return NextResponse.redirect(new URL('/unauthorized', request.url));
   }
 
   // Protect Lab
   if (path.startsWith('/lab') && userRole !== 'LAB_TECH' && userRole !== 'ADMIN') {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/unauthorized', request.url));
   }
 
   // Protect Pharmacy
   if (path.startsWith('/pharmacy') && userRole !== 'PHARMACIST' && userRole !== 'ADMIN') {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/unauthorized', request.url));
   }
   
   // Basic redirection from root or login if already authenticated with a role
   if ((path === '/' || path === '/login') && userRole) {
-    if (userRole === 'DOCTOR') return NextResponse.redirect(new URL('/dashboard', request.url));
+    if (userRole === 'ADMIN') return NextResponse.redirect(new URL('/admin/dashboard', request.url));
+    if (userRole === 'DOCTOR') return NextResponse.redirect(new URL('/doctor/dashboard', request.url));
     if (userRole === 'LAB_TECH') return NextResponse.redirect(new URL('/lab', request.url));
     if (userRole === 'PHARMACIST') return NextResponse.redirect(new URL('/pharmacy', request.url));
+    if (userRole === 'RECEPTIONIST') return NextResponse.redirect(new URL('/register', request.url));
   }
 
   return NextResponse.next();
@@ -41,5 +46,5 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   // Apply this middleware to these specific paths
-  matcher: ['/dashboard/:path*', '/lab/:path*', '/pharmacy/:path*', '/', '/login'],
+  matcher: ['/admin/:path*', '/doctor/:path*', '/lab/:path*', '/pharmacy/:path*', '/', '/login'],
 };
