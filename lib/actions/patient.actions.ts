@@ -63,7 +63,7 @@ export async function registerPatient(data: {
         triageStatus: "WAITING_FOR_TRIAGE"
       }
     });
-    const nextQueuePosition = (maxQueue._max.queuePosition || 0) + 1;
+    const nextQueuePosition = (maxQueue._max?.queuePosition ?? 0) + 1;
     const estimatedWaitTime = nextQueuePosition * 15;
 
     const patient = await prisma.patient.create({
@@ -115,7 +115,7 @@ export async function registerPatient(data: {
       throw new Error("A patient with this National ID is already registered.");
     }
     if (error instanceof z.ZodError) {
-      throw new Error(error.errors[0].message);
+      throw new Error(error.issues?.[0]?.message || "Validation error");
     }
     throw new Error(error.message || "Registration failed.");
   }
@@ -264,7 +264,7 @@ export async function processTriage(
       }
     });
 
-    const nextQueuePosition = (maxQueue._max.queuePosition || 0) + 1;
+    const nextQueuePosition = (maxQueue._max?.queuePosition ?? 0) + 1;
     const estimatedWaitTime = nextQueuePosition * 15;
 
     const patient = await prisma.patient.update({

@@ -20,10 +20,11 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
   const [acknowledged, setAcknowledged] = useState(false);
 
   // Safety Engine Logic
-  const hasAllergyWarning =
+  const hasAllergyWarning = Boolean(
     drugName.trim().length > 2 &&
     patientAllergies &&
-    patientAllergies.toLowerCase().includes(drugName.toLowerCase());
+    patientAllergies.toLowerCase().includes(drugName.toLowerCase())
+  );
 
   const handlePrescribe = async () => {
     if (!drugName || !dosage || !frequency || !duration) {

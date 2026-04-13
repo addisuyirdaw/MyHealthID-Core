@@ -8,11 +8,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { HeartPulse, CheckCircle2, RotateCcw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { HeartPulse, CheckCircle2, RotateCcw, ShieldCheck, QrCode } from "lucide-react";
+import { PatientQR } from "@/components/PatientQR";
 
 export default function RegisterPage() {
   const [loading, setLoading] = useState(false);
-  const [successId, setSuccessId] = useState<string | null>(null);
+  const [successData, setSuccessData] = useState<{ id: string; name: string; nationalId?: string } | null>(null);
 
   // Phase 11 State
   const [nationalId, setNationalId] = useState("");
@@ -119,7 +121,11 @@ export default function RegisterPage() {
 
     try {
       const result = await registerPatient(data);
-      setSuccessId(result.healthId);
+      setSuccessData({ 
+        id: result.healthId, 
+        name: data.fullName, 
+        nationalId: data.nationalId 
+      });
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Registration failed. Check if the National ID is already registered.");
@@ -128,27 +134,54 @@ export default function RegisterPage() {
     }
   }
 
-  if (successId) {
+  if (successData) {
     return (
       <div className="min-h-screen bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
         <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-3xl" />
-        <Card className="w-full max-w-lg border-white/50 bg-white/70 backdrop-blur-xl shadow-2xl relative z-10 text-center py-10">
-          <CardContent className="flex flex-col items-center gap-6">
-            <div className="h-24 w-24 rounded-full bg-green-100 flex items-center justify-center">
-              <CheckCircle2 className="h-12 w-12 text-green-600" />
+        <Card className="w-full max-w-md border-white/50 bg-white/70 backdrop-blur-xl shadow-2xl relative z-10 text-center py-8">
+          <CardHeader className="flex flex-col items-center pb-2">
+            <div className="flex items-center gap-2 mb-2 text-primary font-bold text-xl tracking-tight">
+              <HeartPulse className="h-6 w-6" />
+              <span>MyHealthID</span>
             </div>
+            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 mt-2">
+              <ShieldCheck className="w-3 h-3 mr-1" />
+              Verified by NID Ethiopia
+            </Badge>
+          </CardHeader>
+          <CardContent className="flex flex-col items-center gap-6 pt-4">
             <div>
-              <h2 className="text-3xl font-bold tracking-tight text-slate-900">Success!</h2>
-              <p className="text-slate-500 mt-2">Patient registered successfully.</p>
+              <p className="text-sm text-slate-500 uppercase tracking-wider font-semibold">Digital Health Passport</p>
+              <h2 className="text-2xl font-bold text-slate-900 mt-1">{successData.name}</h2>
+              {successData.nationalId && (
+                <p className="text-sm text-slate-500 mt-1">Fayda ID: <span className="font-mono">{successData.nationalId}</span></p>
+              )}
             </div>
-            <div className="bg-slate-100 p-4 rounded-xl border border-slate-200 w-full mt-4">
-              <p className="text-sm font-medium text-slate-500 mb-1">Generated Health ID</p>
-              <p className="text-3xl font-mono font-bold text-primary">{successId}</p>
+            
+            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner inline-block">
+              <PatientQR value={successData.id} size={180} />
             </div>
-            <Button onClick={() => setSuccessId(null)} className="mt-4 w-full" variant="outline">
-              <RotateCcw className="w-4 h-4 mr-2" />
-              Register Another Patient
-            </Button>
+
+            <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 w-full">
+              <p className="text-xs font-medium text-slate-500 mb-1">System Health ID</p>
+              <p className="text-xl font-mono font-bold text-primary tracking-widest">{successData.id}</p>
+            </div>
+            
+            <div className="w-full space-y-3 mt-2">
+              <Button onClick={() => window.print()} className="w-full bg-slate-900 hover:bg-slate-800 text-white">
+                <QrCode className="w-4 h-4 mr-2" />
+                Print / Save Passport
+              </Button>
+              <Button onClick={() => {
+                setSuccessData(null);
+                setNationalId("");
+                setIsVerified(false);
+                setMaskedPhone(null);
+              }} className="w-full" variant="outline">
+                <RotateCcw className="w-4 h-4 mr-2" />
+                Register New Patient
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
