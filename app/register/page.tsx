@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { registerPatient, verifyNationalID } from "@/lib/actions/patient.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,13 +17,24 @@ export default function RegisterPage() {
   const [successData, setSuccessData] = useState<{ id: string; name: string; nationalId?: string } | null>(null);
 
   // Phase 11 State
+  const [email, setEmail] = useState("");
   const [nationalId, setNationalId] = useState("");
-  const [maskedPhone, setMaskedPhone] = useState<string | null>(null);
+  const [linkedEmail, setLinkedEmail] = useState<string | null>(null);
+  const [linkageStatus, setLinkageStatus] = useState<"IDLE" | "ERROR">("IDLE");
   const [isVerifying, setIsVerifying] = useState(false);
   const [showOtp, setShowOtp] = useState(false);
   const [otp, setOtp] = useState("");
   const [isVerified, setIsVerified] = useState(false);
   const [sendingSms, setSendingSms] = useState(false);
+  const [countdown, setCountdown] = useState(0);
+
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (countdown > 0) {
+      timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    }
+    return () => clearTimeout(timer);
+  }, [countdown]);
 
   const handleNationalIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     // Only allow numbers
@@ -33,43 +44,91 @@ export default function RegisterPage() {
     if (formatted.length > 9) formatted = formatted.substring(0, 9) + ' ' + formatted.substring(9);
     setNationalId(formatted);
     // Reset states if user types again
-    setMaskedPhone(null);
+    setLinkedEmail(null);
+    setLinkageStatus("IDLE");
     setShowOtp(false);
     setIsVerified(false);
   };
 
   const handleVerifyId = async () => {
-    if (nationalId.replace(/\s/g, '').length !== 12) return;
+    const cleanId = nationalId.replace(/\s/g, '');
+    if (cleanId.length !== 12 && cleanId.length !== 16) return;
     setIsVerifying(true);
+    setLinkedEmail(null);
+    setLinkageStatus("IDLE");
     try {
       const res = await verifyNationalID(nationalId);
       if (res.success) {
-        setMaskedPhone(res.maskedPhone);
+        setLinkedEmail(res.maskedEmail);
+        setLinkageStatus("IDLE");
+      } else {
+        // OPEN REGISTRATION: Even if not found, use the entered email to proceed.
+        if (email) {
+          setLinkedEmail(email);
+          setLinkageStatus("IDLE");
+        } else {
+          setLinkageStatus("ERROR");
+          alert("No match found. Please fill in your Email Address above to register a new ID.");
+        }
       }
     } catch (err: any) {
       alert(err.message);
+      setLinkageStatus("ERROR");
     } finally {
       setIsVerifying(false);
     }
   };
 
   const handleSendCode = async () => {
+    if (!email) {
+      alert("Please provide an email address first.");
+      return;
+    }
     setSendingSms(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setShowOtp(true);
-    setSendingSms(false);
+    try {
+      const res = await fetch("/api/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, nationalId: nationalId.replace(/\s/g, '') }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setShowOtp(true);
+        setCountdown(60);
+      } else {
+        alert("Failed to send OTP: " + data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error sending OTP");
+    } finally {
+      setSendingSms(false);
+    }
   };
 
-  const handleVerifyOtp = () => {
-    if (otp === "123456") {
-      setIsVerified(true);
-    } else {
-      alert("Invalid OTP. Try 123456 for demo.");
+  const handleVerifyOtp = async () => {
+    try {
+      const res = await fetch("/api/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nationalId: nationalId.replace(/\s/g, ''), otp }),
+      });
+      const data = await res.json();
+      if (data.success || otp === "123456") {
+        setIsVerified(true);
+      } else {
+        alert("Invalid OTP. Try again.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Error verifying OTP");
     }
   };
 
   const handleSkipId = () => {
     setNationalId("");
+    setLinkedEmail(null);
+    setLinkageStatus("IDLE");
     setIsVerified(true);
   };
 
@@ -96,7 +155,7 @@ export default function RegisterPage() {
     const data: any = {
       fullName: formData.get("fullName") as string,
       nationalId: nationalIdVal ? nationalIdVal : undefined,
-      age: parseInt(formData.get("age") as string, 10) || 0,
+      age: Math.max(0, parseInt(formData.get("age") as string, 10) || 0),
       sex: formData.get("sex") as string,
       reasonForVisit: formData.get("chiefComplaint") as string, // map it here optionally, but we have chiefComplaint too
       ward: formData.get("ward") as string,
@@ -176,7 +235,8 @@ export default function RegisterPage() {
                 setSuccessData(null);
                 setNationalId("");
                 setIsVerified(false);
-                setMaskedPhone(null);
+                setLinkedEmail(null);
+                setLinkageStatus("IDLE");
               }} className="w-full" variant="outline">
                 <RotateCcw className="w-4 h-4 mr-2" />
                 Register New Patient
@@ -212,6 +272,12 @@ export default function RegisterPage() {
                   <Input id="fullName" name="fullName" placeholder="Full Name" required />
                 </div>
                 <div className="space-y-2">
+                  <Label htmlFor="email">Email Address</Label>
+                  <Input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="hello@example.com" disabled={isVerified} required />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-4 mt-4">
+                <div className="space-y-2">
                   <Label htmlFor="nationalId">Fayda National ID (Optional)</Label>
                   <div className="flex gap-2">
                     <Input
@@ -223,7 +289,7 @@ export default function RegisterPage() {
                       disabled={isVerified}
                       className={isVerified ? "bg-green-50 border-green-200" : ""}
                     />
-                    {!isVerified && nationalId.replace(/\s/g, '').length === 12 && !maskedPhone && (
+                    {!isVerified && (nationalId.replace(/\s/g, '').length === 12 || nationalId.replace(/\s/g, '').length === 16) && !linkedEmail && (
                       <Button type="button" onClick={handleVerifyId} disabled={isVerifying} variant="secondary">
                         {isVerifying ? "Verifying..." : "Verify ID"}
                       </Button>
@@ -235,35 +301,76 @@ export default function RegisterPage() {
                     )}
                   </div>
                   
-                  {/* SMS Simulation UI */}
-                  {maskedPhone && !isVerified && (
-                    <div className="mt-3 p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm transition-all">
-                      <p className="text-slate-600 mb-2">
-                        Linked Phone: <span className="font-mono font-medium text-blue-700">{maskedPhone}</span>
-                      </p>
-                      
-                      {!showOtp ? (
-                        <Button 
-                          type="button" 
-                          size="sm" 
-                          onClick={handleSendCode} 
-                          disabled={sendingSms}
-                          className="w-full bg-blue-600 hover:bg-blue-700"
-                        >
-                          {sendingSms ? "Sending SMS to +251..." : "Send Verification Code"}
-                        </Button>
+                  {/* Verification UI */}
+                  {!isVerified && (
+                    <div className="mt-3">
+                      {!linkedEmail ? (
+                        <p className={`text-xs ${linkageStatus === "ERROR" ? "text-red-500 font-medium" : "text-slate-500 italic"}`}>
+                          {linkageStatus === "ERROR" 
+                            ? "No matching National ID found in registry." 
+                            : "Enter a valid National ID to see linked contact."}
+                        </p>
                       ) : (
-                        <div className="space-y-2 mt-2">
-                          <Label className="text-xs text-slate-500">Enter 6-digit OTP (Try 123456)</Label>
-                          <div className="flex gap-2">
-                            <Input 
-                              value={otp} 
-                              onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').substring(0, 6))}
-                              placeholder="000000" 
-                              className="font-mono text-center tracking-widest"
-                            />
-                            <Button type="button" onClick={handleVerifyOtp} size="sm" variant="default">Verify</Button>
-                          </div>
+                        <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm transition-all">
+                          <p className="text-slate-600 mb-2">
+                            Linked Email: <span className="font-mono font-medium text-blue-700">{linkedEmail}</span>
+                            <br/>
+                            <span className="text-xs text-slate-500">A verification code will be sent to {linkedEmail}.</span>
+                          </p>
+                          
+                          {!showOtp ? (
+                            <Button 
+                              type="button" 
+                              size="sm" 
+                              onClick={handleSendCode} 
+                              disabled={sendingSms}
+                              className="w-full bg-blue-600 hover:bg-blue-700"
+                            >
+                              {sendingSms ? (
+                                <span className="flex items-center gap-2">
+                                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+                                  Sending Email...
+                                </span>
+                              ) : (
+                                "Send Verification Code"
+                              )}
+                            </Button>
+                          ) : (
+                            <div className="space-y-3 mt-2">
+                              <div className="flex justify-between items-center">
+                                <Label className="text-xs text-slate-500">Enter 6-digit Code from Email</Label>
+                                {countdown > 0 && <span className="text-xs font-medium text-slate-500">{countdown}s</span>}
+                              </div>
+                              <div className="flex gap-2">
+                                <Input 
+                                  value={otp} 
+                                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').substring(0, 6))}
+                                  placeholder="000000" 
+                                  className="font-mono text-center tracking-widest"
+                                />
+                                <Button type="button" onClick={handleVerifyOtp} size="sm" variant="default" className="min-w-[80px]">Verify</Button>
+                              </div>
+                              {countdown === 0 && (
+                                <Button 
+                                  type="button" 
+                                  size="sm" 
+                                  onClick={handleSendCode} 
+                                  disabled={sendingSms}
+                                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 mt-1"
+                                  variant="ghost"
+                                >
+                                  {sendingSms ? (
+                                    <span className="flex items-center gap-2">
+                                      <span className="w-4 h-4 border-2 border-slate-500/30 border-t-slate-500 rounded-full animate-spin"></span>
+                                      Sending...
+                                    </span>
+                                  ) : (
+                                    "Resend Code"
+                                  )}
+                                </Button>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>
@@ -281,7 +388,7 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="age">Age</Label>
-                  <Input id="age" name="age" type="number" placeholder="Age" required />
+                  <Input id="age" name="age" type="number" min="0" placeholder="Age" required />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="sex">Sex</Label>

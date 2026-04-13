@@ -66,46 +66,76 @@ export async function registerPatient(data: {
     const nextQueuePosition = (maxQueue._max?.queuePosition ?? 0) + 1;
     const estimatedWaitTime = nextQueuePosition * 15;
 
-    const patient = await prisma.patient.create({
-      data: {
-        fullName: fullName || "Unknown",
-        nationalId: idValue,
-        healthId: healthId,
-        age: age || 0,
-        sex: sex || "Not Specified",
-        ward: ward,
-        triageStatus: triageStatus,
-        reasonForVisit: reasonForVisit || "",
-        emergencyFlag: triageStatus === 'RED',
-        religion: religion || "Not Specified",
-        occupation: occupation || "Not Specified",
-        maritalStatus: maritalStatus || "Not Specified",
-        educationalStatus: educationalStatus || "Not Specified",
-        addressRegion: addressRegion || "Not Specified",
-        addressZone: addressZone || "Not Specified",
-        addressWoreda: addressWoreda || "Not Specified",
-        addressKebele: addressKebele || "Not Specified",
-        emergencyContactName: emergencyContactName || "Not Specified",
-        emergencyContactPhone: emergencyContactPhone || "Not Specified",
-        phoneNumber: phoneNumber || null,
-        queuePosition: nextQueuePosition,
-        estimatedWait: estimatedWaitTime,
-        chiefComplaint: chiefComplaint || "Not Specified",
-        detailedSituation: detailedSituation || "",
-        vitals: bp || pulse || temp || spO2 ? {
-          create: {
-            bp: bp || "N/A",
-            pulse: pulse || 0,
-            temp: temp || 0,
-            spO2: spO2 || 0,
-            rr: 0,
-          }
-        } : undefined,
-      },
-      include: {
-        vitals: true,
+    const patientData = {
+      fullName: fullName || "Unknown",
+      age: Math.max(0, age || 0),
+      sex: sex || "Not Specified",
+      ward: ward,
+      triageStatus: triageStatus,
+      reasonForVisit: reasonForVisit || "",
+      emergencyFlag: triageStatus === 'RED',
+      religion: religion || "Not Specified",
+      occupation: occupation || "Not Specified",
+      maritalStatus: maritalStatus || "Not Specified",
+      educationalStatus: educationalStatus || "Not Specified",
+      addressRegion: addressRegion || "Not Specified",
+      addressZone: addressZone || "Not Specified",
+      addressWoreda: addressWoreda || "Not Specified",
+      addressKebele: addressKebele || "Not Specified",
+      emergencyContactName: emergencyContactName || "Not Specified",
+      emergencyContactPhone: emergencyContactPhone || "Not Specified",
+      phoneNumber: phoneNumber || null,
+      queuePosition: nextQueuePosition,
+      estimatedWait: estimatedWaitTime,
+      chiefComplaint: chiefComplaint || "Not Specified",
+      detailedSituation: detailedSituation || "",
+    };
+
+    const vitalsData = bp || pulse || temp || spO2 ? {
+      create: {
+        bp: bp || "N/A",
+        pulse: pulse || 0,
+        temp: temp || 0,
+        spO2: spO2 || 0,
+        rr: 0,
       }
-    });
+    } : undefined;
+
+    let patient;
+
+    if (idValue !== null) {
+      const existing = await prisma.patient.findUnique({ where: { nationalId: idValue } });
+      if (existing) {
+        patient = await prisma.patient.update({
+          where: { nationalId: idValue },
+          data: {
+            ...patientData,
+            healthId: healthId, // Overwrite the temporary TMP health ID from OTP step
+            vitals: vitalsData,
+          },
+          include: { vitals: true }
+        });
+      } else {
+        patient = await prisma.patient.create({
+          data: {
+            ...patientData,
+            healthId: healthId,
+            nationalId: idValue,
+            vitals: vitalsData,
+          },
+          include: { vitals: true }
+        });
+      }
+    } else {
+      patient = await prisma.patient.create({
+        data: {
+          ...patientData,
+          healthId: healthId,
+          vitals: vitalsData,
+        },
+        include: { vitals: true }
+      });
+    }
 
     return JSON.parse(JSON.stringify(patient));
 
@@ -344,20 +374,35 @@ export async function getPatientQueueStatus(identifier: string) {
 export async function verifyNationalID(nationalId: string) {
   try {
     const rawId = nationalId.replace(/\s/g, '');
-    if (rawId.length !== 12) {
-      throw new Error("Fayda National ID must be exactly 12 digits.");
+    if (rawId.length !== 12 && rawId.length !== 16) {
+      throw new Error("Fayda National ID must be exactly 12 or 16 digits.");
     }
     
-    // Simulate database lookup delay for realism
+    // Simulate lookup delay
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // Mock National Linkage logic: return masked phone number
+    // The Patient model acts as the National Linkage database.
+    const patientRecord = await prisma.patient.findUnique({
+      where: { nationalId: rawId }
+    });
+
+    if (!patientRecord || !patientRecord.email) {
+      return { success: false, message: "No match found." };
+    }
+
+    const email = patientRecord.email;
+    const [namePart, domain] = email.split('@');
+    // Mask the email: a****@gmail.com
+    const maskedName = namePart.charAt(0) + '*'.repeat(Math.max(1, namePart.length - 1));
+    const maskedEmail = `${maskedName}@${domain}`;
+
     return {
       success: true,
-      maskedPhone: "+251 911 *** *88"
+      maskedEmail: maskedEmail
     };
   } catch (error: any) {
     console.error("❌ Linkage Error:", error.message);
     throw new Error(error.message || "Failed to verify National ID.");
   }
 }
+
