@@ -81,12 +81,12 @@ export async function updateLabResult(data: {
     const phone = p.emergencyContactPhone || "Unregistered Number";
     
     console.log(`\n======================================================`);
-    console.log(`[SMS Simulation] To [${phone}]: Hi dear ${identifier}, your lab result is sent to your doctor. Please come for review.`);
+    console.log(`[SMS Simulation] To [${phone}]: Hi dear ${identifier}, your lab results have been finalized. Your visit for today is complete.`);
     console.log(`======================================================\n`);
 
     await prisma.patient.update({
       where: { id: p.id },
-      data: { examStatus: "RESULT_READY" }
+      data: { examStatus: "COMPLETED" }
     });
 
     revalidatePath("/dashboard");

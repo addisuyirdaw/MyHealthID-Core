@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { registerPatient, verifyNationalID } from "@/lib/actions/patient.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +9,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { HeartPulse, CheckCircle2, RotateCcw, ShieldCheck, QrCode } from "lucide-react";
-import { PatientQR } from "@/components/PatientQR";
+import { HeartPulse, CheckCircle2 } from "lucide-react";
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [successData, setSuccessData] = useState<{ id: string; name: string; nationalId?: string } | null>(null);
 
   // Phase 11 State
   const [email, setEmail] = useState("");
@@ -25,8 +24,46 @@ export default function RegisterPage() {
   const [showOtp, setShowOtp] = useState(false);
   const [otp, setOtp] = useState("");
   const [isVerified, setIsVerified] = useState(false);
+  const [phone, setPhone] = useState("");
+  const [nidExistsError, setNidExistsError] = useState("");
   const [sendingSms, setSendingSms] = useState(false);
   const [countdown, setCountdown] = useState(0);
+
+  // Smart Triage State
+  const [chiefComplaint, setChiefComplaint] = useState("");
+  const [ward, setWard] = useState("OPD_OUTPATIENT");
+  const [triageStatus, setTriageStatus] = useState("WAITING_FOR_TRIAGE");
+
+  const [accessError, setAccessError] = useState("");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const errorMsg = params.get("error");
+      if (errorMsg) {
+        setAccessError(errorMsg.replace(/\+/g, " "));
+      }
+    }
+  }, []);
+
+  const analyzeSymptoms = (text: string) => {
+    const lowerText = text.toLowerCase();
+    const keywords = ['chest', 'breath', 'blood', 'unconscious', 'accident', 'severe', 'pain'];
+    
+    if (keywords.some(kw => lowerText.includes(kw))) {
+      setWard("EMERGENCY");
+      setTriageStatus("RED");
+    } else {
+      setWard("OPD_OUTPATIENT");
+      setTriageStatus("GREEN"); // Normal
+    }
+  };
+
+  const handleComplaintChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setChiefComplaint(val);
+    analyzeSymptoms(val);
+  };
 
   useEffect(() => {
     let timer: NodeJS.Timeout;
@@ -48,6 +85,24 @@ export default function RegisterPage() {
     setLinkageStatus("IDLE");
     setShowOtp(false);
     setIsVerified(false);
+    setNidExistsError("");
+  };
+
+  const handleNidBlur = async () => {
+    const cleanId = nationalId.replace(/\s/g, '');
+    if (!cleanId) return;
+
+    try {
+      const res = await fetch(`/api/patients/check-exists?nid=${cleanId}`);
+      const data = await res.json();
+      if (data.exists) {
+        setNidExistsError("This ID is already in use. Please edit or login.");
+      } else {
+        setNidExistsError("");
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const handleVerifyId = async () => {
@@ -84,12 +139,21 @@ export default function RegisterPage() {
       alert("Please provide an email address first.");
       return;
     }
+    if (nidExistsError) {
+      alert("This ID is already registered. Please login or edit existing record.");
+      return;
+    }
+    const cleanId = nationalId.replace(/\s/g, '');
+    if (!cleanId) {
+      alert("Please provide your National ID first.");
+      return;
+    }
     setSendingSms(true);
     try {
       const res = await fetch("/api/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, nationalId: nationalId.replace(/\s/g, '') }),
+        body: JSON.stringify({ email, nationalId: cleanId }),
       });
       const data = await res.json();
       if (data.success) {
@@ -125,13 +189,6 @@ export default function RegisterPage() {
     }
   };
 
-  const handleSkipId = () => {
-    setNationalId("");
-    setLinkedEmail(null);
-    setLinkageStatus("IDLE");
-    setIsVerified(true);
-  };
-
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
@@ -158,7 +215,8 @@ export default function RegisterPage() {
       age: Math.max(0, parseInt(formData.get("age") as string, 10) || 0),
       sex: formData.get("sex") as string,
       reasonForVisit: formData.get("chiefComplaint") as string, // map it here optionally, but we have chiefComplaint too
-      ward: formData.get("ward") as string,
+      ward: ward,
+      triageStatus: triageStatus,
       religion: formData.get("religion") as string,
       occupation: formData.get("occupation") as string,
       maritalStatus: formData.get("maritalStatus") as string,
@@ -180,73 +238,20 @@ export default function RegisterPage() {
 
     try {
       const result = await registerPatient(data);
-      setSuccessData({ 
-        id: result.healthId, 
-        name: data.fullName, 
-        nationalId: data.nationalId 
-      });
+      if (result && result.error) {
+        alert(result.error);
+        return;
+      }
+      router.push(`/patients/${result.id}/success`);
     } catch (err: any) {
       console.error(err);
-      alert(err.message || "Registration failed. Check if the National ID is already registered.");
+      alert(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
     }
   }
 
-  if (successData) {
-    return (
-      <div className="min-h-screen bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
-        <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-primary/10 blur-3xl" />
-        <Card className="w-full max-w-md border-white/50 bg-white/70 backdrop-blur-xl shadow-2xl relative z-10 text-center py-8">
-          <CardHeader className="flex flex-col items-center pb-2">
-            <div className="flex items-center gap-2 mb-2 text-primary font-bold text-xl tracking-tight">
-              <HeartPulse className="h-6 w-6" />
-              <span>MyHealthID</span>
-            </div>
-            <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 mt-2">
-              <ShieldCheck className="w-3 h-3 mr-1" />
-              Verified by NID Ethiopia
-            </Badge>
-          </CardHeader>
-          <CardContent className="flex flex-col items-center gap-6 pt-4">
-            <div>
-              <p className="text-sm text-slate-500 uppercase tracking-wider font-semibold">Digital Health Passport</p>
-              <h2 className="text-2xl font-bold text-slate-900 mt-1">{successData.name}</h2>
-              {successData.nationalId && (
-                <p className="text-sm text-slate-500 mt-1">Fayda ID: <span className="font-mono">{successData.nationalId}</span></p>
-              )}
-            </div>
-            
-            <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-inner inline-block">
-              <PatientQR value={successData.id} size={180} />
-            </div>
 
-            <div className="bg-slate-100 p-3 rounded-lg border border-slate-200 w-full">
-              <p className="text-xs font-medium text-slate-500 mb-1">System Health ID</p>
-              <p className="text-xl font-mono font-bold text-primary tracking-widest">{successData.id}</p>
-            </div>
-            
-            <div className="w-full space-y-3 mt-2">
-              <Button onClick={() => window.print()} className="w-full bg-slate-900 hover:bg-slate-800 text-white">
-                <QrCode className="w-4 h-4 mr-2" />
-                Print / Save Passport
-              </Button>
-              <Button onClick={() => {
-                setSuccessData(null);
-                setNationalId("");
-                setIsVerified(false);
-                setLinkedEmail(null);
-                setLinkageStatus("IDLE");
-              }} className="w-full" variant="outline">
-                <RotateCcw className="w-4 h-4 mr-2" />
-                Register New Patient
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
@@ -259,6 +264,18 @@ export default function RegisterPage() {
             </div>
             <CardTitle className="text-3xl font-bold tracking-tight">Patient Registration</CardTitle>
             <CardDescription>Initialize a new secure patient record</CardDescription>
+
+            {accessError && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center shadow-sm animate-in fade-in zoom-in duration-300 mx-auto max-w-lg w-full">
+                <svg className="w-6 h-6 text-red-600 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <div className="text-left text-red-800 text-sm">
+                   <p className="font-bold uppercase tracking-wider mb-0.5">Authorization Error</p>
+                   <p className="font-medium">{accessError}</p>
+                </div>
+              </div>
+            )}
           </CardHeader>
 
           <CardContent className="grid gap-6 pt-8 pb-4">
@@ -273,113 +290,74 @@ export default function RegisterPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
-                  <Input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="hello@example.com" disabled={isVerified} required />
+                  <div className="flex gap-2">
+                    <Input id="email" name="email" type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="hello@example.com" disabled={isVerified || showOtp} required />
+                    {!isVerified && !showOtp && (
+                      <Button type="button" onClick={handleSendCode} disabled={sendingSms} className="bg-blue-600 hover:bg-blue-700">
+                        {sendingSms ? "Sending..." : "Verify Email"}
+                      </Button>
+                    )}
+                  </div>
+                  {showOtp && !isVerified && (
+                    <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm mt-2 transition-all">
+                      <p className="text-slate-600 mb-2">
+                        A verification code was sent to <span className="font-mono font-medium text-blue-700">{email}</span>.
+                      </p>
+                      <div className="space-y-3 mt-2">
+                        <div className="flex justify-between items-center">
+                          <Label className="text-xs text-slate-500">Enter 6-digit Code</Label>
+                          {countdown > 0 && <span className="text-xs font-medium text-slate-500">{countdown}s</span>}
+                        </div>
+                        <div className="flex gap-2">
+                          <Input 
+                            value={otp} 
+                            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').substring(0, 6))}
+                            placeholder="000000" 
+                            className="font-mono text-center tracking-widest max-w-[120px]"
+                          />
+                          <Button type="button" onClick={handleVerifyOtp} size="sm" variant="default" className="min-w-[80px]">Verify</Button>
+                        </div>
+                        {countdown === 0 && (
+                          <Button 
+                            type="button" 
+                            onClick={handleSendCode} 
+                            disabled={sendingSms}
+                            className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 mt-1"
+                            variant="ghost"
+                          >
+                            Resend Code
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nationalId">Fayda National ID (Optional)</Label>
-                  <div className="flex gap-2">
-                    <Input
-                      id="nationalId"
-                      name="nationalId"
-                      placeholder="XXXX XXXX XXXX"
-                      value={nationalId}
-                      onChange={handleNationalIdChange}
-                      disabled={isVerified}
-                      className={isVerified ? "bg-green-50 border-green-200" : ""}
-                    />
-                    {!isVerified && (nationalId.replace(/\s/g, '').length === 12 || nationalId.replace(/\s/g, '').length === 16) && !linkedEmail && (
-                      <Button type="button" onClick={handleVerifyId} disabled={isVerifying} variant="secondary">
-                        {isVerifying ? "Verifying..." : "Verify ID"}
-                      </Button>
-                    )}
-                    {!isVerified && !nationalId && (
-                      <Button type="button" onClick={handleSkipId} variant="outline" className="text-slate-500 whitespace-nowrap">
-                        Skip / No ID
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {/* Verification UI */}
-                  {!isVerified && (
-                    <div className="mt-3">
-                      {!linkedEmail ? (
-                        <p className={`text-xs ${linkageStatus === "ERROR" ? "text-red-500 font-medium" : "text-slate-500 italic"}`}>
-                          {linkageStatus === "ERROR" 
-                            ? "No matching National ID found in registry." 
-                            : "Enter a valid National ID to see linked contact."}
-                        </p>
-                      ) : (
-                        <div className="p-3 bg-blue-50/50 border border-blue-100 rounded-lg text-sm transition-all">
-                          <p className="text-slate-600 mb-2">
-                            Linked Email: <span className="font-mono font-medium text-blue-700">{linkedEmail}</span>
-                            <br/>
-                            <span className="text-xs text-slate-500">A verification code will be sent to {linkedEmail}.</span>
-                          </p>
-                          
-                          {!showOtp ? (
-                            <Button 
-                              type="button" 
-                              size="sm" 
-                              onClick={handleSendCode} 
-                              disabled={sendingSms}
-                              className="w-full bg-blue-600 hover:bg-blue-700"
-                            >
-                              {sendingSms ? (
-                                <span className="flex items-center gap-2">
-                                  <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-                                  Sending Email...
-                                </span>
-                              ) : (
-                                "Send Verification Code"
-                              )}
-                            </Button>
-                          ) : (
-                            <div className="space-y-3 mt-2">
-                              <div className="flex justify-between items-center">
-                                <Label className="text-xs text-slate-500">Enter 6-digit Code from Email</Label>
-                                {countdown > 0 && <span className="text-xs font-medium text-slate-500">{countdown}s</span>}
-                              </div>
-                              <div className="flex gap-2">
-                                <Input 
-                                  value={otp} 
-                                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').substring(0, 6))}
-                                  placeholder="000000" 
-                                  className="font-mono text-center tracking-widest"
-                                />
-                                <Button type="button" onClick={handleVerifyOtp} size="sm" variant="default" className="min-w-[80px]">Verify</Button>
-                              </div>
-                              {countdown === 0 && (
-                                <Button 
-                                  type="button" 
-                                  size="sm" 
-                                  onClick={handleSendCode} 
-                                  disabled={sendingSms}
-                                  className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 mt-1"
-                                  variant="ghost"
-                                >
-                                  {sendingSms ? (
-                                    <span className="flex items-center gap-2">
-                                      <span className="w-4 h-4 border-2 border-slate-500/30 border-t-slate-500 rounded-full animate-spin"></span>
-                                      Sending...
-                                    </span>
-                                  ) : (
-                                    "Resend Code"
-                                  )}
-                                </Button>
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      )}
+                  <Label htmlFor="nationalId">Fayda National ID</Label>
+                  <Input
+                    id="nationalId"
+                    name="nationalId"
+                    placeholder="XXXX XXXX XXXX"
+                    value={nationalId}
+                    onChange={handleNationalIdChange}
+                    onBlur={handleNidBlur}
+                    disabled={isVerified}
+                    className={isVerified ? "bg-green-50 border-green-200" : (nidExistsError ? "border-red-500 bg-red-50" : "")}
+                    required
+                  />
+
+                  {nidExistsError && !isVerified && (
+                    <div className="text-sm text-red-600 mt-1 font-medium">
+                      {nidExistsError}
                     </div>
                   )}
 
                   {isVerified && nationalId && (
                     <div className="text-sm text-green-600 flex items-center mt-1">
                       <CheckCircle2 className="w-4 h-4 mr-1" />
-                      ID & Phone Verified Successfully
+                      ID & Email Verified Successfully
                     </div>
                   )}
                 </div>
@@ -405,7 +383,16 @@ export default function RegisterPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="phoneNumber">Phone Number</Label>
-                  <Input id="phoneNumber" name="phoneNumber" type="tel" placeholder="09... (Optional)" />
+                  <Input 
+                    id="phoneNumber" 
+                    name="phoneNumber" 
+                    type="tel" 
+                    placeholder="09... (Optional)" 
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\s+/g, ''))}
+                    pattern="^(09|07)\d{8}$" 
+                    title="Phone number must be 10 digits starting with 09 or 07" 
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="maritalStatus">Marital Status</Label>
@@ -518,57 +505,24 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* 3. Clinical & Triage Info */}
+            {/* 3. Reason for Visit */}
             <div className="space-y-4 pt-4">
-              <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">3. Initial Clinical Information</h3>
-              
-              <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="ward">Ward / Assigned Location</Label>
-                  <Select name="ward" required>
-                    <SelectTrigger><SelectValue placeholder="Select Ward..." /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="OPD_OUTPATIENT">OPD / Outpatient</SelectItem>
-                      <SelectItem value="EMERGENCY">Emergency</SelectItem>
-                      <SelectItem value="MEDICAL_WARD">Medical Ward</SelectItem>
-                      <SelectItem value="SURGICAL_WARD">Surgical Ward</SelectItem>
-                      <SelectItem value="MATERNITY_WARD">Maternity Ward</SelectItem>
-                      <SelectItem value="GYNECOLOGY">Gynecology</SelectItem>
-                      <SelectItem value="PEDIATRIC_WARD">Pediatric Ward</SelectItem>
-                      <SelectItem value="NEWBORN_NEONATAL">Newborn / Neonatal</SelectItem>
-                      <SelectItem value="INPATIENT_GENERAL_WARD">Inpatient / General Ward</SelectItem>
-                      <SelectItem value="LABORATORY">Laboratory</SelectItem>
-                      <SelectItem value="PHARMACY">Pharmacy</SelectItem>
-                      <SelectItem value="PROCEDURE_MINOR_OPERATION">Procedure / Minor Operation</SelectItem>
-                      <SelectItem value="ISOLATION">Isolation</SelectItem>
-                      <SelectItem value="SUPPORT_UNITS">Support Units</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-4 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="bp">Blood Pressure</Label>
-                  <Input id="bp" name="bp" placeholder="120/80" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pulse">Pulse (bpm)</Label>
-                  <Input id="pulse" name="pulse" type="number" placeholder="bpm" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="temp">Temp (°C)</Label>
-                  <Input id="temp" name="temp" type="number" step="0.1" placeholder="°C" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="spO2">SpO2 (%)</Label>
-                  <Input id="spO2" name="spO2" type="number" placeholder="%" />
-                </div>
-              </div>
+              <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">3. Reason for Visit</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="chiefComplaint">Chief Complaint</Label>
-                <Textarea id="chiefComplaint" name="chiefComplaint" required placeholder="Describe the primary reason for the patient's visit..." className="min-h-[80px]" />
+                <div className="flex justify-between items-end">
+                  <Label htmlFor="chiefComplaint">Primary Complaint / Symptoms</Label>
+                  {triageStatus === 'RED' && <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Emergency Auto-Detected</span>}
+                </div>
+                <Textarea 
+                  id="chiefComplaint" 
+                  name="chiefComplaint" 
+                  value={chiefComplaint}
+                  onChange={handleComplaintChange}
+                  required 
+                  placeholder="Describe the primary reason for the patient's visit..." 
+                  className={`min-h-[80px] ${triageStatus === 'RED' ? 'border-red-300 focus-visible:ring-red-400' : ''}`}
+                />
               </div>
 
               <div className="space-y-2">

@@ -106,6 +106,9 @@ export async function registerPatient(data: {
     if (idValue !== null) {
       const existing = await prisma.patient.findUnique({ where: { nationalId: idValue } });
       if (existing) {
+        if (existing.fullName !== "Pending Registration" && !existing.healthId.startsWith("TMP-")) {
+            throw new Error("This National ID is already registered.");
+        }
         patient = await prisma.patient.update({
           where: { nationalId: idValue },
           data: {
@@ -142,18 +145,19 @@ export async function registerPatient(data: {
   } catch (error: any) {
     console.error("❌ DATABASE ERROR:", error.message);
     if (error.code === 'P2002') {
-      throw new Error("A patient with this National ID is already registered.");
+      return { error: "A patient with this National ID is already registered." };
     }
-    if (error instanceof z.ZodError) {
-      throw new Error(error.issues?.[0]?.message || "Validation error");
+    if (error.name === 'ZodError') {
+      return { error: error.issues?.[0]?.message || "Validation error" };
     }
-    throw new Error(error.message || "Registration failed.");
+    return { error: error.message || "Registration failed." };
   }
 }
 export async function getPatientsByWard(ward: Ward) {
   try {
     const patients = await prisma.patient.findMany({
       where: {
+        status: 'ACTIVE',
         ward: ward,
         triageStatus: {
           not: TriageStatus.WAITING_FOR_TRIAGE,
@@ -166,6 +170,8 @@ export async function getPatientsByWard(ward: Ward) {
         vitals: true,
         investigations: true,
         prescriptions: true,
+        clinicalExam: true,
+        queues: true,
       }
     });
 
@@ -194,6 +200,7 @@ export async function searchPatients(query: string) {
   try {
     const patients = await prisma.patient.findMany({
       where: {
+        status: 'ACTIVE',
         OR: [
           { healthId: { contains: query, mode: 'insensitive' } },
           { nationalId: { contains: query, mode: 'insensitive' } },
@@ -207,6 +214,8 @@ export async function searchPatients(query: string) {
         vitals: true,
         investigations: true,
         prescriptions: true,
+        clinicalExam: true,
+        queues: true,
       }
     });
 

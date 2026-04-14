@@ -60,6 +60,12 @@ enum TriageStatus {
   WAITING_FOR_TRIAGE
 }
 
+enum QueueStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+}
+
 model Patient {
   id                String   @id @default(uuid())
   healthId          String   @unique
@@ -101,6 +107,8 @@ model Patient {
   detailedSituation     String?
   reasonForVisit        String?
   preExistingConditions String?
+  familyHistory         String?
+  surgicalHistory       String?
   allergyInformation    String?
   emergencyFlag         Boolean  @default(false)
   serviceType           String?  @default("OPD")
@@ -119,6 +127,7 @@ model Patient {
   prescriptions     Prescription[]
   referrals         Referral[]
   clinicalExam      ClinicalExamination?
+  queues            Queue[]
 }
 
 model ClinicalExamination {
@@ -231,4 +240,17 @@ model SystemSettings {
   id          String   @id @default(uuid())
   isBreakTime Boolean  @default(false)
   updatedAt   DateTime @updatedAt
+}
+
+model Queue {
+  id          String       @id @default(uuid())
+  patientId   String
+  status      QueueStatus  @default(WAITING)
+  checkInTime DateTime     @default(now())
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  // Relations
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
 }

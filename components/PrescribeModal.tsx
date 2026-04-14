@@ -11,24 +11,21 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   
-  const [drugName, setDrugName] = useState("");
-  const [dosage, setDosage] = useState("");
-  const [frequency, setFrequency] = useState("");
-  const [duration, setDuration] = useState("");
+  const [prescriptionText, setPrescriptionText] = useState("");
   const [notes, setNotes] = useState("");
 
   const [acknowledged, setAcknowledged] = useState(false);
 
-  // Safety Engine Logic
+  // Safety Engine Logic: checks words from the unified prescription text against the patient's allergy list
   const hasAllergyWarning = Boolean(
-    drugName.trim().length > 2 &&
+    prescriptionText.trim().length > 2 &&
     patientAllergies &&
-    patientAllergies.toLowerCase().includes(drugName.toLowerCase())
+    prescriptionText.toLowerCase().split(/\s+/).some(word => word.length > 3 && patientAllergies.toLowerCase().includes(word))
   );
 
   const handlePrescribe = async () => {
-    if (!drugName || !dosage || !frequency || !duration) {
-      alert("Drug Name, Dosage, Frequency, and Duration are required.");
+    if (!prescriptionText.trim()) {
+      alert("Please provide medicine names and dosages.");
       return;
     }
     if (hasAllergyWarning && !acknowledged) {
@@ -41,20 +38,17 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
     try {
       await createPrescription({
         patientId,
-        drugName,
-        dosage,
-        frequency,
-        duration,
+        drugName: prescriptionText, // Push all text here so pharmacists can see it
+        dosage: "As directed",      // Default placeholder
+        frequency: "N/A",           // Default placeholder
+        duration: "N/A",            // Default placeholder
         notes,
       });
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
         setOpen(false);
-        setDrugName("");
-        setDosage("");
-        setFrequency("");
-        setDuration("");
+        setPrescriptionText("");
         setNotes("");
         setAcknowledged(false);
       }, 1500);
@@ -87,29 +81,29 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
             <p className="text-lg font-medium">Prescription Sent to Pharmacy!</p>
           </div>
         ) : (
-          <div className="grid gap-3 py-3">
-            <div className="grid gap-1">
-              <label htmlFor="drugName" className="text-sm font-medium leading-none">Drug Name <span className="text-red-500">*</span></label>
-              <input 
-                id="drugName"
-                placeholder="e.g. Amoxicillin"
-                value={drugName}
-                onChange={(e) => setDrugName(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="prescriptionText" className="text-sm font-medium leading-none">Medicine Names & Dosage <span className="text-red-500">*</span></label>
+              <textarea
+                id="prescriptionText"
+                placeholder="e.g. Amoxicillin 500mg, Paracetamol 1000mg..."
+                value={prescriptionText}
+                onChange={(e) => setPrescriptionText(e.target.value)}
+                className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 min-h-[120px]"
               />
             </div>
 
             {hasAllergyWarning && (
-              <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md mt-1 mb-1 shadow-sm">
+              <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md mt-1 mb-1 shadow-sm animate-in fade-in zoom-in duration-300">
                 <div className="flex items-start">
                   <AlertTriangle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-red-800">ALLERGY WARNING</p>
                     <p className="text-xs text-red-700 mt-1">
-                      Patient has a recorded allergy that matches "{drugName}". 
+                      System detected a possible match with patient allergies! 
                       Recorded allergies: <span className="font-semibold">{patientAllergies}</span>.
                     </p>
-                    <label className="flex items-center space-x-2 mt-3 cursor-pointer">
+                    <label className="flex items-center space-x-2 mt-3 cursor-pointer p-1 bg-white/50 rounded inline-flex">
                       <input 
                         type="checkbox" 
                         checked={acknowledged}
@@ -124,47 +118,12 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
                 </div>
               </div>
             )}
-            
-            <div className="grid grid-cols-2 gap-3 mt-1">
-              <div className="grid gap-1">
-                <label htmlFor="dosage" className="text-sm font-medium leading-none">Dosage <span className="text-red-500">*</span></label>
-                <input 
-                  id="dosage"
-                  placeholder="e.g. 500mg"
-                  value={dosage}
-                  onChange={(e) => setDosage(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                />
-              </div>
 
-              <div className="grid gap-1">
-                <label htmlFor="frequency" className="text-sm font-medium leading-none">Frequency <span className="text-red-500">*</span></label>
-                <input 
-                  id="frequency"
-                  placeholder="e.g. BID"
-                  value={frequency}
-                  onChange={(e) => setFrequency(e.target.value)}
-                  className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-                />
-              </div>
-            </div>
-
-            <div className="grid gap-1 mt-1">
-              <label htmlFor="duration" className="text-sm font-medium leading-none">Duration <span className="text-red-500">*</span></label>
-              <input 
-                id="duration"
-                placeholder="e.g. 7 days"
-                value={duration}
-                onChange={(e) => setDuration(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-              />
-            </div>
-
-            <div className="grid gap-1 mt-1">
-              <label htmlFor="notes" className="text-sm font-medium leading-none">Clinical Notes</label>
+            <div className="grid gap-2">
+              <label htmlFor="notes" className="text-sm font-medium leading-none">Clinical Instructions (Optional)</label>
               <textarea
                 id="notes"
-                placeholder="Optional context for pharmacist..."
+                placeholder="Optional context or detailed instructions for pharmacist..."
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 min-h-[60px]"
@@ -178,7 +137,7 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button 
                 onClick={handlePrescribe} 
-                disabled={!drugName || !dosage || !frequency || !duration || loading || (hasAllergyWarning && !acknowledged)} 
+                disabled={!prescriptionText.trim() || loading || (hasAllergyWarning && !acknowledged)} 
                 className="bg-primary hover:bg-primary/90 text-white"
             >
               {loading ? "Saving..." : "Send to Pharmacy"}

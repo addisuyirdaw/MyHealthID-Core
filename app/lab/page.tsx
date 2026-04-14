@@ -20,7 +20,7 @@ export default function LabPage() {
       setRole(roleMatch.split('=')[1]);
     } else {
       // window.location.href = '/register';
-      setRole("DOCTOR");
+      setRole("LAB_TECH");
       setIsBypass(true);
     }
   }, []);

@@ -11,32 +11,38 @@ export function OrderTestModal({ patientId, patientName }: { patientId: string, 
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
-  const [selectedTestId, setSelectedTestId] = useState("");
+  const [selectedTestIds, setSelectedTestIds] = useState<string[]>([]);
   const [clinicalNote, setClinicalNote] = useState("");
 
+  const toggleTest = (id: string) => {
+    setSelectedTestIds(prev => prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]);
+  };
+
   const handleOrder = async () => {
-    if (!selectedTestId) return;
+    if (selectedTestIds.length === 0) return;
     
     setLoading(true);
-    const test = LAB_TESTS.find(t => t.id === selectedTestId);
     
     try {
-      await createLabOrder({
-        patientId,
-        testName: test?.name || "Unknown Test",
-        category: test?.category || "General",
-        clinicalNote: clinicalNote,
-      });
+      for (const tId of selectedTestIds) {
+        const test = LAB_TESTS.find(t => t.id === tId);
+        await createLabOrder({
+          patientId,
+          testName: test?.name || "Unknown Test",
+          category: test?.category || "General",
+          clinicalNote: clinicalNote,
+        });
+      }
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
         setOpen(false);
-        setSelectedTestId("");
+        setSelectedTestIds([]);
         setClinicalNote("");
       }, 1500);
     } catch (e) {
       console.error(e);
-      alert("Error ordering test.");
+      alert("Error ordering tests.");
     } finally {
       setLoading(false);
     }
@@ -65,21 +71,23 @@ export function OrderTestModal({ patientId, patientName }: { patientId: string, 
           </div>
         ) : (
           <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <label htmlFor="test" className="text-sm font-medium leading-none">Diagnostic Test (e.g. Blood Sugar)</label>
-              <select 
-                id="test"
-                value={selectedTestId}
-                onChange={(e) => setSelectedTestId(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-              >
-                <option value="" disabled>Select a test...</option>
+            <div className="grid gap-2 mb-2">
+              <label className="text-sm font-medium leading-none">Diagnostic Tests Checklist (Select multiple)</label>
+              <div className="max-h-[160px] overflow-y-auto border border-slate-200 rounded-md p-2 bg-slate-50 space-y-1">
                 {LAB_TESTS.map((test) => (
-                  <option key={test.id} value={test.id}>
-                    [{test.category}] {test.name}
-                  </option>
+                  <label key={test.id} className="flex items-center space-x-3 p-2 hover:bg-slate-100 rounded cursor-pointer">
+                    <input 
+                      type="checkbox" 
+                      checked={selectedTestIds.includes(test.id)}
+                      onChange={() => toggleTest(test.id)}
+                      className="h-4 w-4 rounded border-indigo-300 text-indigo-600 focus:ring-indigo-500"
+                    />
+                    <span className="text-sm font-medium text-slate-700 select-none flex-1">
+                      {test.name} <span className="text-xs text-slate-400 font-normal ml-1">[{test.category}]</span>
+                    </span>
+                  </label>
                 ))}
-              </select>
+              </div>
             </div>
             
             <div className="grid gap-2">
@@ -98,8 +106,8 @@ export function OrderTestModal({ patientId, patientName }: { patientId: string, 
         {!success && (
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={handleOrder} disabled={!selectedTestId || loading}>
-              {loading ? "Ordering..." : "Submit Order"}
+            <Button onClick={handleOrder} disabled={selectedTestIds.length === 0 || loading}>
+              {loading ? "Ordering..." : `Submit Orders (${selectedTestIds.length})`}
             </Button>
           </DialogFooter>
         )}

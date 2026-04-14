@@ -16,6 +16,9 @@ declare global {
     var prisma: PrismaClient | undefined;
 }
 
+// Force clear cache so new models reflect
+if (process.env.NODE_ENV !== "production") delete globalThis.prisma;
+
 // 3. Create or reuse the instance
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
