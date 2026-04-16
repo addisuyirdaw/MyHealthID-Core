@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { registerPatient, verifyNationalID } from "@/lib/actions/patient.actions";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { HeartPulse, CheckCircle2 } from "lucide-react";
 export default function RegisterPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const isSubmitting = useRef(false);
 
   // Phase 11 State
   const [email, setEmail] = useState("");
@@ -33,6 +34,7 @@ export default function RegisterPage() {
   const [chiefComplaint, setChiefComplaint] = useState("");
   const [ward, setWard] = useState("OPD_OUTPATIENT");
   const [triageStatus, setTriageStatus] = useState("WAITING_FOR_TRIAGE");
+  const [suspectedDisease, setSuspectedDisease] = useState("");
 
   const [accessError, setAccessError] = useState("");
 
@@ -48,6 +50,19 @@ export default function RegisterPage() {
 
   const analyzeSymptoms = (text: string) => {
     const lowerText = text.toLowerCase();
+    
+    let suspect = "";
+    if (lowerText.includes("cough") && (lowerText.includes("sweat") || lowerText.includes("weight"))) {
+      suspect = "High Suspect: TB (Tuberculosis)";
+    } else if (lowerText.includes("fever") && lowerText.includes("pain") && lowerText.includes("vomit")) {
+      suspect = "High Suspect: Appendicitis / Severe Infection";
+    } else if (lowerText.includes("fever") && lowerText.includes("chill") && lowerText.includes("headache")) {
+      suspect = "High Suspect: Malaria";
+    } else if (lowerText.includes("heartburn") || (lowerText.includes("stomach") && lowerText.includes("pain")) || lowerText.includes("ulcer")) {
+      suspect = "High Suspect: Peptic Ulcer Disease";
+    }
+    setSuspectedDisease(suspect);
+
     const keywords = ['chest', 'breath', 'blood', 'unconscious', 'accident', 'severe', 'pain'];
     
     if (keywords.some(kw => lowerText.includes(kw))) {
@@ -191,6 +206,8 @@ export default function RegisterPage() {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (isSubmitting.current) return;
+    isSubmitting.current = true;
     setLoading(true);
     const formData = new FormData(e.currentTarget);
 
@@ -229,6 +246,9 @@ export default function RegisterPage() {
       emergencyContactPhone: formData.get("emergencyContactPhone") as string,
       chiefComplaint: formData.get("chiefComplaint") as string,
       detailedSituation: formData.get("detailedSituation") as string,
+      suspectedDisease: suspectedDisease,
+      preExistingConditions: formData.get("preExistingConditions") as string,
+      allergyInformation: formData.get("allergyInformation") as string,
       bp: formData.get("bp") as string,
       pulse: parseInt(formData.get("pulse") as string, 10) || undefined,
       temp: parseFloat(formData.get("temp") as string) || undefined,
@@ -248,6 +268,7 @@ export default function RegisterPage() {
       alert(err.message || "Registration failed. Please try again.");
     } finally {
       setLoading(false);
+      isSubmitting.current = false;
     }
   }
 
@@ -512,7 +533,10 @@ export default function RegisterPage() {
               <div className="space-y-2">
                 <div className="flex justify-between items-end">
                   <Label htmlFor="chiefComplaint">Primary Complaint / Symptoms</Label>
-                  {triageStatus === 'RED' && <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Emergency Auto-Detected</span>}
+                  <div className="flex gap-2">
+                    {suspectedDisease && <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">{suspectedDisease}</span>}
+                    {triageStatus === 'RED' && <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Emergency Auto-Detected</span>}
+                  </div>
                 </div>
                 <Textarea 
                   id="chiefComplaint" 
@@ -528,6 +552,17 @@ export default function RegisterPage() {
               <div className="space-y-2">
                 <Label htmlFor="detailedSituation">Detailed Situation (Amharic / English)</Label>
                 <Textarea id="detailedSituation" name="detailedSituation" placeholder="Optional background, history of present illness or other notes..." className="min-h-[100px]" />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="preExistingConditions">Pre-Existing Conditions</Label>
+                  <Textarea id="preExistingConditions" name="preExistingConditions" placeholder="Any known chronic conditions (e.g., Peptic Ulcers, Diabetes, Hypertension)..." className="min-h-[60px]" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="allergyInformation">Allergies</Label>
+                  <Textarea id="allergyInformation" name="allergyInformation" placeholder="Any known drug/food allergies (e.g., Penicillin, Ibuprofen)..." className="min-h-[60px]" />
+                </div>
               </div>
             </div>
           </div>

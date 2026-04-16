@@ -106,6 +106,7 @@ model Patient {
   chiefComplaint        String?
   detailedSituation     String?
   reasonForVisit        String?
+  suspectedDisease      String?
   preExistingConditions String?
   familyHistory         String?
   surgicalHistory       String?

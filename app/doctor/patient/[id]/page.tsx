@@ -146,6 +146,12 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
             <div className="flex flex-wrap gap-4 mt-1 font-semibold text-red-700">
               <span className="flex items-center gap-1 bg-red-100 px-2 py-0.5 rounded-md"><Droplet className="w-4 h-4"/> Blood Group: Not Recorded</span>
               <span className="flex items-center gap-1 bg-red-100 px-2 py-0.5 rounded-md">Allergies: {patient.allergyInformation || "None Known"}</span>
+              <span className="flex items-center gap-1 bg-red-100 px-2 py-0.5 rounded-md">History: {patient.preExistingConditions || "None Recorded"}</span>
+              {patient.suspectedDisease && (
+                <span className="flex items-center gap-1 bg-orange-200 text-orange-800 px-2 py-0.5 rounded-md animate-pulse">
+                  <AlertTriangle className="w-4 h-4"/> Auto-Triage: {patient.suspectedDisease}
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -185,6 +191,11 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
                 'bg-green-50 text-green-700 border-green-200'
               }`}>{patient.triageStatus}</Badge>
             </div>
+            {patient.preExistingConditions && (
+              <div className="mt-2 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-800">
+                <strong>History:</strong> {patient.preExistingConditions}
+              </div>
+            )}
             {patient.allergyInformation && (
               <div className="mt-2 p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-800">
                 <strong>Allergies:</strong> {patient.allergyInformation}
@@ -205,7 +216,7 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
             <ClinicalExamModal patientId={patient.id} patientName={patient.fullName} />
             <AddVitalsModal patientId={patient.id} patientName={patient.fullName} />
             <OrderTestModal patientId={patient.id} patientName={patient.fullName} />
-            <PrescribeModal patientId={patient.id} patientName={patient.fullName} patientAllergies={patient.allergyInformation} />
+            <PrescribeModal patientId={patient.id} patientName={patient.fullName} patientAllergies={patient.allergyInformation} patientHistory={patient.preExistingConditions} />
             <ReferModal patientId={patient.id} patientName={patient.fullName} />
           </CardContent>
         </Card>

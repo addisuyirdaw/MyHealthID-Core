@@ -5,6 +5,7 @@ import { createReferral } from "@/lib/actions/referral.actions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Send, CheckCircle2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function ReferModal({ patientId, patientName }: { patientId: string, patientName: string }) {
   const [open, setOpen] = useState(false);
@@ -67,13 +68,22 @@ export function ReferModal({ patientId, patientName }: { patientId: string, pati
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <label htmlFor="destinationFacility" className="text-sm font-medium leading-none">Destination Hospital / Clinic <span className="text-red-500">*</span></label>
-              <input 
-                id="destinationFacility"
-                placeholder="e.g. Tikur Anbessa Hospital"
-                value={destinationFacility}
-                onChange={(e) => setDestinationFacility(e.target.value)}
-                className="flex h-10 w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
-              />
+              <Select value={destinationFacility} onValueChange={(val) => setDestinationFacility(val)}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a Receiving Hospital..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Black Lion (Tikur Anbessa) Specialized Hospital">Black Lion (Tikur Anbessa) Specialized Hospital</SelectItem>
+                  <SelectItem value="St. Paul's (Pawlos) Hospital">St. Paul's (Pawlos) Hospital</SelectItem>
+                  <SelectItem value="Debre Berhan Referral Hospital">Debre Berhan Referral Hospital</SelectItem>
+                  <SelectItem value="Jimma University Medical Center">Jimma University Medical Center</SelectItem>
+                  <SelectItem value="Hawassa University Referral Hospital">Hawassa University Referral Hospital</SelectItem>
+                  <SelectItem value="Gondar University Hospital">Gondar University Hospital</SelectItem>
+                  <SelectItem value="Ayder Referral Hospital (Mekelle)">Ayder Referral Hospital (Mekelle)</SelectItem>
+                  <SelectItem value="Zewditu Memorial Hospital">Zewditu Memorial Hospital</SelectItem>
+                  <SelectItem value="Alert Specialized Hospital">Alert Specialized Hospital</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             
             <div className="grid gap-2">

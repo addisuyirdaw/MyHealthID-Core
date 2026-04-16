@@ -31,6 +31,9 @@ export async function registerPatient(data: {
   temp?: number;
   spO2?: number;
   phoneNumber?: string;
+  suspectedDisease?: string;
+  preExistingConditions?: string;
+  allergyInformation?: string;
 }) {
   try {
     const { 
@@ -89,6 +92,9 @@ export async function registerPatient(data: {
       estimatedWait: estimatedWaitTime,
       chiefComplaint: chiefComplaint || "Not Specified",
       detailedSituation: detailedSituation || "",
+      suspectedDisease: data.suspectedDisease || null,
+      preExistingConditions: data.preExistingConditions || null,
+      allergyInformation: data.allergyInformation || null,
     };
 
     const vitalsData = bp || pulse || temp || spO2 ? {

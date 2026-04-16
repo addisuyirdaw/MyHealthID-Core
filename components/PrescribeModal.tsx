@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Button } from "@/components/ui/button";
 import { Pill, CheckCircle2, AlertTriangle } from "lucide-react";
 
-export function PrescribeModal({ patientId, patientName, patientAllergies }: { patientId: string, patientName: string, patientAllergies?: string | null }) {
+export function PrescribeModal({ patientId, patientName, patientAllergies, patientHistory }: { patientId: string, patientName: string, patientAllergies?: string | null, patientHistory?: string | null }) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -23,13 +23,30 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
     prescriptionText.toLowerCase().split(/\s+/).some(word => word.length > 3 && patientAllergies.toLowerCase().includes(word))
   );
 
+  // Safety Guard (Drug/History Conflict)
+  const antagonists: Record<string, string[]> = {
+    "ibuprofen": ["ulcer", "peptic", "bleeding", "kidney"],
+    "diclofenac": ["ulcer", "peptic", "heart", "kidney"],
+    "nsaid": ["ulcer", "peptic", "kidney", "asthma"],
+    "aspirin": ["ulcer", "bleeding", "asthma", "bleed"],
+    "steroid": ["diabetes", "infection"],
+    "metformin": ["kidney", "renal", "liver"],
+  };
+
+  const activeHistoryWarning = Object.keys(antagonists).find(drug => {
+    if (prescriptionText.toLowerCase().includes(drug)) {
+      return antagonists[drug].some(condition => patientHistory?.toLowerCase().includes(condition));
+    }
+    return false;
+  });
+
   const handlePrescribe = async () => {
     if (!prescriptionText.trim()) {
       alert("Please provide medicine names and dosages.");
       return;
     }
-    if (hasAllergyWarning && !acknowledged) {
-      alert("You must acknowledge the allergy warning.");
+    if ((hasAllergyWarning || activeHistoryWarning) && !acknowledged) {
+      alert("You must acknowledge the safety warnings before prescribing.");
       return;
     }
     
@@ -93,16 +110,26 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
               />
             </div>
 
-            {hasAllergyWarning && (
+            {(hasAllergyWarning || activeHistoryWarning) && (
               <div className="bg-red-50 border-l-4 border-red-500 p-3 rounded-r-md mt-1 mb-1 shadow-sm animate-in fade-in zoom-in duration-300">
                 <div className="flex items-start">
                   <AlertTriangle className="h-5 w-5 text-red-500 mr-2 flex-shrink-0 mt-0.5" />
                   <div>
-                    <p className="text-sm font-semibold text-red-800">ALLERGY WARNING</p>
-                    <p className="text-xs text-red-700 mt-1">
-                      System detected a possible match with patient allergies! 
-                      Recorded allergies: <span className="font-semibold">{patientAllergies}</span>.
-                    </p>
+                    <p className="text-sm font-semibold text-red-800">CRITICAL SAFETY WARNING</p>
+                    
+                    {hasAllergyWarning && (
+                      <p className="text-xs text-red-700 mt-1">
+                        System detected a possible match with patient allergies! 
+                        Recorded allergies: <span className="font-semibold">{patientAllergies}</span>.
+                      </p>
+                    )}
+
+                    {activeHistoryWarning && (
+                      <p className="text-xs text-red-700 mt-1 font-bold">
+                        CONTRAINDICATION ALERT: Drug '{activeHistoryWarning.toUpperCase()}' is antagonistic to patient's recorded medical history: <span className="underline">{patientHistory}</span>
+                      </p>
+                    )}
+
                     <label className="flex items-center space-x-2 mt-3 cursor-pointer p-1 bg-white/50 rounded inline-flex">
                       <input 
                         type="checkbox" 
@@ -111,7 +138,7 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
                         className="h-4 w-4 rounded border-red-300 text-red-600 focus:ring-red-500"
                       />
                       <span className="text-sm font-medium text-red-800 select-none">
-                        I acknowledge this risk & authorize.
+                        I acknowledge this high-risk prescription & authorize.
                       </span>
                     </label>
                   </div>
@@ -137,7 +164,7 @@ export function PrescribeModal({ patientId, patientName, patientAllergies }: { p
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button 
                 onClick={handlePrescribe} 
-                disabled={!prescriptionText.trim() || loading || (hasAllergyWarning && !acknowledged)} 
+                disabled={!prescriptionText.trim() || loading || ((hasAllergyWarning || activeHistoryWarning) && !acknowledged)} 
                 className="bg-primary hover:bg-primary/90 text-white"
             >
               {loading ? "Saving..." : "Send to Pharmacy"}
