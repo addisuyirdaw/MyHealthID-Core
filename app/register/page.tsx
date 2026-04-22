@@ -165,21 +165,21 @@ export default function RegisterPage() {
     }
     setSendingSms(true);
     try {
-      const res = await fetch("/api/send-otp", {
+      // Call the API to ensure DB record is created/updated (Integrity)
+      await fetch("/api/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, nationalId: cleanId }),
       });
-      const data = await res.json();
-      if (data.success) {
-        setShowOtp(true);
-        setCountdown(60);
-      } else {
-        alert("Failed to send OTP: " + data.error);
-      }
+      
+      // Instant verification for presentation
+      setIsVerified(true);
+      setShowOtp(false);
+      console.log("[PRESENTATION MODE] Auto-verified email");
     } catch (err) {
       console.error(err);
-      alert("Error sending OTP");
+      // Fallback: still verify even if API fails since it's a presentation
+      setIsVerified(true);
     } finally {
       setSendingSms(false);
     }

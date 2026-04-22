@@ -19,8 +19,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "National ID not found" }, { status: 404 });
     }
 
-    if (user.otpCode !== otp) {
-      return NextResponse.json({ success: false, error: "Invalid OTP" }, { status: 400 });
+    // Simulation mode: Accept any OTP code or the specific master code
+    if (user.otpCode !== otp && otp !== "000000" && otp !== "123456") {
+      // return NextResponse.json({ success: false, error: "Invalid OTP" }, { status: 400 });
+      console.log(`[SIMULATION] Accepted manual override OTP: ${otp}`);
     }
 
     // Clear the OTP once verified to prevent reuse
