@@ -6,7 +6,8 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
 }
 
 enum Role {
@@ -18,7 +19,7 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) @map("_id")
   email     String   @unique
   password  String
   role      Role     @default(RECEPTIONIST)
@@ -67,9 +68,14 @@ enum QueueStatus {
 }
 
 model Patient {
-  id                String   @id @default(uuid())
+  id                String   @id @default(uuid()) @map("_id")
   healthId          String   @unique
   nationalId        String?  @unique
+  faydaId           String?  @unique @map("fayda_id")
+  internalId        String   @unique @map("internal_id")
+  isMinor           Boolean  @default(false)
+  guardianId        String?
+  parentFaydaId     String?  @map("parent_fayda_id")
   isSynced          Boolean  @default(false)
   email             String?
   otpCode           String?
@@ -132,7 +138,7 @@ model Patient {
 }
 
 model ClinicalExamination {
-  id                String   @id @default(uuid())
+  id                String   @id @default(uuid()) @map("_id")
   patientId         String   @unique
   
   generalAppearance String?
@@ -155,7 +161,7 @@ model ClinicalExamination {
 }
 
 model Vitals {
-  id        String   @id @default(uuid())
+  id        String   @id @default(uuid()) @map("_id")
   patientId String
   
   // Mandatory Vital Signs
@@ -179,7 +185,7 @@ enum InvestigationStatus {
 }
 
 model Investigation {
-  id          String   @id @default(uuid())
+  id          String   @id @default(uuid()) @map("_id")
   patientId   String
   doctorId    String?
   
@@ -204,7 +210,7 @@ enum PrescriptionStatus {
 }
 
 model Prescription {
-  id          String   @id @default(uuid())
+  id          String   @id @default(uuid()) @map("_id")
   patientId   String
   doctorId    String?
   
@@ -224,7 +230,7 @@ model Prescription {
 }
 
 model Referral {
-  id                  String   @id @default(uuid())
+  id                  String   @id @default(uuid()) @map("_id")
   patientId           String
   
   reason              String
@@ -238,13 +244,13 @@ model Referral {
 }
 
 model SystemSettings {
-  id          String   @id @default(uuid())
+  id          String   @id @default(uuid()) @map("_id")
   isBreakTime Boolean  @default(false)
   updatedAt   DateTime @updatedAt
 }
 
 model Queue {
-  id          String       @id @default(uuid())
+  id          String       @id @default(uuid()) @map("_id")
   patientId   String
   status      QueueStatus  @default(WAITING)
   checkInTime DateTime     @default(now())

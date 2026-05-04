@@ -15,3 +15,12 @@ export function generateHealthId(): string {
   const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
   return `HLT-${randomNum}`;
 }
+
+/**
+ * Generates a unique internal ID for minors in the format CH-YYYY-XXXX
+ */
+export function generateChildId(): string {
+  const year = new Date().getFullYear();
+  const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
+  return `CH-${year}-${randomStr}`;
+}

@@ -1,6 +1,7 @@
 import { loginUser } from "@/lib/actions/auth.actions";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck } from "lucide-react";
+import { LocalizedText } from "@/components/LocalizedText";
 
 export default function LoginPage() {
   return (
@@ -11,19 +12,36 @@ export default function LoginPage() {
 
       <div className="w-full max-w-md bg-white/80 backdrop-blur-xl border border-slate-200 shadow-2xl rounded-3xl p-8 relative z-10">
         <div className="flex justify-center mb-6">
-          <div className="bg-indigo-50 p-4 rounded-full">
-            <ShieldCheck className="w-12 h-12 text-indigo-600" />
+          <div className="bg-blue-50 p-4 rounded-full">
+            <ShieldCheck className="w-12 h-12 text-blue-600" />
           </div>
         </div>
 
-        <h1 className="text-3xl font-extrabold text-center text-slate-900 mb-2">Staff Portal</h1>
+        <h1 className="text-3xl font-extrabold text-center text-slate-900 mb-2">
+          <LocalizedText tKey="login.title" />
+        </h1>
         <p className="text-center text-slate-500 font-medium mb-8">
-          Authenticate to access the MyHealth<span className="text-indigo-600 font-bold">ID</span> secure clinical network.
+          <LocalizedText tKey="login.subtitlePre" /><span className="text-blue-600 font-bold">ID</span><LocalizedText tKey="login.subtitlePost" />
         </p>
 
         <form action={loginUser} className="space-y-4">
           <div className="space-y-2">
-            <label htmlFor="role" className="text-sm font-bold text-slate-700 uppercase tracking-wider block">Access Role</label>
+            <label htmlFor="email" className="text-sm font-bold text-slate-700 uppercase tracking-wider block">
+              <LocalizedText tKey="login.emailLabel" />
+            </label>
+            <input 
+              type="text" 
+              id="email" 
+              name="email"
+              placeholder="dr.name@myhealthid.gov.et" 
+              className="w-full h-12 rounded-xl border border-slate-300 bg-slate-50 px-4 font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <label htmlFor="role" className="text-sm font-bold text-slate-700 uppercase tracking-wider block">
+              <LocalizedText tKey="login.roleLabel" />
+            </label>
             <select 
               id="role" 
               name="role" 
@@ -42,18 +60,21 @@ export default function LoginPage() {
           </div>
 
           <div className="space-y-2 mb-2">
-            <label htmlFor="password" className="text-sm font-bold text-slate-700 uppercase tracking-wider block">Security Pin</label>
+            <label htmlFor="password" className="text-sm font-bold text-slate-700 uppercase tracking-wider block">
+              <LocalizedText tKey="login.passwordLabel" />
+            </label>
             <input 
               type="password" 
               id="password" 
+              name="password"
               placeholder="••••••••" 
-              className="w-full h-12 rounded-xl border border-slate-300 bg-slate-50 px-4 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
+              className="w-full h-12 rounded-xl border border-slate-300 bg-slate-50 px-4 font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
-            <p className="text-xs text-slate-400 mt-1">Note: Simulation mode enabled. Any PIN is accepted.</p>
+            <p className="text-xs text-slate-400 mt-1"><LocalizedText tKey="login.simNote" /></p>
           </div>
 
-          <Button type="submit" className="w-full h-12 text-lg font-bold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 mt-4">
-            Secure Login
+          <Button type="submit" className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200 mt-4">
+            <LocalizedText tKey="login.secureLogin" />
           </Button>
         </form>
       </div>

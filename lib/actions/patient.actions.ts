@@ -1,7 +1,8 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { generateHealthId } from "../utils";
+import { generateHealthId, generateChildId } from "../utils";
+import { randomUUID } from "crypto";
 import { z } from "zod";
 
 import { TriageStatus, Ward } from "@prisma/client";
@@ -34,6 +35,9 @@ export async function registerPatient(data: {
   suspectedDisease?: string;
   preExistingConditions?: string;
   allergyInformation?: string;
+  isMinor?: boolean;
+  guardianId?: string;
+  parentFaydaId?: string;
 }) {
   try {
     const { 
@@ -42,20 +46,33 @@ export async function registerPatient(data: {
       religion, occupation, maritalStatus, educationalStatus,
       addressRegion, addressZone, addressWoreda, addressKebele,
       emergencyContactName, emergencyContactPhone, chiefComplaint, detailedSituation,
-      bp, pulse, temp, spO2, phoneNumber
+      bp, pulse, temp, spO2, phoneNumber,
+      isMinor, guardianId, parentFaydaId
     } = data;
 
     const healthId = generateHealthId();
-    const idValue = nationalId ? String(nationalId).trim() : null;
+    let idValue = nationalId ? String(nationalId).trim() : null;
 
-    // Ethiopian ID Validation
-    if (idValue !== null) {
+    if (isMinor) {
+      if (!parentFaydaId) {
+        throw new Error("Parent Fayda ID is required for minor registration.");
+      }
+      if (!idValue) {
+        idValue = generateChildId();
+      }
+    }
+
+    // Ethiopian ID Validation (only for Fayda IDs, not CH- generated IDs)
+    if (idValue !== null && !idValue.startsWith("CH-")) {
       z.string()
         .refine((val) => val.length === 12 || val.length === 16, {
           message: "National ID must be 16 (FCN) or 12 (FIN) digits.",
         })
         .parse(idValue);
     }
+
+    // internalId is always required — either mirrors faydaId or is a fresh UUID
+    const internalId = idValue ?? `MHI-${randomUUID()}`;
 
     // Calculate queue position
     const maxQueue = await prisma.patient.aggregate({
@@ -95,6 +112,11 @@ export async function registerPatient(data: {
       suspectedDisease: data.suspectedDisease || null,
       preExistingConditions: data.preExistingConditions || null,
       allergyInformation: data.allergyInformation || null,
+      isMinor: isMinor || false,
+      guardianId: guardianId || null,
+      parentFaydaId: parentFaydaId || null,
+      internalId: internalId,
+      faydaId: idValue && !idValue.startsWith("CH-") ? idValue : null,
     };
 
     const vitalsData = bp || pulse || temp || spO2 ? {
@@ -418,6 +440,49 @@ export async function verifyNationalID(nationalId: string) {
   } catch (error: any) {
     console.error("❌ Linkage Error:", error.message);
     throw new Error(error.message || "Failed to verify National ID.");
+  }
+}
+
+export async function mergeChildToAdult(childId: string, newFaydaId: string) {
+  try {
+    const cleanFaydaId = newFaydaId.replace(/\s/g, '');
+    if (cleanFaydaId.length !== 12 && cleanFaydaId.length !== 16) {
+      throw new Error("Fayda National ID must be exactly 12 or 16 digits.");
+    }
+
+    const existingChild = await prisma.patient.findUnique({
+      where: { nationalId: childId }
+    });
+
+    if (!existingChild) {
+      throw new Error("Child record not found.");
+    }
+    
+    if (!existingChild.isMinor) {
+      throw new Error("The specified record is not a minor.");
+    }
+
+    const existingAdult = await prisma.patient.findUnique({
+      where: { nationalId: cleanFaydaId }
+    });
+
+    if (existingAdult) {
+      throw new Error("An adult profile with this Fayda ID already exists. Merge relation strategy required.");
+    }
+
+    const updatedPatient = await prisma.patient.update({
+      where: { id: existingChild.id },
+      data: {
+        nationalId: cleanFaydaId,
+        isMinor: false,
+      }
+    });
+
+    return JSON.parse(JSON.stringify(updatedPatient));
+
+  } catch (error: any) {
+    console.error("❌ DATABASE ERROR:", error.message);
+    throw new Error(error.message || "Failed to merge minor to adult record.");
   }
 }
 

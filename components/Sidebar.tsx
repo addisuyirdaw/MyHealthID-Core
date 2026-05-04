@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { Shield, Activity, Users, ClipboardList, Pill, TestTubeDiagonal, QrCode } from "lucide-react";
+import { LanguageToggle } from "./LanguageToggle";
+import { LocalizedText } from "./LocalizedText";
 
 export function Sidebar() {
   const roleCookie = cookies().get("userRole");
@@ -17,7 +19,7 @@ export function Sidebar() {
         {/* Available to everyone / Receptionist */}
         <Link href="/register" className="flex items-center gap-3 px-3 py-2 rounded border border-transparent hover:bg-slate-800 hover:text-white transition-colors">
           <Users className="w-5 h-5 text-slate-400" />
-          Patient Registration
+          <LocalizedText tKey="nav.citizenRegistration" />
         </Link>
         <Link href="/scan" className="flex items-center gap-3 px-3 py-2 rounded border border-transparent hover:bg-slate-800 hover:text-white transition-colors">
           <QrCode className="w-5 h-5 text-slate-400" />
@@ -58,8 +60,9 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto px-2 pb-4 text-xs text-slate-500 flex flex-col gap-1">
-        <span>Logged in as:</span>
+        <span><LocalizedText tKey="nav.loggedInAs" />:</span>
         <span className="font-mono font-bold text-slate-400">{role}</span>
+        <LanguageToggle />
       </div>
     </aside>
   );

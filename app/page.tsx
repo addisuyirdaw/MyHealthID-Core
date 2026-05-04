@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, ShieldCheck, Activity, Users, Stethoscope } from "lucide-react";
+import { LocalizedText } from "@/components/LocalizedText";
 
 export default async function Home() {
   const patientCount = await prisma.patient.count();
@@ -27,14 +28,11 @@ export default async function Home() {
           </div>
           
           <h2 className="text-5xl md:text-6xl font-black text-slate-900 tracking-tight leading-tight">
-            National Digital <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-emerald-600">
-              Health Network
-            </span>
+            <LocalizedText tKey="landing.title" />
           </h2>
           
           <p className="text-lg md:text-xl text-slate-600 font-medium pb-2 max-w-2xl mx-auto">
-            The secure, centralized medical database integrating Fayda National IDs across all clinical touchpoints.
+            <LocalizedText tKey="landing.subtitle" />
           </p>
 
           <div className="bg-white/80 backdrop-blur-md border border-slate-200 shadow-xl rounded-2xl p-6 md:p-8 max-w-lg mx-auto transform transition duration-500 hover:scale-105">
@@ -54,7 +52,7 @@ export default async function Home() {
           <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center w-full max-w-md mx-auto">
             <Link href="/register" className="w-full">
               <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg text-lg h-14">
-                <Users className="w-5 h-5 mr-2" /> Register Patient
+                <Users className="w-5 h-5 mr-2" /> <LocalizedText tKey="landing.registerCitizen" />
               </Button>
             </Link>
             {(userRole === 'DOCTOR' || userRole === 'ADMIN') ? (
@@ -66,7 +64,7 @@ export default async function Home() {
             ) : (
                 <Link href="/login" className="w-full">
                   <Button size="lg" variant="outline" className="w-full border-slate-200 text-slate-700 hover:bg-slate-50 text-lg h-14 bg-white">
-                    <ShieldCheck className="w-5 h-5 mr-2" /> Staff Login
+                    <ShieldCheck className="w-5 h-5 mr-2" /> <LocalizedText tKey="landing.healthcareLogin" />
                   </Button>
                 </Link>
             )}

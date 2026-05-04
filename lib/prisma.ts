@@ -1,13 +1,8 @@
 import { PrismaClient } from "@prisma/client";
-import { Pool } from "pg";
-import { PrismaPg } from "@prisma/adapter-pg";
 
 // 1. Define the singleton function with an explicit return type
 const prismaClientSingleton = (): PrismaClient => {
-    const connectionString = process.env.DATABASE_URL;
-    const pool = new Pool({ connectionString });
-    const adapter = new PrismaPg(pool);
-    return new PrismaClient({ adapter });
+    return new PrismaClient();
 };
 
 // 2. Setup the global type for the server

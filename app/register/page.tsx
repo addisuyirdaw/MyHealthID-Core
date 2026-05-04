@@ -9,12 +9,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { HeartPulse, CheckCircle2 } from "lucide-react";
+import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint } from "lucide-react";
+import { useLanguage } from "@/components/LanguageProvider";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const isSubmitting = useRef(false);
+
+  // Identity Bridge State
+  const [identityMode, setIdentityMode] = useState<"FAYDA" | "NO_ID" | null>(null);
 
   // Phase 11 State
   const [email, setEmail] = useState("");
@@ -217,21 +222,24 @@ export default function RegisterPage() {
     if (nationalIdVal && nationalIdVal.length !== 12 && nationalIdVal.length !== 16) {
       alert("Invalid ID length. Please enter a 12-digit Fayda National ID.");
       setLoading(false);
+      isSubmitting.current = false;
       return;
     }
 
-    if (nationalIdVal && !isVerified) {
-      alert("Please verify the National ID before submitting.");
+    // For Fayda path: require verification. For No-ID path: skip.
+    if (identityMode === "FAYDA" && nationalIdVal && !isVerified) {
+      alert("Please verify the Fayda National ID before submitting.");
       setLoading(false);
+      isSubmitting.current = false;
       return;
     }
 
     const data: any = {
       fullName: formData.get("fullName") as string,
-      nationalId: nationalIdVal ? nationalIdVal : undefined,
+      nationalId: identityMode === "FAYDA" ? (nationalIdVal || undefined) : undefined,
       age: Math.max(0, parseInt(formData.get("age") as string, 10) || 0),
       sex: formData.get("sex") as string,
-      reasonForVisit: formData.get("chiefComplaint") as string, // map it here optionally, but we have chiefComplaint too
+      reasonForVisit: formData.get("chiefComplaint") as string,
       ward: ward,
       triageStatus: triageStatus,
       religion: formData.get("religion") as string,
@@ -283,8 +291,8 @@ export default function RegisterPage() {
             <div className="mx-auto bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
               <HeartPulse className="h-8 w-8 text-primary" />
             </div>
-            <CardTitle className="text-3xl font-bold tracking-tight">Patient Registration</CardTitle>
-            <CardDescription>Initialize a new secure patient record</CardDescription>
+            <CardTitle className="text-3xl font-bold tracking-tight">{t.registration.title}</CardTitle>
+            <CardDescription>{t.registration.subtitle}</CardDescription>
 
             {accessError && (
               <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center shadow-sm animate-in fade-in zoom-in duration-300 mx-auto max-w-lg w-full">
@@ -300,10 +308,66 @@ export default function RegisterPage() {
           </CardHeader>
 
           <CardContent className="grid gap-6 pt-8 pb-4">
-            
-            {/* 1. Demographics */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">1. Patient Demographics</h3>
+
+            {/* === HYBRID IDENTITY BRIDGE === */}
+            {!identityMode ? (
+              <div className="space-y-4">
+                <div className="text-center space-y-1">
+                  <h3 className="text-base font-bold text-slate-800 flex items-center justify-center gap-2">
+                    <Fingerprint className="w-5 h-5 text-blue-600" /> {t.registration.identityVerification}
+                  </h3>
+                  <p className="text-sm text-slate-500">{t.registration.identitySelectionDesc}</p>
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <button
+                    type="button"
+                    onClick={() => { setIdentityMode("FAYDA"); }}
+                    className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all duration-200 text-left"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                      <IdCard className="w-6 h-6" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold text-blue-800">{t.registration.faydaIdTitle}</p>
+                      <p className="text-xs text-blue-600 mt-0.5">{t.registration.faydaIdDesc}</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setIdentityMode("NO_ID"); setIsVerified(true); }}
+                    className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-200 text-left"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-slate-600 text-white flex items-center justify-center shadow-md group-hover:scale-110 group-hover:bg-emerald-600 transition-all">
+                      <User className="w-6 h-6" />
+                    </div>
+                    <div className="text-center">
+                      <p className="font-bold text-slate-700 group-hover:text-emerald-800">{t.registration.noIdTitle}</p>
+                      <p className="text-xs text-slate-500 group-hover:text-emerald-600 mt-0.5">{t.registration.noIdDesc}</p>
+                    </div>
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-100 border border-slate-200">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${identityMode === "FAYDA" ? "bg-blue-600" : "bg-emerald-600"}`}>
+                  {identityMode === "FAYDA" ? <IdCard className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-slate-800">
+                    {identityMode === "FAYDA" ? t.registration.faydaPathTitle : t.registration.noIdPathTitle}
+                  </p>
+                  <p className="text-xs text-slate-500">
+                    {identityMode === "FAYDA" ? t.registration.faydaPathDesc : t.registration.noIdPathDesc}
+                  </p>
+                </div>
+                <button type="button" onClick={() => { setIdentityMode(null); setIsVerified(false); setNationalId(""); }} className="text-xs text-slate-400 hover:text-slate-700 underline">{t.registration.change}</button>
+              </div>
+            )}
+
+            {/* === DEMOGRAPHICS (shown after identity selection) === */}
+            {identityMode && (<>
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">{t.registration.demographicsTitle}</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="fullName">Full Name</Label>
@@ -354,9 +418,11 @@ export default function RegisterPage() {
                   )}
                 </div>
               </div>
+              {/* Fayda ID input — only shown in FAYDA mode */}
+              {identityMode === "FAYDA" && (
               <div className="grid grid-cols-1 gap-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nationalId">Fayda National ID</Label>
+                  <Label htmlFor="nationalId">{t.registration.faydaIdTitle}</Label>
                   <Input
                     id="nationalId"
                     name="nationalId"
@@ -378,11 +444,20 @@ export default function RegisterPage() {
                   {isVerified && nationalId && (
                     <div className="text-sm text-green-600 flex items-center mt-1">
                       <CheckCircle2 className="w-4 h-4 mr-1" />
-                      ID & Email Verified Successfully
+                      Fayda ID & Email Verified Successfully
                     </div>
                   )}
                 </div>
               </div>
+              )}
+
+              {/* No-ID path confirmation badge */}
+              {identityMode === "NO_ID" && (
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  <span className="text-emerald-800 font-medium">{t.registration.noIdBadgeText}</span>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -453,20 +528,20 @@ export default function RegisterPage() {
               </div>
             </div>
 
-            {/* Lock Overlay Content */}
-            {!isVerified ? (
+            {/* Lock overlay — shown when Fayda path but not yet verified */}
+            {identityMode === "FAYDA" && !isVerified ? (
               <div className="py-12 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex flex-col items-center justify-center text-center opacity-70">
                 <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
                   <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-700">Action Required</h3>
-                <p className="text-slate-500 max-w-sm mt-1">Please verify National ID or Skip to unlock Patient History and Next Steps.</p>
+                <h3 className="text-lg font-semibold text-slate-700">{t.registration.faydaVerificationRequired}</h3>
+                <p className="text-slate-500 max-w-sm mt-1">{t.registration.faydaUnlockText}</p>
               </div>
-            ) : (
+            ) : isVerified ? (
               <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-8">
                 {/* 2. Address & Contact */}
                 <div className="space-y-4 pt-2">
-              <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">2. Address & Contact Information</h3>
+              <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">{t.registration.addressTitle}</h3>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="addressRegion">Region</Label>
@@ -528,7 +603,7 @@ export default function RegisterPage() {
 
             {/* 3. Reason for Visit */}
             <div className="space-y-4 pt-4">
-              <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">3. Reason for Visit</h3>
+              <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">{t.registration.visitTitle}</h3>
 
               <div className="space-y-2">
                 <div className="flex justify-between items-end">
@@ -566,12 +641,15 @@ export default function RegisterPage() {
               </div>
             </div>
           </div>
+          ) : null}
+          </>
           )}
+
           </CardContent>
 
           <CardFooter>
-            <Button className="w-full" size="lg" disabled={loading || !isVerified} type="submit">
-              {loading ? "Registering..." : "Complete Registration"}
+            <Button className="w-full" size="lg" disabled={loading || !isVerified || !identityMode} type="submit">
+              {loading ? t.registration.registering : t.registration.completeRegistration}
             </Button>
           </CardFooter>
         </form>
