@@ -486,3 +486,36 @@ export async function mergeChildToAdult(childId: string, newFaydaId: string) {
   }
 }
 
+export async function signInCitizen(identifier: string) {
+  try {
+    const cleanId = identifier.trim();
+    if (!cleanId) {
+      throw new Error("Identifier is required.");
+    }
+
+    const patient = await prisma.patient.findFirst({
+      where: {
+        OR: [
+          { nationalId: cleanId },
+          { faydaId: cleanId },
+          { healthId: cleanId },
+          { internalId: cleanId }
+        ]
+      },
+      select: {
+        id: true,
+        fullName: true
+      }
+    });
+
+    if (!patient) {
+      return { success: false, error: "Not Found" };
+    }
+
+    return { success: true, patientId: patient.id, fullName: patient.fullName };
+
+  } catch (error: any) {
+    console.error("❌ SIGN-IN ERROR:", error.message);
+    return { success: false, error: "Database search failed." };
+  }
+}

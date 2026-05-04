@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { Shield, Activity, Users, ClipboardList, Pill, TestTubeDiagonal, QrCode } from "lucide-react";
+import { Shield, Activity, Users, ClipboardList, Pill, TestTubeDiagonal, QrCode, UserCircle } from "lucide-react";
 import { LanguageToggle } from "./LanguageToggle";
 import { LocalizedText } from "./LocalizedText";
 
@@ -60,6 +60,13 @@ export function Sidebar() {
       </nav>
 
       <div className="mt-auto px-2 pb-4 text-xs text-slate-500 flex flex-col gap-1">
+        <div className="mb-4 space-y-2">
+          <Link href="/signin" className="flex items-center gap-2 p-2 rounded-lg border border-slate-700/50 bg-slate-800/50 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors">
+            <UserCircle className="w-4 h-4 text-blue-400" />
+            <span className="font-medium text-sm"><LocalizedText tKey="nav.citizenSignIn" /></span>
+          </Link>
+        </div>
+
         <span><LocalizedText tKey="nav.loggedInAs" />:</span>
         <span className="font-mono font-bold text-slate-400">{role}</span>
         <LanguageToggle />

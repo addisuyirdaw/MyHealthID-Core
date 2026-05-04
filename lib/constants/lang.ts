@@ -4,6 +4,7 @@ export const TRANSLATIONS = {
   EN: {
     nav: {
       citizenRegistration: "Citizen Registration",
+      citizenSignIn: "Sign-In / Portal",
       healthcareProfessionalPortal: "Healthcare Professional Portal",
       loggedInAs: "Logged in as",
     },
@@ -46,11 +47,22 @@ export const TRANSLATIONS = {
       secureLogin: "Secure Login",
       selectCreds: "Select your credentials...",
       simNote: "Note: Simulation mode enabled. Any credentials accepted for demo."
+    },
+    signin: {
+      title: "Citizen Sign-In Portal",
+      subtitle: "Access your secure health dashboard using your MyHealthID or Fayda National ID.",
+      idLabel: "Fayda ID or MyHealthID (MHI-)",
+      idPlaceholder: "e.g. MHI-... or 12-digit Fayda ID",
+      accessButton: "Access Health Dashboard",
+      notFoundTitle: "Record Not Found",
+      notFoundDesc: "No citizen found with this ID. Please check the ID or head over to the Citizen Registration page to create a new profile.",
+      registerLink: "Go to Citizen Registration"
     }
   },
   AM: {
     nav: {
       citizenRegistration: "የዜጎች ምዝገባ",
+      citizenSignIn: "መግቢያ / ፖርታል",
       healthcareProfessionalPortal: "የጤና ባለሙያዎች ፖርታል",
       loggedInAs: "በዚህ ገብተዋል",
     },
@@ -93,6 +105,16 @@ export const TRANSLATIONS = {
       secureLogin: "በአስተማማኝ ሁኔታ ይግቡ",
       selectCreds: "መረጃዎን ይምረጡ...",
       simNote: "ማሳሰቢያ፡ የማስመሰል ሁነታ ነቅቷል። ለማሳያ ማንኛውም መረጃ ተቀባይነት አለው።"
+    },
+    signin: {
+      title: "የዜጎች መግቢያ ፖርታል",
+      subtitle: "የእርስዎን MyHealthID ወይም ፋይዳ ብሔራዊ መታወቂያ በመጠቀም ወደ ጤና ዳሽቦርድዎ ይግቡ።",
+      idLabel: "ፋይዳ መታወቂያ ወይም MyHealthID (MHI-)",
+      idPlaceholder: "ምሳሌ: MHI-... ወይም የ12-ዲጂት ፋይዳ መታወቂያ",
+      accessButton: "ወደ ጤና ዳሽቦርድ ይግቡ",
+      notFoundTitle: "መዝገብ አልተገኘም",
+      notFoundDesc: "በዚህ መታወቂያ የተመዘገበ ዜጋ አልተገኘም። እባክዎ መታወቂያውን ያረጋግጡ ወይም አዲስ መገለጫ ለመፍጠር ወደ የዜጎች ምዝገባ ገጽ ይሂዱ።",
+      registerLink: "ወደ የዜጎች ምዝገባ ይሂዱ"
     }
   }
 };

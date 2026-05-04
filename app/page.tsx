@@ -2,7 +2,7 @@ import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
-import { HeartPulse, ShieldCheck, Activity, Users, Stethoscope } from "lucide-react";
+import { HeartPulse, ShieldCheck, Activity, Users, Stethoscope, User } from "lucide-react";
 import { LocalizedText } from "@/components/LocalizedText";
 
 export default async function Home() {
@@ -53,6 +53,11 @@ export default async function Home() {
             <Link href="/register" className="w-full">
               <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg text-lg h-14">
                 <Users className="w-5 h-5 mr-2" /> <LocalizedText tKey="landing.registerCitizen" />
+              </Button>
+            </Link>
+            <Link href="/signin" className="w-full">
+              <Button size="lg" variant="outline" className="w-full border-blue-600 text-blue-700 hover:bg-blue-50 shadow-lg text-lg h-14 bg-white">
+                <User className="w-5 h-5 mr-2" /> <LocalizedText tKey="nav.citizenSignIn" />
               </Button>
             </Link>
             {(userRole === 'DOCTOR' || userRole === 'ADMIN') ? (
