@@ -134,7 +134,7 @@ export default function RegisterPage() {
     try {
       const res = await verifyNationalID(nationalId);
       if (res.success) {
-        setLinkedEmail(res.maskedEmail);
+        setLinkedEmail(res.maskedEmail || null);
         setLinkageStatus("IDLE");
       } else {
         // OPEN REGISTRATION: Even if not found, use the entered email to proceed.

@@ -59,11 +59,12 @@ export async function loginUser(formData: FormData) {
   });
 
   // Redirect based on the authenticated Estonian role check
-  if (role === "ADMIN") redirect("/admin/dashboard");
-  if (role === "DOCTOR") redirect("/doctor/dashboard");
-  if (role === "NURSE" || role === "RECEPTIONIST") redirect("/register");
-  if (role === "LAB_TECH") redirect("/lab");
-  if (role === "PHARMACIST") redirect("/pharmacy");
+  const roleStr = role as string;
+  if (roleStr === "ADMIN") redirect("/admin/dashboard");
+  if (roleStr === "DOCTOR") redirect("/doctor/dashboard");
+  if (roleStr === "NURSE" || roleStr === "RECEPTIONIST") redirect("/register");
+  if (roleStr === "LAB_TECH") redirect("/lab");
+  if (roleStr === "PHARMACIST") redirect("/pharmacy");
 }
 
 export async function logoutUser() {

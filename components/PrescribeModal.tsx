@@ -164,7 +164,7 @@ export function PrescribeModal({ patientId, patientName, patientAllergies, patie
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button 
                 onClick={handlePrescribe} 
-                disabled={!prescriptionText.trim() || loading || ((hasAllergyWarning || activeHistoryWarning) && !acknowledged)} 
+                disabled={!prescriptionText.trim() || loading || ((hasAllergyWarning || Boolean(activeHistoryWarning)) && !acknowledged)} 
                 className="bg-primary hover:bg-primary/90 text-white"
             >
               {loading ? "Saving..." : "Send to Pharmacy"}

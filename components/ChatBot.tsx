@@ -175,7 +175,7 @@ export const ChatBot = () => {
               <Hospital size={20} className="text-blue-100" />
               <span className="font-semibold text-sm flex items-center gap-2">
                 MyHealthID AI
-                {verifiedPatientId && <ShieldCheck size={16} className="text-green-300" title="Identity Verified" />}
+                {verifiedPatientId && <span title="Identity Verified"><ShieldCheck size={16} className="text-green-300" /></span>}
               </span>
             </div>
             {/* Header Actions */}
