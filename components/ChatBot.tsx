@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { MessageCircle, X, Hospital, Send, Loader2, ShieldCheck, Volume2, VolumeX, Globe } from "lucide-react";
+import { MessageCircle, X, Hospital, Send, Loader2, ShieldCheck, Volume2, VolumeX, Globe, Mic } from "lucide-react";
 import { useParams } from "next/navigation";
 
 /**
@@ -17,6 +17,17 @@ export const ChatBot = () => {
   // Voice & Language State
   const [isMuted, setIsMuted] = useState(false);
   const [language, setLanguage] = useState<"EN" | "AM">("EN");
+  const [audioUnlocked, setAudioUnlocked] = useState(false);
+
+  // Mobile Audio Unlock — must be triggered by a user gesture
+  const unlockAudio = () => {
+    if (typeof window !== "undefined" && window.speechSynthesis) {
+      const msg = new SpeechSynthesisUtterance("");
+      window.speechSynthesis.speak(msg);
+    }
+    setAudioUnlocked(true);
+    setIsMuted(false);
+  };
 
   // Identity Gate State
   const [verifiedPatientId, setVerifiedPatientId] = useState<string | null>(null);
@@ -208,6 +219,36 @@ export const ChatBot = () => {
             </div>
           </div>
 
+          {/* Audio Unlock Overlay (Mobile Fix) */}
+          {!audioUnlocked ? (
+            <div className="flex-1 flex flex-col items-center justify-center bg-gradient-to-b from-blue-50 to-white p-6 text-center gap-4">
+              <div className="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center animate-pulse">
+                <Mic className="w-10 h-10 text-blue-600" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-800">
+                {language === "AM" ? "ድምጽ ለማንቃት ይጫኑ" : "Activate Voice Assistant"}
+              </h3>
+              <p className="text-sm text-slate-500 max-w-[250px]">
+                {language === "AM" 
+                  ? "ይህን ቁልፍ ይጫኑ የ AI ረዳቱ በድምጽ እንዲነጋገርዎ።" 
+                  : "Tap the button below to enable the AI to speak responses aloud."}
+              </p>
+              <button
+                onClick={unlockAudio}
+                className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-full shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 active:scale-95 flex items-center gap-2"
+              >
+                <Volume2 size={20} />
+                {language === "AM" ? "ድምጽ አንቃ" : "Activate Audio"}
+              </button>
+              <button
+                onClick={() => { setAudioUnlocked(true); setIsMuted(true); }}
+                className="text-xs text-slate-400 hover:text-slate-600 underline mt-1"
+              >
+                {language === "AM" ? "ያለ ድምጽ ቀጥል" : "Continue without audio"}
+              </button>
+            </div>
+          ) : (
+          <>
           {/* Chat History */}
           <div className="flex-1 overflow-y-auto p-4 bg-gray-50 flex flex-col gap-3">
             {messages.map((msg, idx) => (
@@ -251,6 +292,8 @@ export const ChatBot = () => {
               </button>
             </form>
           </div>
+          </>
+          )}
         </div>
       )}
 
