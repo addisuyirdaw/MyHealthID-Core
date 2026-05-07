@@ -26,6 +26,7 @@ model User {
   
   firstName String?
   lastName  String?
+  professionalLicenseNumber String?
 
   nationalId String? @unique
   otpCode    String?
@@ -118,12 +119,19 @@ model Patient {
   surgicalHistory       String?
   allergyInformation    String?
   emergencyFlag         Boolean  @default(false)
+  isRestricted          Boolean  @default(false)  @map("is_restricted")
+  externalSystemId      String?
+  legacyProviderName    String?
   serviceType           String?  @default("OPD")
 
   ward                  Ward     @default(OPD_OUTPATIENT)
   triageStatus          TriageStatus @default(WAITING_FOR_TRIAGE)
   examStatus            String   @default("PENDING")
   status                String?  @default("ACTIVE")
+
+  // AI Smart Triage Engine — persisted once, shared across all wards
+  aiPriorityScore       Float?   @map("ai_priority_score")   // 0-100
+  aiRecommendation      String?  @map("ai_recommendation")   // JSON string
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -135,6 +143,7 @@ model Patient {
   referrals         Referral[]
   clinicalExam      ClinicalExamination?
   queues            Queue[]
+  accessLogs        AccessLog[]
 }
 
 model ClinicalExamination {
@@ -260,4 +269,24 @@ model Queue {
 
   // Relations
   patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+enum AccessLogAction {
+  VIEW
+  BREAK_GLASS
+  RESTRICT
+  UNRESTRICT
+}
+
+model AccessLog {
+  id              String          @id @default(uuid()) @map("_id")
+  patientId       String
+  accessedByName  String
+  facility        String          @default("Debre Berhan Hospital")
+  role            String
+  action          AccessLogAction @default(VIEW)
+  createdAt       DateTime        @default(now())
+
+  // Relations
+  patient         Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
 }

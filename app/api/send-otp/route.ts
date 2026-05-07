@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { sendOTP } from '@/lib/mailService';
 import prisma from '@/lib/prisma';
+import { randomUUID } from 'crypto';
 
 export async function POST(request: Request) {
   try {
@@ -38,6 +39,7 @@ export async function POST(request: Request) {
       create: {
         nationalId: cleanNationalId,
         healthId: tempHealthId,
+        internalId: `MHI-${randomUUID()}`,
         email: email,
         otpCode: otp,
         fullName: "Pending Registration",
@@ -58,6 +60,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ success: true, message: "OTP sent successfully" });
   } catch (error: any) {
     console.error("Error in send-otp route:", error);
+    // P2010 = raw query failed (Atlas unreachable / IP not whitelisted / cluster paused)
+    if (error?.code === "P2010" || error?.message?.includes("Server selection timeout")) {
+      return NextResponse.json(
+        { success: false, error: "The database is currently unreachable. Please try again in a moment." },
+        { status: 503 }
+      );
+    }
     return NextResponse.json({ success: false, error: error.message || String(error) }, { status: 500 });
   }
 }

@@ -6,7 +6,12 @@ import { HeartPulse, ShieldCheck, Activity, Users, Stethoscope, User } from "luc
 import { LocalizedText } from "@/components/LocalizedText";
 
 export default async function Home() {
-  const patientCount = await prisma.patient.count();
+  let patientCount = 0;
+  try {
+    patientCount = await prisma.patient.count();
+  } catch (err) {
+    console.error("[Home] DB unreachable, showing fallback count:", err);
+  }
   const cookieStore = cookies();
   const userRole = cookieStore.get('userRole')?.value;
 

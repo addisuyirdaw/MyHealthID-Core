@@ -4,7 +4,6 @@ import { useTransition, useState } from "react";
 import { checkInToQueue } from "@/lib/actions/queue.actions";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, DoorOpen } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
 
 export function CheckInButton({ patientId }: { patientId: string }) {
   const [isPending, startTransition] = useTransition();

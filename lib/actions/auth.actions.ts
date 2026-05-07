@@ -1,14 +1,54 @@
 "use server";
 
+import prisma from "@/lib/prisma";
+
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
 export async function loginUser(formData: FormData) {
-  const role = formData.get("role") as string;
-  
-  if (!role) {
-    throw new Error("Role is required for login.");
+  const email = formData.get("email") as string;
+  // Note: password is intentionally bypassed for this simulation mode demo
+  // const password = formData.get("password") as string;
+
+  if (!email) {
+    throw new Error("Email/ID is required for login.");
   }
+
+  const cleanEmail = email.toLowerCase().trim();
+  let dbUser = await prisma.user.findUnique({
+    where: { email: cleanEmail }
+  });
+
+  // Pitch Hook: Auto-generate Dr. Dawit if he doesn't exist
+  if (cleanEmail === "dr.dawit@myhealthid.gov.et") {
+    if (!dbUser) {
+      dbUser = await prisma.user.create({
+        data: {
+          email: cleanEmail,
+          password: "demo-password-hash", // Placeholder
+          role: "DOCTOR",
+          firstName: "Dawit",
+          lastName: "Tadesse",
+          professionalLicenseNumber: "MD-2026-ETH",
+        }
+      });
+      console.log("[PITCH HOOK] Auto-created Dr. Dawit record in MongoDB Atlas.");
+    }
+  }
+
+  if (!dbUser) {
+    // For strict demo continuity, if not found, fallback to the role submitted from the form
+    // but in a real system we would throw: throw new Error("Professional credentials not found.");
+    const formRole = formData.get("role") as string;
+    if (formRole) {
+      console.log("[SIMULATION MODE] User not found, falling back to form role:", formRole);
+      dbUser = { role: formRole as any } as any;
+    } else {
+      throw new Error("Professional credentials not found in MongoDB.");
+    }
+  }
+
+  const role = dbUser!.role;
 
   // Set the cookie. httpOnly is false to gracefully support the existing client-side bypass checks.
   cookies().set("userRole", role, {
@@ -18,8 +58,8 @@ export async function loginUser(formData: FormData) {
     path: "/",
   });
 
-  // Redirect based on the authenticated role
-  if (role === "ADMIN") redirect("/admin/stats");
+  // Redirect based on the authenticated Estonian role check
+  if (role === "ADMIN") redirect("/admin/dashboard");
   if (role === "DOCTOR") redirect("/doctor/dashboard");
   if (role === "NURSE" || role === "RECEPTIONIST") redirect("/register");
   if (role === "LAB_TECH") redirect("/lab");

@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { 
   HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, User, 
   AlertTriangle, Droplet, ArrowLeft, Send, CheckCircle2, Search,
-  PhoneCall, Stethoscope, ClipboardCheck
+  PhoneCall, Stethoscope, ClipboardCheck, Sparkles, BrainCircuit
 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { OrderTestModal } from "@/components/OrderTestModal";
@@ -20,6 +20,8 @@ import { ClinicalExamModal } from "@/components/ClinicalExamModal";
 import { ReferModal } from "@/components/ReferModal";
 import { callNextPatient, finishPatientVisit } from "@/lib/actions/queue.actions";
 import { getPatientsByWard, searchPatients } from "@/lib/actions/patient.actions";
+import { syncLegacyData } from "@/lib/actions/legacy.actions";
+import { analyzePatientRisk, generateAIBrief } from "@/lib/ai-service";
 import { useRouter } from "next/navigation";
 
 type Patient = any; // You can import the full prisma type if available
@@ -40,6 +42,9 @@ export default function DoctorDashboardClient({
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
   const [isCalling, setIsCalling] = useState(false);
   const [isFinishing, setIsFinishing] = useState(false);
+  const [isSyncingLegacy, setIsSyncingLegacy] = useState(false);
+  const [aiBrief, setAiBrief] = useState<string[] | null>(null);
+  const [isGeneratingBrief, setIsGeneratingBrief] = useState(false);
 
   // When props change (e.g. ward switch or search), reset list and selection
   React.useEffect(() => {
@@ -72,9 +77,23 @@ export default function DoctorDashboardClient({
     }
   }, [patients, selectedPatientId]);
 
-  const selectedPatient = useMemo(() => 
-    patients.find(p => p.id === selectedPatientId) || null
-  , [patients, selectedPatientId]);
+  const selectedPatient = useMemo(() => {
+    const p = patients.find(p => p.id === selectedPatientId) || null;
+    return p;
+  }, [patients, selectedPatientId]);
+
+  // Reset AI states on patient change
+  React.useEffect(() => {
+    setAiBrief(null);
+    setIsGeneratingBrief(false);
+  }, [selectedPatientId]);
+
+  const aiRisk = useMemo(() => {
+    if (!selectedPatient) return null;
+    // Add fake elevated vital if patient has legacy record and 'cardiac' history, or just for demo logic
+    // We already have 'ads' with 118/76. Let's let the engine decide based on actual vitals.
+    return analyzePatientRisk(selectedPatient.vitals || [], selectedPatient.preExistingConditions);
+  }, [selectedPatient]);
 
   const handleWardChange = (ward: string) => {
     router.push(`/doctor/dashboard?ward=${ward}`);
@@ -126,6 +145,32 @@ export default function DoctorDashboardClient({
     setIsFinishing(false);
   };
 
+  const onSyncLegacy = async () => {
+    if (!selectedPatient || !selectedPatient.legacyProviderName) return;
+    setIsSyncingLegacy(true);
+    const res = await syncLegacyData(selectedPatient.id, selectedPatient.legacyProviderName);
+    if (res.success) {
+      alert(`Records from ${selectedPatient.legacyProviderName} imported successfully.`);
+      // Re-fetch patient list to get the new normalized data
+      const fetchedPatients = searchQuery 
+        ? await searchPatients(searchQuery)
+        : await getPatientsByWard(currentWard as Ward);
+      setPatients(fetchedPatients);
+    } else {
+      alert(`Sync failed: ${res.error}`);
+    }
+    setIsSyncingLegacy(false);
+  };
+
+  const onGenerateBrief = async () => {
+    if (!selectedPatient) return;
+    setIsGeneratingBrief(true);
+    // Simulate generation delay
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    setAiBrief(generateAIBrief(selectedPatient));
+    setIsGeneratingBrief(false);
+  };
+
   // Build events for the selected patient
   const events = useMemo(() => {
     if (!selectedPatient) return [];
@@ -172,7 +217,7 @@ export default function DoctorDashboardClient({
         id: p.id, 
         type: "PRESCRIPTION", 
         date: p.updatedAt, 
-        title: `Prescribed: ${p.medication || p.drugName}`, 
+        title: `Prescribed: ${p.drugName}`, 
         description: `Dosage: ${p.dosage} | Freq: ${p.frequency}`, 
         badge: p.status,
         badgeColor: p.status === "DISPENSED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
@@ -331,6 +376,47 @@ export default function DoctorDashboardClient({
                       <AlertTriangle className="w-4 h-4" /> Allergies: {selectedPatient.allergyInformation}
                     </div>
                   )}
+
+                  {/* Legacy Bridge Integration */}
+                  {selectedPatient.legacyProviderName && (
+                    <div className="mt-4 p-4 rounded-xl border border-blue-200 bg-blue-50 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <ActivitySquare className="w-5 h-5 text-blue-600" />
+                          <h4 className="font-bold text-blue-900">System Link: {selectedPatient.legacyProviderName}</h4>
+                          <Badge className="bg-blue-200 text-blue-800 hover:bg-blue-300 ml-2 shadow-none font-bold">External ID: {selectedPatient.externalSystemId}</Badge>
+                        </div>
+                        <p className="text-blue-700 text-sm mt-1">This patient has historical records in a legacy system.</p>
+                      </div>
+                      
+                      <Button 
+                        onClick={onSyncLegacy} 
+                        disabled={isSyncingLegacy}
+                        className="w-full md:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold transition-all shadow-md"
+                      >
+                        {isSyncingLegacy ? (
+                          <span className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 animate-spin" /> Syncing...
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-2">
+                            <Send className="w-4 h-4" /> Sync with {selectedPatient.legacyProviderName}
+                          </span>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Legacy Sync Loading Bar */}
+                  {isSyncingLegacy && (
+                    <div className="mt-4 bg-white p-4 rounded-xl border border-blue-200 shadow-sm flex items-center gap-4 animate-in fade-in zoom-in duration-300">
+                      <div className="w-10 h-10 rounded-full border-4 border-blue-100 border-t-blue-600 animate-spin"></div>
+                      <div>
+                        <p className="font-bold text-blue-900">Fetching records from hospital legacy server...</p>
+                        <p className="text-sm text-blue-600">ከሆስፒታሉ የቀድሞ ሲስተም መረጃዎችን በማምጣት ላይ...</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Doctor Action Toolkit - Moved to top for quick access */}
@@ -344,8 +430,89 @@ export default function DoctorDashboardClient({
               {/* Unified Clinical Timeline Grid */}
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
-                {/* Left Column: Sections A & B */}
+                {/* Left Column: Sections A & B & AI */}
                 <div className="space-y-6 lg:col-span-1">
+
+                  {/* AI Pulse Card */}
+                  {aiRisk && (
+                    <Card className={`shadow-sm transition-all duration-500 overflow-hidden ${
+                      aiRisk.riskLevel === 'High' 
+                        ? "border-red-400 bg-red-50/80 shadow-[0_0_15px_rgba(239,68,68,0.3)] animate-pulse-slow" 
+                        : aiRisk.riskLevel === 'Medium'
+                          ? "border-amber-300 bg-amber-50"
+                          : "border-indigo-100 bg-gradient-to-br from-indigo-50 to-white"
+                    }`}>
+                      <CardHeader className={`border-b pb-3 ${
+                        aiRisk.riskLevel === 'High' ? "bg-red-100/50 border-red-200" :
+                        aiRisk.riskLevel === 'Medium' ? "bg-amber-100/50 border-amber-200" :
+                        "bg-indigo-50/50 border-indigo-100"
+                      }`}>
+                        <CardTitle className={`text-sm font-black uppercase tracking-wider flex justify-between items-center ${
+                          aiRisk.riskLevel === 'High' ? "text-red-800" :
+                          aiRisk.riskLevel === 'Medium' ? "text-amber-800" :
+                          "text-indigo-900"
+                        }`}>
+                          <span className="flex items-center gap-2">
+                            <BrainCircuit className="w-5 h-5" /> AI Triage Pulse
+                          </span>
+                          <Badge className={`${
+                            aiRisk.riskLevel === 'High' ? "bg-red-600 hover:bg-red-700" :
+                            aiRisk.riskLevel === 'Medium' ? "bg-amber-500 hover:bg-amber-600" :
+                            "bg-emerald-500 hover:bg-emerald-600"
+                          }`}>
+                            {aiRisk.riskLevel} Risk
+                          </Badge>
+                        </CardTitle>
+                      </CardHeader>
+                      <CardContent className="pt-4 space-y-4 text-sm">
+                        <div>
+                          <p className={`font-bold ${aiRisk.riskLevel === 'High' ? 'text-red-900' : 'text-slate-800'}`}>
+                            {aiRisk.actionEn}
+                          </p>
+                          <p className={`text-xs mt-1 font-medium ${aiRisk.riskLevel === 'High' ? 'text-red-700' : 'text-slate-500'}`}>
+                            {aiRisk.actionAm}
+                          </p>
+                        </div>
+
+                        {/* AI Brief Generator */}
+                        <div className="pt-3 border-t border-slate-200/50">
+                          {aiBrief ? (
+                            <div className="bg-white rounded-lg p-3 border border-indigo-100 shadow-sm animate-in fade-in slide-in-from-top-2">
+                              <div className="flex items-center justify-between mb-2 pb-2 border-b border-indigo-50">
+                                <span className="font-bold text-indigo-900 text-xs uppercase tracking-widest flex items-center gap-1">
+                                  <Sparkles className="w-3.5 h-3.5 text-indigo-500" /> AI Clinical Brief
+                                </span>
+                                <Badge variant="outline" className="bg-indigo-50 text-indigo-700 border-indigo-200 text-[9px] uppercase px-1.5 py-0">
+                                  AI Verified
+                                </Badge>
+                              </div>
+                              <ul className="space-y-1.5 list-none">
+                                {aiBrief.map((bullet, idx) => (
+                                  <li key={idx} className="text-xs text-slate-700 flex items-start gap-1.5 leading-relaxed">
+                                    <span className="text-indigo-400 mt-0.5">•</span>
+                                    <span>{bullet}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : (
+                            <Button 
+                              onClick={onGenerateBrief} 
+                              disabled={isGeneratingBrief}
+                              variant="outline"
+                              className="w-full text-indigo-700 border-indigo-200 hover:bg-indigo-50 hover:text-indigo-800 transition-colors bg-white font-semibold"
+                            >
+                              {isGeneratingBrief ? (
+                                <><Clock className="w-4 h-4 mr-2 animate-spin" /> Analyzing Clinical Data...</>
+                              ) : (
+                                <><Sparkles className="w-4 h-4 mr-2" /> Generate AI Brief</>
+                              )}
+                            </Button>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
                   
                   {/* Section A: History & Demographics */}
                   <Card className="shadow-sm border-slate-200">
@@ -504,7 +671,7 @@ export default function DoctorDashboardClient({
                                   {selectedPatient.prescriptions?.map((rx: any) => (
                                     <div key={rx.id} className="border border-slate-100 rounded-lg p-3 shadow-sm bg-slate-50/50">
                                        <div className="flex justify-between items-start mb-1">
-                                          <span className="font-semibold text-slate-800 text-sm">{rx.medication || rx.drugName}</span>
+                                          <span className="font-semibold text-slate-800 text-sm">{rx.drugName}</span>
                                           <Badge className={`text-[10px] uppercase ${rx.status === 'DISPENSED' ? 'bg-green-100 text-green-700 hover:bg-green-100' : 'bg-amber-100 text-amber-700 hover:bg-amber-100'}`} variant="outline">{rx.status}</Badge>
                                        </div>
                                        <p className="text-xs text-slate-500 mt-1">Sig: {rx.dosage} • {rx.frequency}</p>

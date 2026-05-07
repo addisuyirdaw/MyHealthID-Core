@@ -1,23 +1,30 @@
 import { PrismaClient } from "@prisma/client";
 
-// 1. Define the singleton function with an explicit return type
+// Connection timeout: 5 s — fail fast instead of hanging for 30 s when Atlas
+// is unreachable (e.g. IP not whitelisted or cluster is paused).
+const CONNECT_TIMEOUT_MS = 5_000;
+const SOCKET_TIMEOUT_MS  = 8_000;
+
 const prismaClientSingleton = (): PrismaClient => {
-    return new PrismaClient();
+    return new PrismaClient({
+        datasources: {
+            db: {
+                url: `${process.env.DATABASE_URL}&connectTimeoutMS=${CONNECT_TIMEOUT_MS}&socketTimeoutMS=${SOCKET_TIMEOUT_MS}&serverSelectionTimeoutMS=${CONNECT_TIMEOUT_MS}`,
+            },
+        },
+        log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
+    });
 };
 
-// 2. Setup the global type for the server
 declare global {
     // eslint-disable-next-line no-var
     var prisma: PrismaClient | undefined;
 }
 
-// Force clear cache so new models reflect
-if (process.env.NODE_ENV !== "production") delete globalThis.prisma;
-
-// 3. Create or reuse the instance
+// 3. Create or reuse the singleton instance
 const prisma = globalThis.prisma ?? prismaClientSingleton();
 
 export default prisma;
 
-// 4. In development, save the instance to the global object
-if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;
+// 4. In development, save the instance to the global object to survive hot-reloads
+if (process.env.NODE_ENV !== "production") globalThis.prisma = prisma;

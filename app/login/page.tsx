@@ -1,9 +1,52 @@
+"use client";
+
 import { loginUser } from "@/lib/actions/auth.actions";
 import { Button } from "@/components/ui/button";
-import { ShieldCheck } from "lucide-react";
+import { ShieldCheck, UserCircle, CheckCircle2 } from "lucide-react";
 import { LocalizedText } from "@/components/LocalizedText";
+import { useState } from "react";
 
 export default function LoginPage() {
+  const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState("");
+
+  const handleSubmit = async (formData: FormData) => {
+    setStatus("loading");
+    try {
+      await loginUser(formData);
+    } catch (error: any) {
+      if (error.digest?.startsWith("NEXT_REDIRECT")) {
+        setStatus("success");
+        throw error; // Let Next.js handle the redirect
+      }
+      setStatus("idle");
+      alert(error.message);
+    }
+  };
+
+  const handleDemoLogin = () => {
+    const fd = new FormData();
+    fd.append("email", "dr.dawit@myhealthid.gov.et");
+    fd.append("role", "DOCTOR");
+    handleSubmit(fd);
+  };
+
+  if (status === "success") {
+    return (
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center relative overflow-hidden p-6">
+        <div className="w-full max-w-md bg-white/80 backdrop-blur-xl border border-emerald-200 shadow-2xl rounded-3xl p-8 relative z-10 flex flex-col items-center text-center">
+          <div className="bg-emerald-100 p-4 rounded-full mb-6">
+            <CheckCircle2 className="w-16 h-16 text-emerald-600" />
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Login Successful</h2>
+          <h2 className="text-2xl font-bold text-emerald-700 mb-4">በትክክል ገብተዋል</h2>
+          <p className="text-slate-500">Redirecting to your dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center relative overflow-hidden p-6">
       {/* Background Decor */}
@@ -24,7 +67,20 @@ export default function LoginPage() {
           <LocalizedText tKey="login.subtitlePre" /><span className="text-blue-600 font-bold">ID</span><LocalizedText tKey="login.subtitlePost" />
         </p>
 
-        <form action={loginUser} className="space-y-4">
+        {/* Demo Pitch Hook */}
+        <div className="mb-6 pb-6 border-b border-slate-200">
+          <Button 
+            type="button" 
+            onClick={handleDemoLogin} 
+            disabled={status === "loading"}
+            className="w-full bg-slate-900 hover:bg-slate-800 text-white rounded-xl h-12 flex items-center justify-center gap-2"
+          >
+            <UserCircle className="w-5 h-5" />
+            Pitch Demo: Login as Dr. Dawit
+          </Button>
+        </div>
+
+        <form action={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="email" className="text-sm font-bold text-slate-700 uppercase tracking-wider block">
               <LocalizedText tKey="login.emailLabel" />
@@ -33,6 +89,8 @@ export default function LoginPage() {
               type="text" 
               id="email" 
               name="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               placeholder="dr.name@myhealthid.gov.et" 
               className="w-full h-12 rounded-xl border border-slate-300 bg-slate-50 px-4 font-medium text-slate-800 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition"
             />
@@ -46,7 +104,8 @@ export default function LoginPage() {
               id="role" 
               name="role" 
               required
-              defaultValue=""
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
               className="w-full h-12 rounded-xl border border-slate-300 bg-slate-50 px-4 font-medium text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition"
             >
               <option value="" disabled>Select your credentials...</option>
@@ -73,8 +132,8 @@ export default function LoginPage() {
             <p className="text-xs text-slate-400 mt-1"><LocalizedText tKey="login.simNote" /></p>
           </div>
 
-          <Button type="submit" className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200 mt-4">
-            <LocalizedText tKey="login.secureLogin" />
+          <Button type="submit" disabled={status === "loading"} className="w-full h-12 text-lg font-bold bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg shadow-blue-200 mt-4">
+            {status === "loading" ? "Authenticating..." : <LocalizedText tKey="login.secureLogin" />}
           </Button>
         </form>
       </div>

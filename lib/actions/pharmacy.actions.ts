@@ -48,8 +48,8 @@ export async function getReadyForPharmacyPatients() {
     });
     return JSON.parse(JSON.stringify(patients));
   } catch (error: any) {
-    console.error("❌ DATABASE ERROR: Failed to fetch pharmacy patients", error.message);
-    throw new Error("Failed to fetch pharmacy patients.");
+    console.error("❌ DATABASE ERROR [getReadyForPharmacyPatients]:", error.message);
+    return []; // Return empty list so pharmacy page renders instead of crashing
   }
 }
 

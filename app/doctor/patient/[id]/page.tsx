@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import React from "react";
 import { notFound, redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,7 +25,7 @@ type TimelineEvent = {
   description: string;
   badge?: string;
   badgeColor?: string;
-  icon: JSX.Element;
+  icon: React.ReactNode;
   bgColor: string;
 };
 
@@ -101,7 +102,7 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
     id: p.id, 
     type: "PRESCRIPTION", 
     date: p.updatedAt, 
-    title: `Prescribed: ${p.medication || p.drugName}`, 
+    title: `Prescribed: ${p.drugName}`, 
     description: `Dosage: ${p.dosage} | Freq: ${p.frequency}`, 
     badge: p.status,
     badgeColor: p.status === "DISPENSED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",

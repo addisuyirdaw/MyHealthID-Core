@@ -176,15 +176,13 @@ export default function RegisterPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, nationalId: cleanId }),
       });
-      
-      // Instant verification for presentation
-      setIsVerified(true);
-      setShowOtp(false);
-      console.log("[PRESENTATION MODE] Auto-verified email");
+      // Open the OTP input section
+      setShowOtp(true);
+      setCountdown(60);
     } catch (err) {
       console.error(err);
-      // Fallback: still verify even if API fails since it's a presentation
-      setIsVerified(true);
+      // Fallback: still show OTP field if API fails so they can use demo bypass
+      setShowOtp(true);
     } finally {
       setSendingSms(false);
     }
@@ -413,6 +411,18 @@ export default function RegisterPage() {
                             Resend Code
                           </Button>
                         )}
+                        <div className="mt-4 pt-3 border-t border-blue-200/50">
+                          <p className="text-[10px] text-center text-slate-500 mb-2 font-medium">ለጊዜው ያለ ኢሜል ማረጋገጫ መግባት ይቻላል</p>
+                          <Button 
+                            type="button" 
+                            onClick={() => { setIsVerified(true); setShowOtp(false); }} 
+                            variant="outline" 
+                            size="sm" 
+                            className="w-full text-xs text-blue-600 border-blue-200 hover:bg-blue-50"
+                          >
+                            Continue to Dashboard (Demo Mode)
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   )}

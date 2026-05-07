@@ -7,29 +7,61 @@ import { Badge } from "@/components/ui/badge";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
-  const [
-    totalPatients,
-    avgWaitData,
-    pendingTriage,
-    activeReferrals,
-    recentVerifications
-  ] = await Promise.all([
-    prisma.patient.count(),
-    prisma.patient.aggregate({ _avg: { estimatedWait: true } }),
-    prisma.patient.count({ where: { triageStatus: 'WAITING_FOR_TRIAGE' } }),
-    prisma.referral.count(),
-    prisma.patient.findMany({
-      where: { nationalId: { not: null } },
-      orderBy: { createdAt: 'desc' },
-      take: 5,
-      select: { id: true, fullName: true, nationalId: true, createdAt: true }
-    })
-  ]);
+  // Fallback values used when the DB is unreachable (e.g. Atlas paused / IP not whitelisted)
+  let totalPatients = 0;
+  let avgWait = 0;
+  let pendingTriage = 0;
+  let activeReferrals = 0;
+  let recentVerifications: { id: string; fullName: string; nationalId: string | null; createdAt: Date }[] = [];
+  let dbOffline = false;
 
-  const avgWait = avgWaitData._avg.estimatedWait ? Math.round(avgWaitData._avg.estimatedWait) : 0;
+  try {
+    const [
+      _total,
+      _avgWaitData,
+      _pending,
+      _referrals,
+      _verifications,
+    ] = await Promise.all([
+      prisma.patient.count(),
+      prisma.patient.aggregate({ _avg: { estimatedWait: true } }),
+      prisma.patient.count({ where: { triageStatus: 'WAITING_FOR_TRIAGE' } }),
+      prisma.referral.count(),
+      prisma.patient.findMany({
+        where: { nationalId: { not: null } },
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: { id: true, fullName: true, nationalId: true, createdAt: true }
+      }),
+    ]);
+    totalPatients = _total;
+    avgWait = _avgWaitData._avg.estimatedWait ? Math.round(_avgWaitData._avg.estimatedWait) : 0;
+    pendingTriage = _pending;
+    activeReferrals = _referrals;
+    recentVerifications = _verifications;
+  } catch (err: any) {
+    console.error("[AdminDashboard] DB unreachable, rendering with fallback data:", err.message);
+    dbOffline = true;
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 p-6 md:p-8">
+      {/* DB Offline Banner */}
+      {dbOffline && (
+        <div className="mb-6 flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-red-800 shadow-sm">
+          <span className="text-xl">⚠️</span>
+          <div>
+            <p className="font-semibold text-sm">Database Unreachable — Showing Fallback Data</p>
+            <p className="text-xs mt-0.5 text-red-600">
+              MongoDB Atlas is offline or your IP is not whitelisted. Go to{" "}
+              <a href="https://cloud.mongodb.com" target="_blank" rel="noreferrer" className="underline font-medium">
+                cloud.mongodb.com
+              </a>{" "}
+              → Network Access → Add your IP address.
+            </p>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <header className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>

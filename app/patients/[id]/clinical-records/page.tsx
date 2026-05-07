@@ -1,10 +1,13 @@
 import prisma from "@/lib/prisma";
+import React from "react";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, FileText, User } from "lucide-react";
 import { LiveQueueStatus } from "@/components/LiveQueueStatus";
 import { CheckInButton } from "@/components/CheckInButton";
+import BreakGlassClient from "@/components/BreakGlassClient";
 
 type TimelineEvent = {
   id: string;
@@ -14,84 +17,126 @@ type TimelineEvent = {
   description: string;
   badge?: string;
   badgeColor?: string;
-  icon: JSX.Element;
+  icon: React.ReactNode;
   bgColor: string;
 };
 
-export default async function ClinicalRecordsDashboard({ params }: { params: { id: string } }) {
+export default async function ClinicalRecordsDashboard({
+  params,
+  searchParams,
+}: {
+  params: { id: string };
+  searchParams: { override?: string };
+}) {
   const patient = await prisma.patient.findFirst({
-    where: {
-      OR: [
-        { id: params.id },
-        { healthId: params.id }
-      ]
-    },
+    where: { OR: [{ id: params.id }, { healthId: params.id }] },
     include: {
-      vitals: { orderBy: { createdAt: 'desc' } },
-      investigations: { orderBy: { createdAt: 'desc' } },
-      prescriptions: { orderBy: { createdAt: 'desc' } },
-      clinicalExam: true
-    }
+      vitals: { orderBy: { createdAt: "desc" } },
+      investigations: { orderBy: { createdAt: "desc" } },
+      prescriptions: { orderBy: { createdAt: "desc" } },
+      clinicalExam: true,
+    },
   });
 
   if (!patient) return notFound();
 
+  // Determine viewer role from cookie
+  const cookieStore = cookies();
+  const viewerRole = cookieStore.get("userRole")?.value || "UNKNOWN";
+  const isCitizen = viewerRole === "CITIZEN";
+  const isDoctor = viewerRole === "DOCTOR" || viewerRole === "ADMIN" || viewerRole === "NURSE";
+  const hasOverride = searchParams.override === "1";
+
+  // RBAC Gate: if doctor tries to view a restricted patient without override → show Break-Glass
+  if (!isCitizen && isDoctor && patient.isRestricted && !hasOverride) {
+    return (
+      <BreakGlassClient
+        patientId={patient.id}
+        patientName={patient.fullName}
+      />
+    );
+  }
+
+  // Log VIEW event if a doctor (not citizen) is accessing
+  if (isDoctor && !hasOverride) {
+    try {
+      const doctorName = cookieStore.get("professionalName")?.value || "Dr. Dawit Tadesse";
+      await prisma.accessLog.create({
+        data: {
+          patientId: patient.id,
+          accessedByName: doctorName,
+          facility: "Debre Berhan Hospital",
+          role: viewerRole,
+          action: "VIEW",
+        },
+      });
+    } catch {
+      // Non-blocking — log failure doesn't break the page
+    }
+  }
+
+  // Build timeline
   const events: TimelineEvent[] = [];
 
-  // Admission event
   events.push({
     id: `adm-${patient.id}`,
     type: "ADMISSION",
     date: patient.dateOfAdmission || patient.createdAt,
     title: "Patient Registered",
-    description: `Registered at ${patient.ward.replace(/_/g, ' ')}. Chief Complaint: ${patient.chiefComplaint || "N/A"}`,
+    description: `Registered at ${patient.ward.replace(/_/g, " ")}. Chief Complaint: ${patient.chiefComplaint || "N/A"}`,
     icon: <User className="w-5 h-5 text-slate-500" />,
-    bgColor: "bg-slate-100"
+    bgColor: "bg-slate-100",
   });
 
-  patient.vitals.forEach((v: any) => events.push({
-    id: v.id, 
-    type: "VITAL", 
-    date: v.createdAt, 
-    title: "Vitals Recorded", 
-    description: `BP: ${v.bp} | Pulse: ${v.pulse} bpm | Temp: ${v.temp}°C | SpO2: ${v.spO2}%`,
-    icon: <HeartPulse className="w-5 h-5 text-rose-500" />,
-    bgColor: "bg-rose-100"
-  }));
+  patient.vitals.forEach((v: any) =>
+    events.push({
+      id: v.id,
+      type: "VITAL",
+      date: v.createdAt,
+      title: "Vitals Recorded",
+      description: `BP: ${v.bp} | Pulse: ${v.pulse} bpm | Temp: ${v.temp}°C | SpO2: ${v.spO2}%`,
+      icon: <HeartPulse className="w-5 h-5 text-rose-500" />,
+      bgColor: "bg-rose-100",
+    })
+  );
 
-  patient.investigations.forEach((i: any) => events.push({
-    id: i.id, 
-    type: "LAB", 
-    date: i.updatedAt, 
-    title: `Lab Test: ${i.testName}`, 
-    description: i.status === "COMPLETED" ? `Result: ${i.result}` : "Awaiting sample or processing.", 
-    badge: i.status,
-    badgeColor: i.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
-    icon: <FlaskConical className="w-5 h-5 text-indigo-500" />,
-    bgColor: "bg-indigo-100"
-  }));
+  patient.investigations.forEach((i: any) =>
+    events.push({
+      id: i.id,
+      type: "LAB",
+      date: i.updatedAt,
+      title: `Lab Test: ${i.testName}`,
+      description: i.status === "COMPLETED" ? `Result: ${i.result}` : "Awaiting sample or processing.",
+      badge: i.status,
+      badgeColor: i.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
+      icon: <FlaskConical className="w-5 h-5 text-indigo-500" />,
+      bgColor: "bg-indigo-100",
+    })
+  );
 
-  patient.prescriptions.forEach((p: any) => events.push({
-    id: p.id, 
-    type: "PRESCRIPTION", 
-    date: p.updatedAt, 
-    title: `Prescription: ${p.medication || p.drugName}`, 
-    description: `Dosage: ${p.dosage} | Freq: ${p.frequency}`, 
-    badge: p.status,
-    badgeColor: p.status === "DISPENSED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
-    icon: <Pill className="w-5 h-5 text-teal-500" />,
-    bgColor: "bg-teal-100"
-  }));
+  patient.prescriptions.forEach((p: any) =>
+    events.push({
+      id: p.id,
+      type: "PRESCRIPTION",
+      date: p.updatedAt,
+      title: `Prescription: ${p.drugName}`,
+      description: `Dosage: ${p.dosage} | Freq: ${p.frequency}`,
+      badge: p.status,
+      badgeColor: p.status === "DISPENSED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
+      icon: <Pill className="w-5 h-5 text-teal-500" />,
+      bgColor: "bg-teal-100",
+    })
+  );
 
   if (patient.clinicalExam) {
     events.push({
-      id: patient.clinicalExam.id, 
-      type: "EXAM", 
-      date: patient.clinicalExam.updatedAt, 
-      title: "Clinical Examination", 
+      id: patient.clinicalExam.id,
+      type: "EXAM",
+      date: patient.clinicalExam.updatedAt,
+      title: "Clinical Examination",
       description: patient.clinicalExam.clinicalNotes || "General physical examination completed.",
       icon: <ActivitySquare className="w-5 h-5 text-purple-500" />,
-      bgColor: "bg-purple-100"
+      bgColor: "bg-purple-100",
     });
   }
 
@@ -100,14 +145,27 @@ export default async function ClinicalRecordsDashboard({ params }: { params: { i
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
-        
+
+        {/* Emergency Override Banner */}
+        {hasOverride && (
+          <div className="bg-red-600 text-white rounded-2xl px-6 py-4 flex items-center gap-3 shadow-lg">
+            <span className="text-2xl">🚨</span>
+            <div>
+              <p className="font-black">Emergency Break-Glass Override Active</p>
+              <p className="text-red-200 text-sm">This access has been permanently logged in the patient's audit trail.</p>
+            </div>
+          </div>
+        )}
+
         {/* Personalized Welcome Banner */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
           <div className="absolute top-0 right-0 p-8 opacity-10">
             <User className="w-48 h-48" />
           </div>
           <div className="relative z-10">
-            <h1 className="text-4xl font-black mb-2 tracking-tight">Welcome back, {patient.fullName.split(' ')[0]}!</h1>
+            <h1 className="text-4xl font-black mb-2 tracking-tight">
+              Welcome back, {patient.fullName.split(" ")[0]}!
+            </h1>
             <p className="text-blue-100 text-lg">Here is your live clinical dashboard and secure medical record.</p>
           </div>
         </div>
@@ -118,6 +176,9 @@ export default async function ClinicalRecordsDashboard({ params }: { params: { i
             <div>
               <CardTitle className="text-2xl font-bold flex items-center gap-3">
                 {patient.fullName}
+                {patient.isRestricted && (
+                  <Badge className="bg-red-100 text-red-700 text-xs font-bold">🔒 Restricted</Badge>
+                )}
               </CardTitle>
               <CardDescription className="text-base mt-1 flex items-center gap-2">
                 <span className="font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">ID: {patient.healthId}</span>
@@ -126,9 +187,7 @@ export default async function ClinicalRecordsDashboard({ params }: { params: { i
             </div>
             <div className="text-left md:text-right flex flex-col gap-3 items-start md:items-end">
               <div>
-                <div className="text-sm font-medium text-slate-600">
-                  {patient.age} years old • {patient.sex}
-                </div>
+                <div className="text-sm font-medium text-slate-600">{patient.age} years old • {patient.sex}</div>
                 <div className="text-sm text-slate-500">
                   Current Ward: <span className="font-medium text-slate-700">{patient.ward.replace(/_/g, " ")}</span>
                 </div>
@@ -137,6 +196,20 @@ export default async function ClinicalRecordsDashboard({ params }: { params: { i
             </div>
           </CardHeader>
         </Card>
+
+        {/* Privacy Dashboard Link for Citizens */}
+        {isCitizen && (
+          <a
+            href={`/patients/${patient.id}/privacy`}
+            className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-2xl px-6 py-4 hover:bg-indigo-100 transition-colors group"
+          >
+            <div>
+              <p className="font-bold text-indigo-800">🔐 Privacy & Data Control</p>
+              <p className="text-indigo-600 text-sm">Manage who can see your records · ግላዊነት እና የዳታ ቁጥጥር</p>
+            </div>
+            <span className="text-indigo-400 group-hover:translate-x-1 transition-transform text-xl">→</span>
+          </a>
+        )}
 
         {/* Live Queue Status Section */}
         <LiveQueueStatus patientId={patient.id} />
@@ -174,9 +247,7 @@ export default async function ClinicalRecordsDashboard({ params }: { params: { i
                         {ev.date.toLocaleString()}
                       </time>
                     </div>
-                    <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">
-                      {ev.description}
-                    </p>
+                    <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{ev.description}</p>
                   </div>
                 </div>
               ))}

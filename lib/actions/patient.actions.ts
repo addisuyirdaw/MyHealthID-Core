@@ -219,8 +219,8 @@ export async function getPatientsByWard(ward: Ward) {
 
     return JSON.parse(JSON.stringify(patients));
   } catch (error: any) {
-    console.error("❌ DATABASE ERROR:", error.message);
-    throw new Error(error.message || "Failed to fetch patients by ward.");
+    console.error("❌ DATABASE ERROR [getPatientsByWard]:", error.message);
+    return []; // Return empty list so the dashboard renders instead of crashing
   }
 }
 
@@ -262,8 +262,8 @@ export async function searchPatients(query: string) {
 
     return JSON.parse(JSON.stringify(patients));
   } catch (error: any) {
-    console.error("❌ DATABASE ERROR:", error.message);
-    throw new Error(error.message || "Failed to search patients.");
+    console.error("❌ DATABASE ERROR [searchPatients]:", error.message);
+    return []; // Return empty list so search results render instead of crashing
   }
 }
 
@@ -293,6 +293,58 @@ export async function recordVitals(data: {
   }
 }
 
+// ─── AI Smart Triage Engine — Once-Only Persistence ──────────────────────────
+/**
+ * runAiTriage()
+ *
+ * Called once at triage (after vitals are recorded).
+ * Computes the AI PriorityScore + bilingual recommendation, then writes
+ * both to the Patient document in MongoDB.
+ *
+ * Every downstream ward (Doctor, Pharmacy, Lab) reads these fields
+ * directly — no re-interview, no repeated testing.
+ */
+export async function runAiTriage(patientId: string) {
+  try {
+    const { analyzeVitals, serializeRecommendation } = await import("@/lib/ai-engine");
+
+    // Fetch patient + latest vitals (Once-Only principle)
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      include: { vitals: { orderBy: { createdAt: "desc" }, take: 1 } },
+    });
+
+    if (!patient) throw new Error("Patient not found.");
+
+    const v = patient.vitals[0];
+    const [sys, dia] = v ? (v.bp ?? "120/80").split("/").map(Number) : [120, 80];
+
+    const recommendation = analyzeVitals({
+      systolic:      sys  || 120,
+      diastolic:     dia  || 80,
+      heartRate:     v?.pulse      || 80,
+      temperature:   v?.temp       || 37.0,
+      spO2:          v?.spO2       || 98,
+      chiefComplaint: patient.chiefComplaint ?? "",
+      age:           patient.age,
+    });
+
+    // Persist once to MongoDB — all wards read this going forward
+    const updated = await prisma.patient.update({
+      where: { id: patientId },
+      data: {
+        aiPriorityScore:  recommendation.priorityScore,
+        aiRecommendation: serializeRecommendation(recommendation),
+      },
+    });
+
+    return JSON.parse(JSON.stringify({ recommendation, updated }));
+  } catch (error: any) {
+    console.error("❌ AI TRIAGE ERROR:", error.message);
+    throw new Error(error.message || "AI triage analysis failed.");
+  }
+}
+
 export async function getWaitingForTriagePatients() {
   try {
     const patients = await prisma.patient.findMany({
@@ -309,8 +361,8 @@ export async function getWaitingForTriagePatients() {
 
     return JSON.parse(JSON.stringify(patients));
   } catch (error: any) {
-    console.error("❌ DATABASE ERROR:", error.message);
-    throw new Error(error.message || "Failed to fetch triage patients.");
+    console.error("❌ DATABASE ERROR [getWaitingForTriagePatients]:", error.message);
+    return []; // Return empty list so triage queue renders instead of crashing
   }
 }
 
@@ -403,8 +455,8 @@ export async function getPatientQueueStatus(identifier: string) {
       updatedAt: patient.updatedAt
     };
   } catch (error: any) {
-    console.error("❌ DATABASE ERROR:", error.message);
-    throw new Error(error.message || "Failed to fetch patient queue status.");
+    console.error("❌ DATABASE ERROR [getPatientQueueStatus]:", error.message);
+    return null; // Return null so queue status shows graceful "unavailable" state
   }
 }
 
@@ -511,6 +563,18 @@ export async function signInCitizen(identifier: string) {
     if (!patient) {
       return { success: false, error: "Not Found" };
     }
+
+    // Set CITIZEN identity cookies so Sidebar + pages know the viewer role
+    const { cookies } = await import("next/headers");
+    const cookieStore = cookies();
+    const cookieOpts = {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    };
+    cookieStore.set("userRole", "CITIZEN", cookieOpts);
+    cookieStore.set("citizenPatientId", patient.id, cookieOpts);
 
     return { success: true, patientId: patient.id, fullName: patient.fullName };
 
