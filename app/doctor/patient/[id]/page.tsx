@@ -3,7 +3,7 @@ import React from "react";
 import { notFound, redirect } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, User, ClipboardList, PenTool, AlertTriangle, Droplet, ArrowLeft } from "lucide-react";
+import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, User, ClipboardList, PenTool, AlertTriangle, Droplet, ArrowLeft, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -204,6 +204,23 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
             )}
           </CardContent>
         </Card>
+
+        {/* AI At-Home Summary */}
+        {patient.aiSymptomSummary && (
+          <Card className="border-t-4 border-t-purple-500 shadow-md bg-purple-50/30">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-bold text-purple-900 uppercase tracking-wider flex items-center gap-2">
+                <MessageCircle className="w-4 h-4 text-purple-600" />
+                AI At-Home Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-purple-900 leading-relaxed font-medium">
+                {patient.aiSymptomSummary}
+              </p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Doctor Action Toolkit */}
         <Card className="shadow-sm border-slate-200">

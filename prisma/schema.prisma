@@ -132,6 +132,7 @@ model Patient {
   // AI Smart Triage Engine — persisted once, shared across all wards
   aiPriorityScore       Float?   @map("ai_priority_score")   // 0-100
   aiRecommendation      String?  @map("ai_recommendation")   // JSON string
+  aiSymptomSummary      String?  @map("ai_symptom_summary")  // For the Doctor's Command Center
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -144,6 +145,7 @@ model Patient {
   clinicalExam      ClinicalExamination?
   queues            Queue[]
   accessLogs        AccessLog[]
+  journals          PatientJournal[]
 }
 
 model ClinicalExamination {
@@ -289,4 +291,17 @@ model AccessLog {
 
   // Relations
   patient         Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model PatientJournal {
+  id              String   @id @default(uuid()) @map("_id")
+  patientId       String
+  
+  symptoms        String?
+  mood            String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
 }
