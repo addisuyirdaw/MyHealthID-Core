@@ -15,7 +15,7 @@ function isDigitsExact(value: string, len: number) {
   return new RegExp(`^\\d{${len}}$`).test(value);
 }
 
-// Standard Luhn check
+// Standard Luhn (ISO 7812-style). Fayda FIN/FCN are not documented to use Luhn; real cards often fail this check.
 function luhnIsValid(value: string) {
   if (!/^\d+$/.test(value)) return false;
   let sum = 0;
@@ -57,9 +57,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: false, error: "Invalid FCN: must be exactly 16 digits." }, { status: 400 });
     }
 
-    // If check-digit is applicable for pilot IDs, enforce it by default.
-    // You can disable it for a specific environment with FAYDA_LUHN_REQUIRED=false.
-    const luhnRequired = String(process.env.FAYDA_LUHN_REQUIRED ?? "true").toLowerCase() !== "false";
+    // Optional strict mode for synthetic test IDs only. Real Fayda cards should NOT use Luhn.
+    // Set FAYDA_LUHN_REQUIRED=true only if you intentionally generate FIN/FCN pairs that pass Luhn.
+    const luhnRequired = String(process.env.FAYDA_LUHN_REQUIRED ?? "").toLowerCase() === "true";
     if (luhnRequired) {
       if (!luhnIsValid(finRaw) || !luhnIsValid(fcnRaw)) {
         return NextResponse.json({ success: false, error: "Invalid ID: check-digit validation failed." }, { status: 400 });

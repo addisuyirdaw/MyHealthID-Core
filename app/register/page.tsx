@@ -1,15 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { registerPatient } from "@/lib/actions/patient.actions";
+import { checkInToQueue } from "@/lib/actions/queue.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint } from "lucide-react";
+import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanSearch, AlertTriangle } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import dynamic from "next/dynamic";
 import { parseFaydaScanPayload } from "@/lib/fayda-scan";
@@ -59,6 +60,13 @@ export default function RegisterPage() {
   const [scanOpen, setScanOpen] = useState(false);
   const [scanFeedback, setScanFeedback] = useState<ScanFeedback>({ variant: "idle" });
 
+  // OCR cross-check state
+  type OcrStatus = "idle" | "scanning" | "verified" | "mismatch" | "failed" | "skipped";
+  const [ocrStatus, setOcrStatus] = useState<OcrStatus>("idle");
+  const [ocrReason, setOcrReason] = useState("");
+  const lastUploadedFile = useRef<File | null>(null);
+  const isAutoSubmitting = useRef(false);
+
   // Auto-filled Fayda demographics (Golden List / QR payload)
   const [fullName, setFullName] = useState("");
   const [sex, setSex] = useState<string>("");
@@ -74,6 +82,10 @@ export default function RegisterPage() {
     setSex("");
     setDateOfBirth("");
     setNidExistsError("");
+    setOcrStatus("idle");
+    setOcrReason("");
+    lastUploadedFile.current = null;
+    isAutoSubmitting.current = false;
   };
 
   // Smart Triage State
@@ -170,11 +182,7 @@ export default function RegisterPage() {
 
   const verifyFayda = async (fin: string, scannedFcn: string) => {
     setIsVerifying(true);
-    setScanFeedback({
-      variant: "info",
-      title: "Verifying identity",
-      detail: "Checking your FIN + FCN against the Verified Registry (MongoDB Atlas)…",
-    });
+    setScanFeedback({ variant: "info", title: "Verifying identity", detail: "Checking your FIN + FCN against the Verified Registry…" });
     try {
       const res = await fetch("/api/fayda/verify", {
         method: "POST",
@@ -182,33 +190,28 @@ export default function RegisterPage() {
         body: JSON.stringify({ fin, fcn: scannedFcn }),
       });
       const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "Verification failed.");
-      }
+      if (!res.ok || !data?.success) throw new Error(data?.error || "Verification failed.");
 
-      setNationalId(formatFinDigits(fin));
-      setFcn(scannedFcn.replace(/\D/g, "").slice(0, 16));
-      setFullName(data.fullName || "");
-
+      const cleanFcn = scannedFcn.replace(/\D/g, "").slice(0, 16);
       const gender = String(data.gender || "").toLowerCase();
-      if (gender.startsWith("m")) setSex("Male");
-      else if (gender.startsWith("f")) setSex("Female");
-      else setSex("");
-
+      const resolvedSex = gender.startsWith("m") ? "Male" : gender.startsWith("f") ? "Female" : "";
       const dobIso = String(data.dateOfBirth || "");
       const dateOnly = dobIso.includes("T") ? dobIso.split("T")[0] : dobIso;
-      setDateOfBirth(dateOnly);
+      const resolvedName = data.fullName || "";
 
+      setNationalId(formatFinDigits(fin));
+      setFcn(cleanFcn);
+      setFullName(resolvedName);
+      setSex(resolvedSex);
+      setDateOfBirth(dateOnly);
       setIsVerified(true);
       setScanOpen(false);
-      setScanFeedback({ variant: "idle" });
+
+      // Kick off OCR cross-check → auto-submit
+      await runOcrThenAutoSubmit(fin, cleanFcn, resolvedName, resolvedSex, dateOnly);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Verification failed.";
-      setScanFeedback({
-        variant: "error",
-        title: "Verification failed",
-        detail: msg,
-      });
+      setScanFeedback({ variant: "error", title: "Verification failed", detail: msg });
     } finally {
       setIsVerifying(false);
     }
@@ -236,19 +239,85 @@ export default function RegisterPage() {
     await verifyFayda(fin, f);
   };
 
-  const handleDecodedQr = async (text: string) => {
-    setScanFeedback({
-      variant: "info",
-      title: "Code read",
-      detail: "Extracting FIN and FCN from the scan…",
-    });
+  /** Auto-submit: called after OCR step resolves (verified or staff-bypassed). */
+  const triggerAutoSubmit = useCallback(async (patientFullName: string, patientFin: string, patientFcn: string, patientSex: string, patientDob: string) => {
+    if (isAutoSubmitting.current) return;
+    isAutoSubmitting.current = true;
+    setLoading(true);
+    setScanFeedback({ variant: "info", title: "Registering…", detail: "Saving to database and assigning queue token…" });
+    try {
+      const dobDate = patientDob ? new Date(`${patientDob}T00:00:00.000Z`) : undefined;
+      const ageCalc = dobDate ? Math.max(0, new Date().getFullYear() - dobDate.getFullYear()) : 0;
+      const result = await registerPatient({
+        fullName: patientFullName,
+        faydaId: patientFin,
+        fcn: patientFcn,
+        age: ageCalc,
+        sex: patientSex || "Not Specified",
+        dateOfBirth: dobDate,
+        reasonForVisit: "Auto-registered via Fayda QR verification",
+        chiefComplaint: "Pending — registered via Fayda QR",
+        ward: "OPD_OUTPATIENT" as any,
+        triageStatus: "WAITING_FOR_TRIAGE" as any,
+        generateMyHealthId: false,
+      });
+      if (result?.error) {
+        setScanFeedback({ variant: "error", title: "Registration error", detail: result.error });
+        setLoading(false);
+        isAutoSubmitting.current = false;
+        return;
+      }
+      // Auto-enqueue
+      await checkInToQueue(result.id);
+      router.push(`/queue?token=${result.queuePosition ?? 1}&name=${encodeURIComponent(patientFullName)}`);
+    } catch (err: any) {
+      setScanFeedback({ variant: "error", title: "Auto-registration failed", detail: err.message || "Please try again." });
+      setLoading(false);
+      isAutoSubmitting.current = false;
+    }
+  }, [router]);
+
+  /** Run OCR cross-check then auto-submit if match (or skipped). */
+  const runOcrThenAutoSubmit = useCallback(async (fin: string, fcn: string, name: string, sex: string, dob: string) => {
+    const file = lastUploadedFile.current;
+    if (!file) {
+      // No uploaded file (camera scan) — skip OCR, go straight to auto-submit
+      setOcrStatus("skipped");
+      await triggerAutoSubmit(name, fin, fcn, sex, dob);
+      return;
+    }
+    setOcrStatus("scanning");
+    setScanFeedback({ variant: "info", title: "Cross-checking printed card…", detail: "Reading Name and FIN from the card image via OCR…" });
+    try {
+      const { runFaydaOcr, matchOcrVsQr } = await import("@/lib/fayda-ocr");
+      const extract = await runFaydaOcr(file);
+      const matchResult = matchOcrVsQr(extract, fin, name);
+      if (matchResult.match) {
+        setOcrStatus("verified");
+        setOcrReason(matchResult.reason);
+        setScanFeedback({ variant: "success", title: "✅ Card verified", detail: matchResult.reason });
+        await triggerAutoSubmit(name, fin, fcn, sex, dob);
+      } else {
+        setOcrStatus("mismatch");
+        setOcrReason(matchResult.reason);
+        setScanFeedback({ variant: "error", title: "⚠️ Visual Mismatch Detected", detail: matchResult.reason + " A staff member can bypass this check." });
+      }
+    } catch {
+      setOcrStatus("failed");
+      setOcrReason("OCR engine could not load. Use Staff Bypass to continue.");
+      setScanFeedback({ variant: "error", title: "OCR unavailable", detail: "Could not read the card image. Use Staff Bypass below." });
+    }
+  }, [triggerAutoSubmit]);
+
+  const handleDecodedQr = async (text: string, sourceFile?: File) => {
+    if (sourceFile) lastUploadedFile.current = sourceFile;
+    setScanFeedback({ variant: "info", title: "Code read", detail: "Extracting FIN and FCN from the scan…" });
     const parsed = parseFaydaScanPayload(text);
     if (!parsed) {
       setScanFeedback({
         variant: "error",
         title: "Could not parse ID data",
-        detail:
-          "Try brighter light, hold the card flat, scan the back QR or front barcode, or use Upload photo. You can also type FIN + FCN and tap Verify FIN + FCN.",
+        detail: "Try brighter light, hold the card flat, scan the back QR or front barcode, or use Upload photo. You can also type FIN + FCN and tap Verify FIN + FCN.",
       });
       return;
     }
@@ -258,20 +327,12 @@ export default function RegisterPage() {
     }
     if (parsed.kind === "fcn_only") {
       setFcn(parsed.fcn);
-      setScanFeedback({
-        variant: "info",
-        title: "FCN captured",
-        detail: "Enter your 12-digit FIN from the card (or scan the back), then tap Verify FIN + FCN.",
-      });
+      setScanFeedback({ variant: "info", title: "FCN captured", detail: "Enter your 12-digit FIN from the card (or scan the back), then tap Verify FIN + FCN." });
       return;
     }
     if (parsed.kind === "fin_only") {
       setNationalId(formatFinDigits(parsed.fin));
-      setScanFeedback({
-        variant: "info",
-        title: "FIN captured",
-        detail: "Scan the front barcode for FCN or type the 16-digit FCN, then tap Verify FIN + FCN.",
-      });
+      setScanFeedback({ variant: "info", title: "FIN captured", detail: "Scan the front barcode for FCN or type the 16-digit FCN, then tap Verify FIN + FCN." });
     }
   };
 
@@ -394,7 +455,9 @@ export default function RegisterPage() {
         alert(result.error);
         return;
       }
-      router.push(`/patients/${result.id}/success`);
+      // Auto-enqueue and redirect to live queue
+      try { await checkInToQueue(result.id); } catch { /* queue already exists */ }
+      router.push(`/queue?token=${result.queuePosition ?? 1}&name=${encodeURIComponent((formData.get("fullName") as string) || fullName)}`);
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Registration failed. Please try again.");
@@ -671,13 +734,51 @@ export default function RegisterPage() {
                             detail: "Reading data from your Ethiopian National ID…",
                           })
                         }
-                        onDecodedText={handleDecodedQr}
+                        onDecodedText={(text, file) => handleDecodedQr(text, file)}
                         onError={(msg) =>
-                          setScanFeedback({ variant: "error", title: "Scanner error", detail: msg })
+                          setScanFeedback({
+                            variant: "error",
+                            title: "Could not read ID from image",
+                            detail: msg,
+                          })
                         }
                       />
+                      {/* OCR Status Panel */}
+                      {ocrStatus === "scanning" && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-purple-800 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                          <ScanSearch className="w-4 h-4 animate-pulse shrink-0" />
+                          Cross-checking printed Name &amp; FIN via OCR…
+                        </div>
+                      )}
+                      {(ocrStatus === "mismatch" || ocrStatus === "failed") && (
+                        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                          <div className="flex items-start gap-2 text-amber-900">
+                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <div>
+                              <p className="font-semibold">Visual Mismatch Detected</p>
+                              <p className="text-xs mt-0.5 opacity-80">{ocrReason}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setOcrStatus("skipped");
+                              void triggerAutoSubmit(fullName, nationalId.replace(/\s/g, ""), fcn, sex, dateOfBirth);
+                            }}
+                            className="mt-2 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700"
+                          >
+                            Staff Bypass — Register Anyway
+                          </button>
+                        </div>
+                      )}
+                      {ocrStatus === "verified" && (
+                        <div className="mt-3 flex items-center gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                          <CheckCircle2 className="w-4 h-4 shrink-0" />
+                          OCR verified — {ocrReason}
+                        </div>
+                      )}
                       <div className="mt-3 text-xs text-slate-500">
-                        If camera permission is blocked, enable it in your browser settings and retry.
+                        On desktop, use <strong>Upload photo</strong>. The camera is optional; if you use it, allow access when the browser prompts.
                       </div>
                     </div>
                   )}
