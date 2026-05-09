@@ -23,7 +23,8 @@ export async function POST(req: Request) {
         where: {
           OR: [
             { healthId: idToVerify },
-            { nationalId: idToVerify }
+            { nationalId: idToVerify },
+            { faydaId: idToVerify }
           ]
         },
         include: {

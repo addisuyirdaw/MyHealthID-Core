@@ -73,6 +73,8 @@ model Patient {
   healthId          String   @unique
   nationalId        String?  @unique
   faydaId           String?  @unique @map("fayda_id")
+  hospitalId        String?  @unique @map("hospital_id")
+  fcn               String?  @unique @map("fcn")
   internalId        String   @unique @map("internal_id")
   isMinor           Boolean  @default(false)
   guardianId        String?
@@ -146,6 +148,21 @@ model Patient {
   queues            Queue[]
   accessLogs        AccessLog[]
   journals          PatientJournal[]
+}
+
+model VerifiedRegistry {
+  id          String   @id @default(uuid()) @map("_id")
+  fin         String   @unique
+  fcn         String   @unique
+  fullName    String
+  dateOfBirth DateTime
+  gender      String
+
+  // Optional: store source record metadata
+  issuedAt    DateTime?
+  expiresAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model ClinicalExamination {

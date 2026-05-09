@@ -9,9 +9,15 @@ import { TriageStatus, Ward } from "@prisma/client";
 
 export async function registerPatient(data: {
   fullName: string;
-  nationalId: string;
+  // NOTE: For Fayda path, pass `faydaId` (FIN). For no-id path, pass `hospitalId`.
+  // `nationalId` is kept for backwards compatibility with older callers.
+  faydaId?: string;
+  hospitalId?: string;
+  nationalId?: string;
+  fcn?: string;
   age: number;
   sex: string;
+  dateOfBirth?: Date;
   reasonForVisit: string;
   ward: Ward;
   triageStatus?: TriageStatus;
@@ -41,7 +47,7 @@ export async function registerPatient(data: {
 }) {
   try {
     const { 
-      fullName, nationalId, age, sex, reasonForVisit, ward, 
+      fullName, faydaId, hospitalId, nationalId, fcn, age, sex, dateOfBirth, reasonForVisit, ward, 
       triageStatus = "WAITING_FOR_TRIAGE", 
       religion, occupation, maritalStatus, educationalStatus,
       addressRegion, addressZone, addressWoreda, addressKebele,
@@ -51,7 +57,9 @@ export async function registerPatient(data: {
     } = data;
 
     const healthId = generateHealthId();
-    let idValue = nationalId ? String(nationalId).trim() : null;
+    let idValue = (faydaId ?? hospitalId ?? nationalId) ? String(faydaId ?? hospitalId ?? nationalId).trim() : null;
+    const isFaydaUser = Boolean(faydaId || (nationalId && /^\d{12,16}$/.test(nationalId)));
+    const isNoIdUser = Boolean(hospitalId && !isFaydaUser);
 
     if (isMinor) {
       if (!parentFaydaId) {
@@ -62,11 +70,12 @@ export async function registerPatient(data: {
       }
     }
 
-    // Ethiopian ID Validation (only for Fayda IDs, not CH- generated IDs)
-    if (idValue !== null && !idValue.startsWith("CH-")) {
+    // Ethiopian ID Validation (only for numeric Fayda IDs, not hospital-generated IDs like DBH-*)
+    if (idValue !== null && isFaydaUser) {
       z.string()
+        .regex(/^\d+$/, { message: "Fayda ID must contain digits only." })
         .refine((val) => val.length === 12 || val.length === 16, {
-          message: "National ID must be 16 (FCN) or 12 (FIN) digits.",
+          message: "Fayda ID must be 12 (FIN) or 16 (FCN) digits.",
         })
         .parse(idValue);
     }
@@ -90,6 +99,7 @@ export async function registerPatient(data: {
       fullName: fullName || "Unknown",
       age: Math.max(0, age || 0),
       sex: sex || "Not Specified",
+      dateOfBirth: dateOfBirth || null,
       ward: ward,
       triageStatus: triageStatus,
       reasonForVisit: reasonForVisit || "",
@@ -116,7 +126,12 @@ export async function registerPatient(data: {
       guardianId: guardianId || null,
       parentFaydaId: parentFaydaId || null,
       internalId: internalId,
-      faydaId: idValue && !idValue.startsWith("CH-") ? idValue : null,
+      // Primary identifier routing:
+      // - Fayda users: store FIN/FCN in `faydaId` (primary)
+      // - No-ID users: store generated hospital id in `hospitalId`
+      faydaId: isFaydaUser ? idValue : null,
+      hospitalId: isNoIdUser ? idValue : null,
+      fcn: fcn ? String(fcn).trim() : null,
     };
 
     const vitalsData = bp || pulse || temp || spO2 ? {
@@ -132,13 +147,21 @@ export async function registerPatient(data: {
     let patient;
 
     if (idValue !== null) {
-      const existing = await prisma.patient.findUnique({ where: { nationalId: idValue } });
+      const existing = await prisma.patient.findFirst({
+        where: {
+          OR: [
+            { nationalId: idValue },
+            { faydaId: idValue },
+            { hospitalId: idValue },
+          ]
+        }
+      });
       if (existing) {
         if (existing.fullName !== "Pending Registration" && !existing.healthId.startsWith("TMP-")) {
             throw new Error("This National ID is already registered.");
         }
         patient = await prisma.patient.update({
-          where: { nationalId: idValue },
+          where: { id: existing.id },
           data: {
             ...patientData,
             healthId: healthId, // Overwrite the temporary TMP health ID from OTP step
@@ -151,7 +174,8 @@ export async function registerPatient(data: {
           data: {
             ...patientData,
             healthId: healthId,
-            nationalId: idValue,
+            // Keep `nationalId` only for legacy flows; Fayda/No-ID should not depend on it.
+            nationalId: data.nationalId ? String(data.nationalId).trim() : null,
             vitals: vitalsData,
           },
           include: { vitals: true }

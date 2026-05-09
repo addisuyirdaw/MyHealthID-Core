@@ -12,7 +12,11 @@ export async function GET(request: Request) {
   try {
     const patient = await prisma.patient.findFirst({
       where: {
-        nationalId: nid
+        OR: [
+          { nationalId: nid },
+          { faydaId: nid },
+          { hospitalId: nid },
+        ]
       }
     });
 
