@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { randomBytes } from "crypto"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -23,4 +24,20 @@ export function generateChildId(): string {
   const year = new Date().getFullYear();
   const randomStr = Math.random().toString(36).substring(2, 6).toUpperCase();
   return `CH-${year}-${randomStr}`;
+}
+
+/** Public-facing ID for citizens without a national ID: MHID- + 6 chars (Crockford-style alphabet). */
+const MHID_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+export function generateMhidSuffix(): string {
+  const bytes = randomBytes(6);
+  let out = "";
+  for (let i = 0; i < 6; i++) {
+    out += MHID_ALPHABET[bytes[i]! % MHID_ALPHABET.length]!;
+  }
+  return out;
+}
+
+export function formatMyHealthPublicId(suffix: string): string {
+  return `MHID-${suffix}`;
 }

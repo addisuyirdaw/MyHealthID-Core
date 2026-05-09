@@ -1,18 +1,31 @@
 "use server";
 
 import prisma from "@/lib/prisma";
-import { generateHealthId, generateChildId } from "../utils";
+import { generateHealthId, generateChildId, generateMhidSuffix, formatMyHealthPublicId } from "../utils";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 
 import { TriageStatus, Ward } from "@prisma/client";
 
+async function allocateUniqueMhid(): Promise<string> {
+  for (let attempt = 0; attempt < 16; attempt++) {
+    const candidate = formatMyHealthPublicId(generateMhidSuffix());
+    const clash = await prisma.patient.findFirst({
+      where: { OR: [{ hospitalId: candidate }, { healthId: candidate }, { internalId: candidate }] },
+    });
+    if (!clash) return candidate;
+  }
+  throw new Error("Could not allocate a unique MyHealth ID. Please try again.");
+}
+
 export async function registerPatient(data: {
   fullName: string;
-  // NOTE: For Fayda path, pass `faydaId` (FIN). For no-id path, pass `hospitalId`.
-  // `nationalId` is kept for backwards compatibility with older callers.
+  // NOTE: For Fayda path, pass `faydaId` (FIN). For no-id path, set `generateMyHealthId: true` (server assigns MHID-XXXXXX).
+  // Legacy: optional `hospitalId` from client (discouraged).
   faydaId?: string;
   hospitalId?: string;
+  /** When true, server generates a unique MHID-XXXXXX and stores it on `hospitalId`. */
+  generateMyHealthId?: boolean;
   nationalId?: string;
   fcn?: string;
   age: number;
@@ -47,7 +60,7 @@ export async function registerPatient(data: {
 }) {
   try {
     const { 
-      fullName, faydaId, hospitalId, nationalId, fcn, age, sex, dateOfBirth, reasonForVisit, ward, 
+      fullName, faydaId, hospitalId, generateMyHealthId, nationalId, fcn, age, sex, dateOfBirth, reasonForVisit, ward, 
       triageStatus = "WAITING_FOR_TRIAGE", 
       religion, occupation, maritalStatus, educationalStatus,
       addressRegion, addressZone, addressWoreda, addressKebele,
@@ -57,9 +70,27 @@ export async function registerPatient(data: {
     } = data;
 
     const healthId = generateHealthId();
-    let idValue = (faydaId ?? hospitalId ?? nationalId) ? String(faydaId ?? hospitalId ?? nationalId).trim() : null;
-    const isFaydaUser = Boolean(faydaId || (nationalId && /^\d{12,16}$/.test(nationalId)));
-    const isNoIdUser = Boolean(hospitalId && !isFaydaUser);
+
+    const nationalDigits = nationalId ? String(nationalId).replace(/\D/g, "") : "";
+    const isFaydaUser = Boolean(
+      faydaId || (nationalDigits.length === 12 || nationalDigits.length === 16)
+    );
+
+    let idValue: string | null = null;
+    let isNoIdUser = false;
+
+    if (generateMyHealthId) {
+      if (faydaId || fcn) {
+        throw new Error("Cannot mix Fayda verification fields with a generated MyHealth ID.");
+      }
+      idValue = await allocateUniqueMhid();
+      isNoIdUser = true;
+    } else {
+      idValue = (faydaId ?? hospitalId ?? nationalId) ? String(faydaId ?? hospitalId ?? nationalId).trim() : null;
+      isNoIdUser = Boolean(hospitalId && !isFaydaUser);
+    }
+
+    const isFaydaForRecord = !generateMyHealthId && isFaydaUser;
 
     if (isMinor) {
       if (!parentFaydaId) {
@@ -70,8 +101,8 @@ export async function registerPatient(data: {
       }
     }
 
-    // Ethiopian ID Validation (only for numeric Fayda IDs, not hospital-generated IDs like DBH-*)
-    if (idValue !== null && isFaydaUser) {
+    // Ethiopian ID Validation (only for numeric Fayda FIN, not MHID-* / legacy hospital IDs)
+    if (idValue !== null && isFaydaForRecord) {
       z.string()
         .regex(/^\d+$/, { message: "Fayda ID must contain digits only." })
         .refine((val) => val.length === 12 || val.length === 16, {
@@ -127,11 +158,11 @@ export async function registerPatient(data: {
       parentFaydaId: parentFaydaId || null,
       internalId: internalId,
       // Primary identifier routing:
-      // - Fayda users: store FIN/FCN in `faydaId` (primary)
-      // - No-ID users: store generated hospital id in `hospitalId`
-      faydaId: isFaydaUser ? idValue : null,
+      // - Fayda users: store FIN in `faydaId` (primary)
+      // - No national ID: store server-generated `MHID-XXXXXX` in `hospitalId`
+      faydaId: isFaydaForRecord ? idValue : null,
       hospitalId: isNoIdUser ? idValue : null,
-      fcn: fcn ? String(fcn).trim() : null,
+      fcn: generateMyHealthId ? null : fcn ? String(fcn).trim() : null,
     };
 
     const vitalsData = bp || pulse || temp || spO2 ? {
@@ -463,6 +494,8 @@ export async function getPatientQueueStatus(identifier: string) {
         OR: [
           { healthId: identifier },
           { nationalId: identifier },
+          { faydaId: identifier },
+          { hospitalId: identifier },
           { phoneNumber: identifier },
         ]
       },
@@ -574,6 +607,7 @@ export async function signInCitizen(identifier: string) {
         OR: [
           { nationalId: cleanId },
           { faydaId: cleanId },
+          { hospitalId: cleanId },
           { healthId: cleanId },
           { internalId: cleanId }
         ]

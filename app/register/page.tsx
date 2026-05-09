@@ -12,27 +12,24 @@ import { Label } from "@/components/ui/label";
 import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import dynamic from "next/dynamic";
+import { parseFaydaScanPayload } from "@/lib/fayda-scan";
 
 const FaydaQrScanner = dynamic(
   () => import("@/components/FaydaQrScanner").then((m) => m.FaydaQrScanner),
   { ssr: false }
 );
 
-function extractFinFcn(payload: string) {
-  const digits = payload.replace(/\s/g, "");
-
-  // Prefer explicit labels if present.
-  const finLabel = payload.match(/FIN\D*(\d{12})/i)?.[1];
-  const fcnLabel = payload.match(/FCN\D*(\d{16})/i)?.[1];
-  if (finLabel && fcnLabel) return { fin: finLabel, fcn: fcnLabel };
-
-  // Fallback: find any 12-digit and 16-digit sequences.
-  const fin = digits.match(/(\d{12})/)?.[1];
-  const fcn = digits.match(/(\d{16})/)?.[1];
-
-  if (fin && fcn) return { fin, fcn };
-  return null;
+function formatFinDigits(raw: string) {
+  const val = raw.replace(/\D/g, "").substring(0, 12);
+  let formatted = val;
+  if (formatted.length > 4) formatted = formatted.substring(0, 4) + " " + formatted.substring(4);
+  if (formatted.length > 9) formatted = formatted.substring(0, 9) + " " + formatted.substring(9);
+  return formatted;
 }
+
+type ScanFeedback =
+  | { variant: "idle" }
+  | { variant: "info" | "success" | "error"; title: string; detail?: string };
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -42,7 +39,8 @@ export default function RegisterPage() {
 
   // Identity Bridge State
   const [identityMode, setIdentityMode] = useState<"FAYDA" | "NO_ID" | null>(null);
-  const allowNoId = String(process.env.NEXT_PUBLIC_ALLOW_NO_ID ?? "").toLowerCase() === "true";
+  // No-ID path is on by default (server-generated MHID-XXXXXX). Set NEXT_PUBLIC_ALLOW_NO_ID=false to hide it only.
+  const allowNoId = String(process.env.NEXT_PUBLIC_ALLOW_NO_ID ?? "true").toLowerCase() !== "false";
 
   // Phase 11 State
   const [email, setEmail] = useState("");
@@ -59,6 +57,7 @@ export default function RegisterPage() {
   const [sendingSms, setSendingSms] = useState(false);
   const [countdown, setCountdown] = useState(0);
   const [scanOpen, setScanOpen] = useState(false);
+  const [scanFeedback, setScanFeedback] = useState<ScanFeedback>({ variant: "idle" });
 
   // Auto-filled Fayda demographics (Golden List / QR payload)
   const [fullName, setFullName] = useState("");
@@ -70,6 +69,7 @@ export default function RegisterPage() {
     setFcn("");
     setIsVerified(false);
     setScanOpen(false);
+    setScanFeedback({ variant: "idle" });
     setFullName("");
     setSex("");
     setDateOfBirth("");
@@ -148,6 +148,7 @@ export default function RegisterPage() {
     setIsVerified(false);
     setNidExistsError("");
     setFcn("");
+    setScanFeedback({ variant: "idle" });
   };
 
   const handleNidBlur = async () => {
@@ -169,6 +170,11 @@ export default function RegisterPage() {
 
   const verifyFayda = async (fin: string, scannedFcn: string) => {
     setIsVerifying(true);
+    setScanFeedback({
+      variant: "info",
+      title: "Verifying identity",
+      detail: "Checking your FIN + FCN against the Verified Registry (MongoDB Atlas)…",
+    });
     try {
       const res = await fetch("/api/fayda/verify", {
         method: "POST",
@@ -180,9 +186,8 @@ export default function RegisterPage() {
         throw new Error(data?.error || "Verification failed.");
       }
 
-      // Lock identity to verified FIN
-      setNationalId(fin);
-      setFcn(scannedFcn);
+      setNationalId(formatFinDigits(fin));
+      setFcn(scannedFcn.replace(/\D/g, "").slice(0, 16));
       setFullName(data.fullName || "");
 
       const gender = String(data.gender || "").toLowerCase();
@@ -196,18 +201,78 @@ export default function RegisterPage() {
 
       setIsVerified(true);
       setScanOpen(false);
+      setScanFeedback({ variant: "idle" });
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Verification failed.";
+      setScanFeedback({
+        variant: "error",
+        title: "Verification failed",
+        detail: msg,
+      });
     } finally {
       setIsVerifying(false);
     }
   };
 
-  const handleDecodedQr = async (text: string) => {
-    const extracted = extractFinFcn(text);
-    if (!extracted) {
-      alert("Could not extract FIN/FCN from the QR. Please rescan.");
+  const verifyManualFayda = async () => {
+    const fin = nationalId.replace(/\s/g, "");
+    const f = fcn.replace(/\s/g, "");
+    if (fin.length !== 12) {
+      setScanFeedback({
+        variant: "error",
+        title: "Missing FIN",
+        detail: "Enter the 12-digit FIN printed on the back of your Fayda card.",
+      });
       return;
     }
-    await verifyFayda(extracted.fin, extracted.fcn);
+    if (f.length !== 16) {
+      setScanFeedback({
+        variant: "error",
+        title: "Missing FCN",
+        detail: "Enter or scan the 16-digit FCN from the front barcode.",
+      });
+      return;
+    }
+    await verifyFayda(fin, f);
+  };
+
+  const handleDecodedQr = async (text: string) => {
+    setScanFeedback({
+      variant: "info",
+      title: "Code read",
+      detail: "Extracting FIN and FCN from the scan…",
+    });
+    const parsed = parseFaydaScanPayload(text);
+    if (!parsed) {
+      setScanFeedback({
+        variant: "error",
+        title: "Could not parse ID data",
+        detail:
+          "Try brighter light, hold the card flat, scan the back QR or front barcode, or use Upload photo. You can also type FIN + FCN and tap Verify FIN + FCN.",
+      });
+      return;
+    }
+    if (parsed.kind === "pair") {
+      await verifyFayda(parsed.fin, parsed.fcn);
+      return;
+    }
+    if (parsed.kind === "fcn_only") {
+      setFcn(parsed.fcn);
+      setScanFeedback({
+        variant: "info",
+        title: "FCN captured",
+        detail: "Enter your 12-digit FIN from the card (or scan the back), then tap Verify FIN + FCN.",
+      });
+      return;
+    }
+    if (parsed.kind === "fin_only") {
+      setNationalId(formatFinDigits(parsed.fin));
+      setScanFeedback({
+        variant: "info",
+        title: "FIN captured",
+        detail: "Scan the front barcode for FCN or type the 16-digit FCN, then tap Verify FIN + FCN.",
+      });
+    }
   };
 
   const handleSendCode = async () => {
@@ -290,19 +355,10 @@ export default function RegisterPage() {
       return;
     }
 
-    if (identityMode === "NO_ID" && !allowNoId) {
-      alert("Registration requires a verified Fayda ID for this pilot.");
-      setLoading(false);
-      isSubmitting.current = false;
-      return;
-    }
-
-    const generatedHospitalId = identityMode === "NO_ID" ? `DBH-${Date.now()}` : undefined;
-
     const data: any = {
       fullName: (formData.get("fullName") as string) || fullName,
       faydaId: identityMode === "FAYDA" ? (nationalIdVal || undefined) : undefined,
-      hospitalId: identityMode === "NO_ID" ? generatedHospitalId : undefined,
+      generateMyHealthId: identityMode === "NO_ID",
       fcn: identityMode === "FAYDA" ? (fcn || undefined) : undefined,
       dateOfBirth: dateOfBirth ? new Date(`${dateOfBirth}T00:00:00.000Z`) : undefined,
       age: Math.max(0, parseInt(formData.get("age") as string, 10) || 0),
@@ -400,7 +456,7 @@ export default function RegisterPage() {
                       <p className="text-xs text-blue-600 mt-0.5">{t.registration.faydaIdDesc}</p>
                     </div>
                   </button>
-                  {allowNoId && (
+                  {allowNoId ? (
                     <button
                       type="button"
                       onClick={() => { resetIdentityState(); setIdentityMode("NO_ID"); setIsVerified(true); }}
@@ -414,6 +470,10 @@ export default function RegisterPage() {
                         <p className="text-xs text-slate-500 group-hover:text-emerald-600 mt-0.5">{t.registration.noIdDesc}</p>
                       </div>
                     </button>
+                  ) : (
+                    <div className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 text-center text-xs text-slate-500">
+                      <p>No-ID registration is disabled for this deployment.</p>
+                    </div>
                   )}
                 </div>
               </div>
@@ -533,13 +593,44 @@ export default function RegisterPage() {
                     />
                     <Button
                       type="button"
-                      onClick={() => setScanOpen(true)}
+                      onClick={() => {
+                        setScanFeedback({ variant: "idle" });
+                        setScanOpen(true);
+                      }}
                       disabled={isVerified || isVerifying}
                       className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
                     >
-                      {isVerifying ? "Verifying..." : "Scan QR"}
+                      {isVerifying ? "Verifying..." : "Scan card"}
                     </Button>
                   </div>
+
+                  {identityMode === "FAYDA" && !isVerified && (
+                    <div className="flex flex-wrap gap-2 mt-2">
+                      <Button type="button" variant="outline" size="sm" onClick={verifyManualFayda} disabled={isVerifying}>
+                        Verify FIN + FCN
+                      </Button>
+                      <span className="text-xs text-slate-500 self-center">
+                        Use after typing or scanning both numbers (Golden List / pilot registry must include your pair).
+                      </span>
+                    </div>
+                  )}
+
+                  {identityMode === "FAYDA" && !isVerified && !scanOpen && scanFeedback.variant !== "idle" && (
+                    <div
+                      className={`mt-3 rounded-lg border p-3 text-sm ${
+                        scanFeedback.variant === "success"
+                          ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                          : scanFeedback.variant === "error"
+                            ? "border-red-200 bg-red-50 text-red-900"
+                            : "border-blue-200 bg-blue-50 text-blue-900"
+                      }`}
+                    >
+                      <p className="font-semibold">{scanFeedback.title}</p>
+                      {scanFeedback.detail && (
+                        <p className="mt-1 text-xs opacity-90">{scanFeedback.detail}</p>
+                      )}
+                    </div>
+                  )}
 
                   {scanOpen && !isVerified && (
                     <div className="mt-3 p-4 rounded-xl border border-slate-200 bg-white">
@@ -556,9 +647,34 @@ export default function RegisterPage() {
                           Close
                         </button>
                       </div>
+                      {scanFeedback.variant !== "idle" && (
+                        <div
+                          className={`mb-3 rounded-lg border p-3 text-sm ${
+                            scanFeedback.variant === "success"
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                              : scanFeedback.variant === "error"
+                                ? "border-red-200 bg-red-50 text-red-900"
+                                : "border-blue-200 bg-blue-50 text-blue-900"
+                          }`}
+                        >
+                          <p className="font-semibold">{scanFeedback.title}</p>
+                          {scanFeedback.detail && (
+                            <p className="mt-1 text-xs opacity-90">{scanFeedback.detail}</p>
+                          )}
+                        </div>
+                      )}
                       <FaydaQrScanner
+                        onCodeRead={() =>
+                          setScanFeedback({
+                            variant: "info",
+                            title: "Code detected",
+                            detail: "Reading data from your Ethiopian National ID…",
+                          })
+                        }
                         onDecodedText={handleDecodedQr}
-                        onError={(msg) => alert(msg)}
+                        onError={(msg) =>
+                          setScanFeedback({ variant: "error", title: "Scanner error", detail: msg })
+                        }
                       />
                       <div className="mt-3 text-xs text-slate-500">
                         If camera permission is blocked, enable it in your browser settings and retry.
@@ -573,9 +689,14 @@ export default function RegisterPage() {
                   )}
 
                   {isVerified && nationalId && (
-                    <div className="text-sm text-green-600 flex items-center mt-1">
-                      <CheckCircle2 className="w-4 h-4 mr-1" />
-                      Fayda ID Verified (Golden List)
+                    <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/80 p-3 text-sm text-emerald-900">
+                      <div className="flex items-center font-semibold text-emerald-800">
+                        <CheckCircle2 className="w-4 h-4 mr-2 shrink-0" />
+                        Verification successful
+                      </div>
+                      <p className="mt-1 pl-6 text-xs text-emerald-800/90">
+                        Your Fayda FIN matched the Verified Registry. Name, date of birth, and sex were filled in automatically.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -589,7 +710,7 @@ export default function RegisterPage() {
                     Manual Registration (No National ID)
                   </div>
                   <div className="text-xs text-emerald-800">
-                    A Hospital ID will be generated automatically upon submission.
+                    A unique <strong>MyHealth ID</strong> (<code className="text-emerald-900">MHID-XXXXXX</code>) will be created securely on the server when you submit.
                   </div>
                 </div>
               )}
@@ -619,7 +740,7 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className={identityMode === "FAYDA" ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}>
                 <div className="space-y-2">
                   <Label htmlFor="dateOfBirth">Date of Birth</Label>
                   <Input
@@ -632,17 +753,20 @@ export default function RegisterPage() {
                     required
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="fcn">FCN (Auto-filled)</Label>
-                  <Input
-                    id="fcn"
-                    name="fcn"
-                    value={fcn}
-                    disabled
-                    placeholder="Scan QR to fill FCN"
-                    className="bg-slate-50"
-                  />
-                </div>
+                {identityMode === "FAYDA" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="fcn">FCN (scan or type)</Label>
+                    <Input
+                      id="fcn"
+                      name="fcn"
+                      value={fcn}
+                      disabled={isVerified}
+                      onChange={(e) => setFcn(e.target.value.replace(/\D/g, "").slice(0, 16))}
+                      placeholder="16-digit FCN (front barcode)"
+                      className={isVerified ? "bg-slate-50" : ""}
+                    />
+                  </div>
+                )}
               </div>
               
               <div className="grid grid-cols-2 gap-4">

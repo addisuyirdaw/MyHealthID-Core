@@ -24,7 +24,8 @@ export async function POST(req: Request) {
           OR: [
             { healthId: idToVerify },
             { nationalId: idToVerify },
-            { faydaId: idToVerify }
+            { faydaId: idToVerify },
+            { hospitalId: idToVerify },
           ]
         },
         include: {
