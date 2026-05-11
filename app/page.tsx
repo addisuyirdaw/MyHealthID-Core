@@ -4,11 +4,8 @@ import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, ShieldCheck, Activity, Users, Stethoscope, User } from "lucide-react";
 import { LocalizedText } from "@/components/LocalizedText";
-<<<<<<< HEAD
 import { LogoIcon } from "@/components/LogoIcon";
-=======
 import { CitizenPassportLookup } from "@/components/CitizenPassportLookup";
->>>>>>> 52506f7 (final doctor and triage updates)
 
 export default async function Home() {
   let patientCount = 0;

@@ -14,13 +14,10 @@ import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanS
 import { useLanguage } from "@/components/LanguageProvider";
 import dynamic from "next/dynamic";
 import { parseFaydaScanPayload } from "@/lib/fayda-scan";
-<<<<<<< HEAD
 import { FrontIdCapture } from "@/components/FrontIdCapture";
 import { LogoIcon } from "@/components/LogoIcon";
-=======
 import { ChiefComplaintPicker } from "@/components/ChiefComplaintPicker";
 import { findTriageComplaintByLabel } from "@/lib/triage/triageList";
->>>>>>> 52506f7 (final doctor and triage updates)
 
 const FaydaQrScanner = dynamic(
   () => import("@/components/FaydaQrScanner").then((m) => m.FaydaQrScanner),
