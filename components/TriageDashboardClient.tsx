@@ -57,9 +57,11 @@ export default function TriageDashboardClient({ initialPatients }: { initialPati
   const redFlag = parseFloat(temp) >= RED_FLAG_TEMP;
 
   // ── Derived ──────────────────────────────────────────────────────────────────
-  const filteredPatients = patients.filter(p =>
-    p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.healthId.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredPatients = patients.filter(
+    (p) =>
+      p.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.healthId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (p.chiefComplaint && String(p.chiefComplaint).toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const selectedPatient = patients.find(p => p.id === selectedPatientId);
@@ -176,14 +178,23 @@ export default function TriageDashboardClient({ initialPatients }: { initialPati
           ) : (
             filteredPatients.map((patient) => {
               const isSelected = patient.id === selectedPatientId;
+              const latestScreen = patient.screenings?.[0];
+              const urgentRow =
+                patient.emergencyFlag === true ||
+                patient.triageStatus === "RED" ||
+                patient.ward === "EMERGENCY";
               return (
                 <button
                   key={patient.id}
                   onClick={() => handlePatientSelect(patient.id)}
                   className={`w-full text-left p-4 rounded-xl border transition-all duration-200 relative overflow-hidden ${
+                    urgentRow && !isSelected ? "ring-2 ring-red-500/50 border-red-900/40 bg-red-950/25" : ""
+                  } ${
                     isSelected
                       ? "bg-neutral-800/80 border-cyan-500/50 shadow-[0_0_20px_rgba(34,211,238,0.06)]"
-                      : "bg-neutral-900/40 border-neutral-800/60 hover:bg-neutral-800/40 hover:border-neutral-700"
+                      : urgentRow
+                        ? ""
+                        : "bg-neutral-900/40 border-neutral-800/60 hover:bg-neutral-800/40 hover:border-neutral-700"
                   }`}
                 >
                   {patient.emergencyFlag && (
@@ -193,14 +204,31 @@ export default function TriageDashboardClient({ initialPatients }: { initialPati
                   )}
                   <div className="font-medium text-sm text-neutral-100">{patient.fullName}</div>
                   <div className="text-xs text-neutral-500 font-mono mt-0.5">{patient.healthId}</div>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-neutral-500">
+                  <div className="mt-2 flex items-center gap-3 text-xs text-neutral-500 flex-wrap">
+                    {latestScreen?.triageResult && (
+                      <span
+                        className={`shrink-0 font-bold px-2 py-0.5 rounded-md border ${
+                          latestScreen.triageResult === "RED"
+                            ? "bg-rose-500/15 border-rose-500/40 text-rose-300"
+                            : latestScreen.triageResult === "YELLOW"
+                              ? "bg-amber-500/15 border-amber-500/40 text-amber-200"
+                              : "bg-emerald-500/15 border-emerald-500/40 text-emerald-300"
+                        }`}
+                      >
+                        Screen: {latestScreen.triageResult}
+                        {latestScreen.screeningType ? ` · ${latestScreen.screeningType}` : ""}
+                      </span>
+                    )}
                     <span className="flex items-center gap-1">
                       <Clock className="w-3 h-3" />
                       {new Date(patient.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                     </span>
-                    <span className="flex items-center gap-1 truncate max-w-[160px]">
-                      <AlertTriangle className="w-3 h-3 text-orange-400/70 shrink-0" />
-                      {patient.chiefComplaint || "No complaint"}
+                    <span className="flex flex-col items-start gap-0.5 min-w-0 flex-1">
+                      <span className="text-[10px] uppercase tracking-wide text-cyan-500/90 font-semibold">Chief complaint</span>
+                      <span className="flex items-center gap-1 text-neutral-200 font-medium">
+                        <AlertTriangle className={`w-3 h-3 shrink-0 ${urgentRow ? "text-red-400" : "text-orange-400/70"}`} />
+                        <span className="truncate">{patient.chiefComplaint || "No complaint"}</span>
+                      </span>
                     </span>
                   </div>
                 </button>

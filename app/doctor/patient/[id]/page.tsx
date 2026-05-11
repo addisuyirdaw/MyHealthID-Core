@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import React from "react";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, User, ClipboardList, PenTool, AlertTriangle, Droplet, ArrowLeft, MessageCircle } from "lucide-react";
@@ -128,10 +128,16 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 flex flex-col gap-6">
       
       {/* Header Actions */}
-      <div className="flex justify-between items-center w-full">
+      <div className="flex flex-wrap justify-between items-center w-full gap-3">
         <Link href="/doctor/search">
           <Button variant="outline" className="text-slate-600 bg-white shadow-sm border-slate-200 hover:bg-slate-100">
             <ArrowLeft className="w-4 h-4 mr-2" /> Back to Search
+          </Button>
+        </Link>
+        <Link href={`/manage/${patient.id}`}>
+          <Button className="bg-emerald-700 hover:bg-emerald-600 text-white shadow-sm">
+            <ClipboardList className="w-4 h-4 mr-2" />
+            EMR Manage Workspace
           </Button>
         </Link>
       </div>

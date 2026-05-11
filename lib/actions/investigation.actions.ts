@@ -24,6 +24,8 @@ export async function createLabOrder(data: {
     });
     revalidatePath("/dashboard");
     revalidatePath("/lab");
+    revalidatePath(`/manage/${data.patientId}`);
+    revalidatePath(`/doctor/patient/${data.patientId}`);
     return JSON.parse(JSON.stringify(investigation));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR: Failed to order investigation", error.message);
@@ -91,6 +93,8 @@ export async function updateLabResult(data: {
 
     revalidatePath("/dashboard");
     revalidatePath("/lab");
+    revalidatePath(`/manage/${p.id}`);
+    revalidatePath(`/doctor/patient/${p.id}`);
     return JSON.parse(JSON.stringify(investigation));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR: Failed to submit result", error.message);

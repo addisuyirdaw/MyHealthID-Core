@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createReferral } from "@/lib/actions/referral.actions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -8,6 +9,7 @@ import { Send, CheckCircle2 } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 export function ReferModal({ patientId, patientName }: { patientId: string, patientName: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -29,6 +31,7 @@ export function ReferModal({ patientId, patientName }: { patientId: string, pati
         destinationFacility,
         reason,
       });
+      router.refresh();
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);

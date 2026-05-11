@@ -1,11 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
 import { generateHealthId, generateChildId, generateMhidSuffix, formatMyHealthPublicId } from "../utils";
 import { randomUUID } from "crypto";
 import { z } from "zod";
 
 import { TriageStatus, Ward } from "@prisma/client";
+import { upsertVerifiedCitizenFromRegistration } from "@/lib/actions/verifiedCitizen.actions";
 
 async function allocateUniqueMhid(): Promise<string> {
   for (let attempt = 0; attempt < 16; attempt++) {
@@ -57,6 +59,8 @@ export async function registerPatient(data: {
   isMinor?: boolean;
   guardianId?: string;
   parentFaydaId?: string;
+  /** When true, patient is flagged as urgent intake (e.g. emergency chief complaint). */
+  emergencyFlag?: boolean;
 }) {
   try {
     const { 
@@ -126,6 +130,14 @@ export async function registerPatient(data: {
     const nextQueuePosition = (maxQueue._max?.queuePosition ?? 0) + 1;
     const estimatedWaitTime = nextQueuePosition * 15;
 
+    const nationalDigitsOnly = data.nationalId ? String(data.nationalId).replace(/\D/g, "") : "";
+    const nationalForRecord =
+      nationalDigitsOnly.length >= 9
+        ? nationalDigitsOnly
+        : isFaydaForRecord && idValue
+          ? String(idValue).replace(/\D/g, "")
+          : null;
+
     const patientData = {
       fullName: fullName || "Unknown",
       age: Math.max(0, age || 0),
@@ -134,7 +146,11 @@ export async function registerPatient(data: {
       ward: ward,
       triageStatus: triageStatus,
       reasonForVisit: reasonForVisit || "",
-      emergencyFlag: triageStatus === 'RED',
+      nationalId: nationalForRecord,
+      emergencyFlag:
+        Boolean(data.emergencyFlag) ||
+        triageStatus === "RED" ||
+        ward === Ward.EMERGENCY,
       religion: religion || "Not Specified",
       occupation: occupation || "Not Specified",
       maritalStatus: maritalStatus || "Not Specified",
@@ -205,8 +221,6 @@ export async function registerPatient(data: {
           data: {
             ...patientData,
             healthId: healthId,
-            // Keep `nationalId` only for legacy flows; Fayda/No-ID should not depend on it.
-            nationalId: data.nationalId ? String(data.nationalId).trim() : null,
             vitals: vitalsData,
           },
           include: { vitals: true }
@@ -221,6 +235,16 @@ export async function registerPatient(data: {
         },
         include: { vitals: true }
       });
+    }
+
+    try {
+      await upsertVerifiedCitizenFromRegistration({
+        nationalFin: patient.faydaId ?? patient.nationalId,
+        phoneRaw: phoneNumber ?? null,
+        fullName: patient.fullName,
+      });
+    } catch (e) {
+      console.error("[VerifiedCitizen] upsert failed:", e);
     }
 
     return JSON.parse(JSON.stringify(patient));
@@ -327,19 +351,38 @@ export async function recordVitals(data: {
   bp: string;
   temp: number;
   pulse: number;
-  weight?: number; // Not saved in standard schema but collected in UI
+  weight?: number;
+  rr?: number;
+  spO2?: number;
+  weightKg?: number;
+  heightCm?: number;
+  painLevel?: number;
 }) {
   try {
+    let bmi: number | undefined;
+    const w = data.weightKg ?? data.weight;
+    if (w != null && data.heightCm != null && data.heightCm > 0) {
+      const m = data.heightCm / 100;
+      bmi = Math.round((w / (m * m)) * 10) / 10;
+    }
+
     const vitals = await prisma.vitals.create({
       data: {
         patientId: data.patientId,
         bp: data.bp,
         temp: data.temp,
         pulse: data.pulse,
-        rr: 0, // Default since not collected in this form
-        spO2: 0, // Default since not collected in this form
-      }
+        rr: data.rr ?? 0,
+        spO2: data.spO2 ?? 0,
+        bmi: bmi ?? null,
+        painLevel: data.painLevel ?? null,
+        weightKg: w ?? null,
+        heightCm: data.heightCm ?? null,
+      },
     });
+
+    revalidatePath(`/manage/${data.patientId}`);
+    revalidatePath(`/doctor/patient/${data.patientId}`);
 
     return JSON.parse(JSON.stringify(vitals));
   } catch (error: any) {
@@ -406,11 +449,16 @@ export async function getWaitingForTriagePatients() {
       where: {
         triageStatus: 'WAITING_FOR_TRIAGE',
       },
-      orderBy: {
-        createdAt: 'asc', // oldest first (FIFO queue)
-      },
+      orderBy: [
+        { emergencyFlag: "desc" },
+        { createdAt: "asc" },
+      ],
       include: {
         vitals: true,
+        screenings: {
+          orderBy: { createdAt: "desc" },
+          take: 1,
+        },
       }
     });
 
@@ -452,6 +500,9 @@ export async function processTriage(
       }
     });
 
+    revalidatePath(`/manage/${patientId}`);
+    revalidatePath(`/doctor/patient/${patientId}`);
+
     return JSON.parse(JSON.stringify(patient));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR:", error.message);
@@ -480,6 +531,9 @@ export async function saveClinicalExam(patientId: string, examData: any) {
       }
     });
 
+    revalidatePath(`/manage/${patientId}`);
+    revalidatePath(`/doctor/patient/${patientId}`);
+
     return JSON.parse(JSON.stringify({ exam, patient }));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR:", error.message);
@@ -504,12 +558,25 @@ export async function getPatientQueueStatus(identifier: string) {
 
     if (!patient) return null;
 
+    const latestScreening = await prisma.screening.findFirst({
+      where: { patientId: patient.id },
+      orderBy: { createdAt: "desc" },
+      select: { triageResult: true, screeningType: true, createdAt: true },
+    });
+
     return {
       fullName: patient.fullName,
       queuePosition: patient.queuePosition,
       estimatedWait: patient.estimatedWait,
-      status: patient.triageStatus === 'WAITING_FOR_TRIAGE' ? 'Waiting for Triage' : `Awaiting Care at \${patient.ward}`,
-      updatedAt: patient.updatedAt
+      status:
+        patient.triageStatus === "WAITING_FOR_TRIAGE"
+          ? "Waiting for Triage"
+          : `Awaiting Care at ${patient.ward.replace(/_/g, " ")}`,
+      triageStatus: patient.triageStatus,
+      lastScreeningTriage: latestScreening?.triageResult ?? null,
+      lastScreeningType: latestScreening?.screeningType ?? null,
+      lastScreeningAt: latestScreening?.createdAt ?? null,
+      updatedAt: patient.updatedAt,
     };
   } catch (error: any) {
     console.error("❌ DATABASE ERROR [getPatientQueueStatus]:", error.message);

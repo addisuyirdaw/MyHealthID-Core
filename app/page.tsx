@@ -4,7 +4,11 @@ import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, ShieldCheck, Activity, Users, Stethoscope, User } from "lucide-react";
 import { LocalizedText } from "@/components/LocalizedText";
+<<<<<<< HEAD
 import { LogoIcon } from "@/components/LogoIcon";
+=======
+import { CitizenPassportLookup } from "@/components/CitizenPassportLookup";
+>>>>>>> 52506f7 (final doctor and triage updates)
 
 export default async function Home() {
   let patientCount = 0;
@@ -55,7 +59,11 @@ export default async function Home() {
             </div>
           </div>
 
-          <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center w-full max-w-md mx-auto">
+          <div className="max-w-xl mx-auto w-full pb-8">
+            <CitizenPassportLookup />
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row gap-4 justify-center items-center w-full max-w-md mx-auto">
             <Link href="/register" className="w-full">
               <Button size="lg" className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg text-lg h-14">
                 <Users className="w-5 h-5 mr-2" /> <LocalizedText tKey="landing.registerCitizen" />

@@ -124,7 +124,12 @@ export default async function PatientDashboard({ params }: { params: { id: strin
                   Current Ward: <span className="font-medium text-slate-700">{patient.ward.replace(/_/g, " ")}</span>
                 </div>
               </div>
-              <CheckInButton patientId={patient.id} />
+              <div className="flex flex-wrap gap-2 justify-end">
+                <Button asChild variant="outline" size="sm" className="border-cyan-600 text-cyan-700 hover:bg-cyan-50">
+                  <Link href={`/screening/${patient.id}`}>Clinical screening</Link>
+                </Button>
+                <CheckInButton patientId={patient.id} />
+              </div>
             </div>
           </CardHeader>
         </Card>

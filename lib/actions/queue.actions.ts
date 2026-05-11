@@ -96,7 +96,8 @@ export async function callNextPatient(patientId: string) {
 
     revalidatePath("/doctor/dashboard");
     revalidatePath(`/doctor/patient/${patientId}`);
-    
+    revalidatePath(`/manage/${patientId}`);
+
     return { success: true, message: "Patient called in via SMS notification successfully!" };
   } catch (error: any) {
     console.error("Call Next Patient Error:", error);
@@ -122,6 +123,8 @@ export async function finishPatientVisit(patientId: string) {
     });
 
     revalidatePath("/doctor/dashboard");
+    revalidatePath(`/manage/${patientId}`);
+    revalidatePath(`/doctor/patient/${patientId}`);
     return { success: true, message: "Patient visit marked as finished." };
   } catch (error: any) {
     console.error("Finish Visit Error:", error);

@@ -14,8 +14,13 @@ import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanS
 import { useLanguage } from "@/components/LanguageProvider";
 import dynamic from "next/dynamic";
 import { parseFaydaScanPayload } from "@/lib/fayda-scan";
+<<<<<<< HEAD
 import { FrontIdCapture } from "@/components/FrontIdCapture";
 import { LogoIcon } from "@/components/LogoIcon";
+=======
+import { ChiefComplaintPicker } from "@/components/ChiefComplaintPicker";
+import { findTriageComplaintByLabel } from "@/lib/triage/triageList";
+>>>>>>> 52506f7 (final doctor and triage updates)
 
 const FaydaQrScanner = dynamic(
   () => import("@/components/FaydaQrScanner").then((m) => m.FaydaQrScanner),
@@ -95,6 +100,8 @@ export default function RegisterPage() {
   const [chiefComplaint, setChiefComplaint] = useState("");
   const [ward, setWard] = useState("OPD_OUTPATIENT");
   const [triageStatus, setTriageStatus] = useState("WAITING_FOR_TRIAGE");
+  /** Urgent chief complaint → EMERGENCY ward + red queue row (still WAITING_FOR_TRIAGE for nurse triage). */
+  const [visitEmergency, setVisitEmergency] = useState(false);
   const [suspectedDisease, setSuspectedDisease] = useState("");
 
   const [accessError, setAccessError] = useState("");
@@ -126,19 +133,37 @@ export default function RegisterPage() {
 
     const keywords = ['chest', 'breath', 'blood', 'unconscious', 'accident', 'severe', 'pain'];
     
-    if (keywords.some(kw => lowerText.includes(kw))) {
+    if (keywords.some((kw) => lowerText.includes(kw))) {
       setWard("EMERGENCY");
-      setTriageStatus("RED");
+      setTriageStatus("WAITING_FOR_TRIAGE");
+      setVisitEmergency(true);
     } else {
       setWard("OPD_OUTPATIENT");
-      setTriageStatus("GREEN"); // Normal
+      setTriageStatus("WAITING_FOR_TRIAGE");
+      setVisitEmergency(false);
     }
+  };
+
+  const applyStructuredComplaint = (label: string, priority?: 1 | 2) => {
+    setChiefComplaint(label);
+    if (priority === 1) {
+      setWard("EMERGENCY");
+      setTriageStatus("WAITING_FOR_TRIAGE");
+      setVisitEmergency(true);
+    } else if (priority === 2) {
+      setWard("OPD_OUTPATIENT");
+      setTriageStatus("WAITING_FOR_TRIAGE");
+      setVisitEmergency(false);
+    }
+    analyzeSymptoms(label);
   };
 
   const handleComplaintChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const val = e.target.value;
     setChiefComplaint(val);
-    analyzeSymptoms(val);
+    const hit = findTriageComplaintByLabel(val.trim());
+    if (hit) applyStructuredComplaint(hit.label, hit.priority);
+    else analyzeSymptoms(val);
   };
 
   useEffect(() => {
@@ -428,6 +453,7 @@ export default function RegisterPage() {
     const data: any = {
       fullName: (formData.get("fullName") as string) || fullName,
       faydaId: identityMode === "FAYDA" ? (nationalIdVal || undefined) : undefined,
+      nationalId: identityMode === "FAYDA" && nationalIdVal ? nationalIdVal : undefined,
       generateMyHealthId: identityMode === "NO_ID",
       fcn: identityMode === "FAYDA" ? (fcn || undefined) : undefined,
       dateOfBirth: dateOfBirth ? new Date(`${dateOfBirth}T00:00:00.000Z`) : undefined,
@@ -435,7 +461,8 @@ export default function RegisterPage() {
       sex: (formData.get("sex") as string) || sex,
       reasonForVisit: formData.get("chiefComplaint") as string,
       ward: ward,
-      triageStatus: triageStatus,
+      triageStatus: "WAITING_FOR_TRIAGE",
+      emergencyFlag: visitEmergency,
       religion: formData.get("religion") as string,
       occupation: formData.get("occupation") as string,
       maritalStatus: formData.get("maritalStatus") as string,
@@ -1049,12 +1076,22 @@ export default function RegisterPage() {
             <div className="space-y-4 pt-4">
               <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">{t.registration.visitTitle}</h3>
 
+              <ChiefComplaintPicker
+                value={chiefComplaint}
+                onChange={(label, item) => {
+                  if (item) applyStructuredComplaint(label, item.priority);
+                  else setChiefComplaint(label);
+                }}
+                disabled={loading}
+              />
+
               <div className="space-y-2">
                 <div className="flex justify-between items-end">
                   <Label htmlFor="chiefComplaint">Primary Complaint / Symptoms</Label>
                   <div className="flex gap-2">
                     {suspectedDisease && <span className="text-xs font-bold text-orange-600 bg-orange-100 px-2 py-0.5 rounded-full">{suspectedDisease}</span>}
-                    {triageStatus === 'RED' && <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Emergency Auto-Detected</span>}
+                    {visitEmergency && <span className="text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">Emergency intake</span>}
+                    {!visitEmergency && chiefComplaint && <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2 py-0.5 rounded-full">Routine intake</span>}
                   </div>
                 </div>
                 <Textarea 
@@ -1064,7 +1101,7 @@ export default function RegisterPage() {
                   onChange={handleComplaintChange}
                   required 
                   placeholder="Describe the primary reason for the patient's visit..." 
-                  className={`min-h-[80px] ${triageStatus === 'RED' ? 'border-red-300 focus-visible:ring-red-400' : ''}`}
+                  className={`min-h-[80px] ${visitEmergency ? 'border-red-300 focus-visible:ring-red-400' : ''}`}
                 />
               </div>
 

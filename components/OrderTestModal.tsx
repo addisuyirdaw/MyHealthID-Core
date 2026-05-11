@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createLabOrder } from "@/lib/actions/investigation.actions";
 import { LAB_TESTS } from "@/lib/constants/labTests";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
@@ -8,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { TestTubeDiagonal, CheckCircle2 } from "lucide-react";
 
 export function OrderTestModal({ patientId, patientName }: { patientId: string, patientName: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -33,6 +35,7 @@ export function OrderTestModal({ patientId, patientName }: { patientId: string, 
           clinicalNote: clinicalNote,
         });
       }
+      router.refresh();
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);

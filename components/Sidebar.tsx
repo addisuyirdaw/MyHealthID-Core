@@ -130,6 +130,13 @@ export function Sidebar() {
               <QrCode className="w-5 h-5 text-slate-400" />
               Scan ID
             </Link>
+            <Link
+              href="/screening"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <ClipboardList className="w-5 h-5 text-cyan-400" />
+              <span>Clinical screening</span>
+            </Link>
           </>
         )}
 

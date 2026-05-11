@@ -154,8 +154,25 @@ function QueuePageInner() {
               <p className="text-zinc-400 text-sm font-semibold uppercase tracking-wider mb-2">Est. Wait Time</p>
               <p className="text-5xl font-bold text-yellow-400">{status.estimatedWait} <span className="text-xl">mins</span></p>
             </div>
-            <div className="text-center pt-2">
+            <div className="text-center pt-2 space-y-3">
               <p className="text-zinc-300 text-lg">Phase: <span className="font-semibold text-white">{status.status}</span></p>
+              {status.lastScreeningTriage && (
+                <div
+                  className={`mx-auto max-w-xs rounded-xl border px-4 py-3 text-sm font-semibold ${
+                    status.lastScreeningTriage === "RED"
+                      ? "bg-rose-950/60 border-rose-500/50 text-rose-100"
+                      : status.lastScreeningTriage === "YELLOW"
+                        ? "bg-amber-950/50 border-amber-500/40 text-amber-100"
+                        : "bg-emerald-950/40 border-emerald-500/40 text-emerald-100"
+                  }`}
+                >
+                  <p className="text-xs uppercase tracking-wider text-zinc-400 mb-1">Screening triage</p>
+                  <p className="text-lg">{status.lastScreeningTriage}</p>
+                  {status.lastScreeningType && (
+                    <p className="text-xs font-normal text-zinc-400 mt-1">{status.lastScreeningType}</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         )}

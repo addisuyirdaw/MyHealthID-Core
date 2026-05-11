@@ -1,12 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { createPrescription } from "@/lib/actions/pharmacy.actions";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Pill, CheckCircle2, AlertTriangle } from "lucide-react";
 
 export function PrescribeModal({ patientId, patientName, patientAllergies, patientHistory }: { patientId: string, patientName: string, patientAllergies?: string | null, patientHistory?: string | null }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -61,6 +63,7 @@ export function PrescribeModal({ patientId, patientName, patientAllergies, patie
         duration: "N/A",            // Default placeholder
         notes,
       });
+      router.refresh();
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);

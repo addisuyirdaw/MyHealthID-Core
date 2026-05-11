@@ -19,6 +19,8 @@ export async function createReferral(data: { patientId: string; reason: string; 
     });
 
     revalidatePath("/dashboard");
+    revalidatePath(`/manage/${data.patientId}`);
+    revalidatePath(`/doctor/patient/${data.patientId}`);
     return JSON.parse(JSON.stringify(referral));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR: Failed to create referral", error.message);

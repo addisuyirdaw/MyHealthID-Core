@@ -62,7 +62,8 @@ export async function loginUser(formData: FormData) {
   const roleStr = role as string;
   if (roleStr === "ADMIN") redirect("/admin/dashboard");
   if (roleStr === "DOCTOR") redirect("/doctor/dashboard");
-  if (roleStr === "NURSE" || roleStr === "RECEPTIONIST") redirect("/register");
+  if (roleStr === "NURSE") redirect("/queue");
+  if (roleStr === "RECEPTIONIST") redirect("/register");
   if (roleStr === "LAB_TECH") redirect("/lab");
   if (roleStr === "PHARMACIST") redirect("/pharmacy");
 }

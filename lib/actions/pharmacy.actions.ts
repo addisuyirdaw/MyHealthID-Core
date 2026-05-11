@@ -24,6 +24,8 @@ export async function createPrescription(data: { patientId: string; drugName: st
 
     revalidatePath("/dashboard");
     revalidatePath("/pharmacy");
+    revalidatePath(`/manage/${data.patientId}`);
+    revalidatePath(`/doctor/patient/${data.patientId}`);
     return JSON.parse(JSON.stringify(prescription));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR: Failed to create prescription", error.message);
@@ -78,6 +80,8 @@ export async function dispensePrescription(id: string) {
 
     revalidatePath("/dashboard");
     revalidatePath("/pharmacy");
+    revalidatePath(`/manage/${p.id}`);
+    revalidatePath(`/doctor/patient/${p.id}`);
     return JSON.parse(JSON.stringify(prescription));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR: Failed to dispense prescription", error.message);

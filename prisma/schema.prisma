@@ -62,6 +62,13 @@ enum TriageStatus {
   WAITING_FOR_TRIAGE
 }
 
+/// Result of a structured clinical screening (Green / Yellow / Red).
+enum ScreeningTriageLevel {
+  GREEN
+  YELLOW
+  RED
+}
+
 enum QueueStatus {
   WAITING
   IN_PROGRESS
@@ -120,6 +127,9 @@ model Patient {
   familyHistory         String?
   surgicalHistory       String?
   allergyInformation    String?
+  /// Medical Record Number (hospital chart); distinct from healthId when assigned.
+  mrn                   String?
+  bloodGroup            String?
   emergencyFlag         Boolean  @default(false)
   isRestricted          Boolean  @default(false)  @map("is_restricted")
   externalSystemId      String?
@@ -148,6 +158,16 @@ model Patient {
   queues            Queue[]
   accessLogs        AccessLog[]
   journals          PatientJournal[]
+  screenings        Screening[]
+  medicalTimeline   MedicalTimelineEntry[]
+}
+
+/// Append-only clinical timeline (never update rows — new facts = new documents).
+enum MedicalTimelineEntryType {
+  SECTION_NOTE
+  VITALS
+  NURSING_PROGRESS
+  SYSTEMS_EXAM
 }
 
 model VerifiedRegistry {
@@ -165,6 +185,18 @@ model VerifiedRegistry {
   updatedAt   DateTime @updatedAt
 
   @@map("verified_registry")
+}
+
+/// Permanent registration snapshot for staff lookup by FIN or phone (national intake).
+model VerifiedCitizen {
+  id            String   @id @default(uuid()) @map("_id")
+  nationalFin   String?  @unique @map("national_fin")
+  phoneDigits   String?  @unique @map("phone_digits")
+  fullName      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("verified_citizens")
 }
 
 model ClinicalExamination {
@@ -202,11 +234,35 @@ model Vitals {
   spO2      Float    // Blood Oxygen
   bmi       Float?   // Body Mass Index
   painLevel Int?     // Pain Level 1-10
+  weightKg  Float?
+  heightCm  Float?
   
   createdAt DateTime @default(now())
 
   // Relations
   patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+model MedicalTimelineEntry {
+  id               String                     @id @default(uuid()) @map("_id")
+  patientId        String
+  createdAt        DateTime                   @default(now())
+  professionalName String
+  /// One-line immutable audit summary (searchable list).
+  logEntry         String
+  entryType        MedicalTimelineEntryType
+  /// One of: identification | past_history | vitals | clinical_exam | nursing_progress | investigations | medications | referrals
+  emrSection       String
+  title            String?
+  body             String?
+  structuredData   Json?
+  relatedVitalsId  String?
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, createdAt])
+  @@index([patientId, emrSection])
+  @@map("medical_timeline_entries")
 }
 
 enum InvestigationStatus {
@@ -323,4 +379,37 @@ model PatientJournal {
   updatedAt       DateTime @updatedAt
 
   patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+}
+
+/// Structured multi-condition screening (TB, HTN, Diabetes, etc.) with raw answers + computed triage.
+model Screening {
+  id                   String               @id @default(uuid()) @map("_id")
+  patientId            String
+  screeningType        String
+  answers              Json
+  triageResult         ScreeningTriageLevel
+  riskScore            Int                  @default(0)
+  interruptedEmergency Boolean              @default(false)
+
+  /// Bilingual post-screening guidance shown to the patient/staff.
+  guidanceText Json?
+
+  /// Vitals snapshot for Hypertension / Cardiac (history over repeat screenings).
+  sbp      Float?
+  dbp      Float?
+  weightKg Float?
+  heightCm Float?
+  bmi      Float?
+
+  bpStageLabel         String?
+  diabetesInterpretation Json?
+  computedDetails      Json?
+
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, screeningType])
+  @@index([patientId, createdAt])
+  @@map("screenings")
 }

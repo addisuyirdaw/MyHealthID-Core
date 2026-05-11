@@ -4,6 +4,7 @@ import { loginUser } from "@/lib/actions/auth.actions";
 import { Button } from "@/components/ui/button";
 import { ShieldCheck, UserCircle, CheckCircle2 } from "lucide-react";
 import { LocalizedText } from "@/components/LocalizedText";
+import { CitizenPassportLookup } from "@/components/CitizenPassportLookup";
 import { useState } from "react";
 
 export default function LoginPage() {
@@ -78,6 +79,10 @@ export default function LoginPage() {
             <UserCircle className="w-5 h-5" />
             Pitch Demo: Login as Dr. Dawit
           </Button>
+        </div>
+
+        <div className="mb-6">
+          <CitizenPassportLookup />
         </div>
 
         <form action={handleSubmit} className="space-y-4">
