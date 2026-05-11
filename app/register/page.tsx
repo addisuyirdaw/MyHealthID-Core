@@ -14,6 +14,8 @@ import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanS
 import { useLanguage } from "@/components/LanguageProvider";
 import dynamic from "next/dynamic";
 import { parseFaydaScanPayload } from "@/lib/fayda-scan";
+import { FrontIdCapture } from "@/components/FrontIdCapture";
+import { LogoIcon } from "@/components/LogoIcon";
 
 const FaydaQrScanner = dynamic(
   () => import("@/components/FaydaQrScanner").then((m) => m.FaydaQrScanner),
@@ -57,7 +59,8 @@ export default function RegisterPage() {
   const [nidExistsError, setNidExistsError] = useState("");
   const [sendingSms, setSendingSms] = useState(false);
   const [countdown, setCountdown] = useState(0);
-  const [scanOpen, setScanOpen] = useState(false);
+  type ScanStep = "idle" | "scan_back" | "transition" | "scan_front" | "confirmation";
+  const [scanStep, setScanStep] = useState<ScanStep>("idle");
   const [scanFeedback, setScanFeedback] = useState<ScanFeedback>({ variant: "idle" });
 
   // OCR cross-check state
@@ -76,7 +79,7 @@ export default function RegisterPage() {
     setNationalId("");
     setFcn("");
     setIsVerified(false);
-    setScanOpen(false);
+    setScanStep("idle");
     setScanFeedback({ variant: "idle" });
     setFullName("");
     setSex("");
@@ -205,10 +208,11 @@ export default function RegisterPage() {
       setSex(resolvedSex);
       setDateOfBirth(dateOnly);
       setIsVerified(true);
-      setScanOpen(false);
-
-      // Kick off OCR cross-check → auto-submit
-      await runOcrThenAutoSubmit(fin, cleanFcn, resolvedName, resolvedSex, dateOnly);
+      
+      setScanStep("transition");
+      setTimeout(() => {
+        setScanStep("scan_front");
+      }, 1500);
     } catch (e: unknown) {
       const msg = e instanceof Error ? e.message : "Verification failed.";
       setScanFeedback({ variant: "error", title: "Verification failed", detail: msg });
@@ -277,6 +281,11 @@ export default function RegisterPage() {
     }
   }, [router]);
 
+  const handleFrontCapture = async (file: File) => {
+    lastUploadedFile.current = file;
+    await runOcrThenAutoSubmit(nationalId.replace(/\s/g, ""), fcn, fullName, sex, dateOfBirth);
+  };
+
   /** Run OCR cross-check then auto-submit if match (or skipped). */
   const runOcrThenAutoSubmit = useCallback(async (fin: string, fcn: string, name: string, sex: string, dob: string) => {
     const file = lastUploadedFile.current;
@@ -296,11 +305,11 @@ export default function RegisterPage() {
         setOcrStatus("verified");
         setOcrReason(matchResult.reason);
         setScanFeedback({ variant: "success", title: "✅ Card verified", detail: matchResult.reason });
-        await triggerAutoSubmit(name, fin, fcn, sex, dob);
+        setScanStep("confirmation");
       } else {
         setOcrStatus("mismatch");
         setOcrReason(matchResult.reason);
-        setScanFeedback({ variant: "error", title: "⚠️ Visual Mismatch Detected", detail: matchResult.reason + " A staff member can bypass this check." });
+        setScanFeedback({ variant: "error", title: "⚠️ Visual Mismatch Detected", detail: "Please ensure you are scanning the exact same ID card." });
       }
     } catch {
       setOcrStatus("failed");
@@ -654,12 +663,12 @@ export default function RegisterPage() {
                       className={isVerified ? "bg-green-50 border-green-200" : (nidExistsError ? "border-red-500 bg-red-50" : "")}
                       required
                     />
-                    <Button
-                      type="button"
-                      onClick={() => {
-                        setScanFeedback({ variant: "idle" });
-                        setScanOpen(true);
-                      }}
+                      <Button
+                        type="button"
+                        onClick={() => {
+                          setScanFeedback({ variant: "idle" });
+                          setScanStep("scan_back");
+                        }}
                       disabled={isVerified || isVerifying}
                       className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
                     >
@@ -678,7 +687,7 @@ export default function RegisterPage() {
                     </div>
                   )}
 
-                  {identityMode === "FAYDA" && !isVerified && !scanOpen && scanFeedback.variant !== "idle" && (
+                  {identityMode === "FAYDA" && !isVerified && scanStep === "idle" && scanFeedback.variant !== "idle" && (
                     <div
                       className={`mt-3 rounded-lg border p-3 text-sm ${
                         scanFeedback.variant === "success"
@@ -695,8 +704,8 @@ export default function RegisterPage() {
                     </div>
                   )}
 
-                  {scanOpen && !isVerified && (
-                    <div className="mt-3 p-4 rounded-xl border border-slate-200 bg-white">
+                  {scanStep !== "idle" && (
+                    <div className="mt-3 p-4 rounded-xl border border-slate-200 bg-white shadow-lg relative z-20">
                       <div className="flex items-center justify-between mb-3">
                         <div className="text-sm font-semibold text-slate-800 flex items-center gap-2">
                           <ShieldCheck className="w-4 h-4 text-blue-600" />
@@ -704,7 +713,7 @@ export default function RegisterPage() {
                         </div>
                         <button
                           type="button"
-                          onClick={() => setScanOpen(false)}
+                          onClick={() => setScanStep("idle")}
                           className="text-xs text-slate-500 hover:text-slate-800 underline"
                         >
                           Close
@@ -726,60 +735,101 @@ export default function RegisterPage() {
                           )}
                         </div>
                       )}
-                      <FaydaQrScanner
-                        onCodeRead={() =>
-                          setScanFeedback({
-                            variant: "info",
-                            title: "Code detected",
-                            detail: "Reading data from your Ethiopian National ID…",
-                          })
-                        }
-                        onDecodedText={(text, file) => handleDecodedQr(text, file)}
-                        onError={(msg) =>
-                          setScanFeedback({
-                            variant: "error",
-                            title: "Could not read ID from image",
-                            detail: msg,
-                          })
-                        }
-                      />
-                      {/* OCR Status Panel */}
-                      {ocrStatus === "scanning" && (
-                        <div className="mt-3 flex items-center gap-2 text-xs text-purple-800 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                          <ScanSearch className="w-4 h-4 animate-pulse shrink-0" />
-                          Cross-checking printed Name &amp; FIN via OCR…
+
+                      {scanStep === "scan_back" && (
+                        <div className="animate-in fade-in duration-300">
+                          <p className="font-bold mb-2 text-slate-800">Step 1: Scan Back (QR)</p>
+                          <FaydaQrScanner
+                            onCodeRead={() =>
+                              setScanFeedback({
+                                variant: "info",
+                                title: "Code detected",
+                                detail: "Reading data from your Ethiopian National ID…",
+                              })
+                            }
+                            onDecodedText={(text, file) => handleDecodedQr(text, file)}
+                            onError={(msg) =>
+                              setScanFeedback({
+                                variant: "error",
+                                title: "Could not read ID from image",
+                                detail: msg,
+                              })
+                            }
+                          />
                         </div>
                       )}
-                      {(ocrStatus === "mismatch" || ocrStatus === "failed") && (
-                        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
-                          <div className="flex items-start gap-2 text-amber-900">
-                            <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+
+                      {scanStep === "transition" && (
+                        <div className="flex flex-col items-center justify-center p-8 space-y-4 animate-in fade-in zoom-in duration-300">
+                          <LogoIcon className="w-20 h-20 animate-pulse" />
+                          <p className="text-blue-600 font-semibold text-lg animate-pulse text-center">Back verified.<br/>Transitioning to Front...</p>
+                        </div>
+                      )}
+
+                      {scanStep === "scan_front" && (
+                        <div className="animate-in slide-in-from-right-4 duration-500">
+                          <p className="font-bold mb-2 text-blue-800">Step 2: Scan Front (Photo)</p>
+                          <FrontIdCapture onCapture={handleFrontCapture} />
+                          {/* OCR Status Panel */}
+                          {ocrStatus === "scanning" && (
+                            <div className="mt-3 flex items-center gap-2 text-xs text-purple-800 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                              <ScanSearch className="w-4 h-4 animate-pulse shrink-0" />
+                              Cross-checking printed Name &amp; FIN via OCR…
+                            </div>
+                          )}
+                          {(ocrStatus === "mismatch" || ocrStatus === "failed") && (
+                            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                              <div className="flex items-start gap-2 text-amber-900">
+                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                                <div>
+                                  <p className="font-semibold">Visual Mismatch Detected</p>
+                                  <p className="text-xs mt-0.5 opacity-80">{ocrReason}</p>
+                                </div>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setOcrStatus("skipped");
+                                  void triggerAutoSubmit(fullName, nationalId.replace(/\s/g, ""), fcn, sex, dateOfBirth);
+                                }}
+                                className="mt-2 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700"
+                              >
+                                Staff Bypass — Register Anyway
+                              </button>
+                            </div>
+                          )}
+                          {ocrStatus === "verified" && (
+                            <div className="mt-3 flex items-center gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                              <CheckCircle2 className="w-4 h-4 shrink-0" />
+                              OCR verified — {ocrReason}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {scanStep === "confirmation" && (
+                        <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-emerald-500 rounded-2xl bg-emerald-50 shadow-lg mt-4 animate-in zoom-in duration-500">
+                          <LogoIcon className="w-16 h-16 mb-4" />
+                          <h3 className="text-xl font-black text-emerald-900 tracking-tight">Identity Passport</h3>
+                          <div className="mt-4 bg-white p-4 rounded-xl border border-emerald-200 w-full text-left space-y-2 shadow-inner">
                             <div>
-                              <p className="font-semibold">Visual Mismatch Detected</p>
-                              <p className="text-xs mt-0.5 opacity-80">{ocrReason}</p>
+                              <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Name</p>
+                              <p className="text-lg font-semibold text-slate-800">{fullName}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-2">FIN</p>
+                              <p className="text-lg font-mono text-slate-800">{nationalId}</p>
                             </div>
                           </div>
-                          <button
+                          <Button 
                             type="button"
-                            onClick={() => {
-                              setOcrStatus("skipped");
-                              void triggerAutoSubmit(fullName, nationalId.replace(/\s/g, ""), fcn, sex, dateOfBirth);
-                            }}
-                            className="mt-2 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700"
+                            onClick={() => triggerAutoSubmit(fullName, nationalId.replace(/\s/g, ""), fcn, sex, dateOfBirth)}
+                            className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl h-12 text-lg font-bold transition-all hover:scale-[1.02]"
                           >
-                            Staff Bypass — Register Anyway
-                          </button>
+                            Confirm Identity
+                          </Button>
                         </div>
                       )}
-                      {ocrStatus === "verified" && (
-                        <div className="mt-3 flex items-center gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                          <CheckCircle2 className="w-4 h-4 shrink-0" />
-                          OCR verified — {ocrReason}
-                        </div>
-                      )}
-                      <div className="mt-3 text-xs text-slate-500">
-                        On desktop, use <strong>Upload photo</strong>. The camera is optional; if you use it, allow access when the browser prompts.
-                      </div>
                     </div>
                   )}
 

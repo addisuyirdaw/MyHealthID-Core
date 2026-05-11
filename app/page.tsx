@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, ShieldCheck, Activity, Users, Stethoscope, User } from "lucide-react";
 import { LocalizedText } from "@/components/LocalizedText";
+import { LogoIcon } from "@/components/LogoIcon";
 
 export default async function Home() {
   let patientCount = 0;
@@ -25,7 +26,7 @@ export default async function Home() {
         <div className="text-center max-w-3xl mx-auto space-y-6">
           <div className="flex justify-center mb-6">
             <div className="bg-white p-4 rounded-3xl shadow-xl flex items-center gap-3 ring-4 ring-slate-100">
-              <HeartPulse className="w-10 h-10 text-blue-600" />
+              <LogoIcon className="w-12 h-12" />
               <h1 className="text-4xl font-extrabold tracking-tighter text-slate-900 leading-none">
                 MyHealth<span className="text-blue-600">ID</span>
               </h1>

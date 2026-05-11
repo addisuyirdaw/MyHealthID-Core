@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { LanguageToggle } from "./LanguageToggle";
 import { LocalizedText } from "./LocalizedText";
+import { LogoIcon } from "./LogoIcon";
 
 export function Sidebar() {
   const cookieStore = cookies();
@@ -23,7 +24,7 @@ export function Sidebar() {
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 min-h-screen p-4 flex flex-col hidden md:flex shrink-0">
       <div className="flex items-center gap-2 text-white font-bold text-xl mb-8 px-2 py-4 border-b border-slate-700">
-        <Activity className="text-emerald-400" />
+        <LogoIcon className="w-8 h-8" />
         <span>MyHealthID</span>
       </div>
 

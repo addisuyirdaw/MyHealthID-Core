@@ -64,45 +64,56 @@ async function tryJsQrOnFile(file: File): Promise<string | null> {
 
         const cw = canvas.width, ch = canvas.height;
         const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-        const imgData = ctx.getImageData(0, 0, cw, ch);
+        const crops = [
+          { x: 0, y: 0, w: cw, h: ch }, // full
+          { x: 0, y: 0, w: Math.floor(cw / 2), h: Math.floor(ch / 2) }, // TL
+          { x: Math.floor(cw / 2), y: 0, w: Math.floor(cw / 2), h: Math.floor(ch / 2) }, // TR
+          { x: 0, y: Math.floor(ch / 2), w: Math.floor(cw / 2), h: Math.floor(ch / 2) }, // BL
+          { x: Math.floor(cw / 2), y: Math.floor(ch / 2), w: Math.floor(cw / 2), h: Math.floor(ch / 2) }, // BR
+          { x: Math.floor(cw * 0.15), y: Math.floor(ch * 0.15), w: Math.floor(cw * 0.7), h: Math.floor(ch * 0.7) }, // Center
+        ];
 
-        // Attempt 1: normal
-        let res = jsQR(imgData.data, cw, ch, { inversionAttempts: "attemptBoth" });
-        if (res?.data) return res.data;
+        for (const crop of crops) {
+          const imgData = ctx.getImageData(crop.x, crop.y, crop.w, crop.h);
 
-        // Attempt 2: inline Otsu binarisation then jsQR
-        const grayData = new Uint8ClampedArray(imgData.data.length / 4);
-        for (let i = 0; i < grayData.length; i++) {
-          grayData[i] = Math.round(
-            0.299 * imgData.data[i * 4] +
-            0.587 * imgData.data[i * 4 + 1] +
-            0.114 * imgData.data[i * 4 + 2]
-          );
+          // Attempt 1: normal
+          let res = jsQR(imgData.data, crop.w, crop.h, { inversionAttempts: "attemptBoth" });
+          if (res?.data) return res.data;
+
+          // Attempt 2: inline Otsu binarisation then jsQR
+          const grayData = new Uint8ClampedArray(imgData.data.length / 4);
+          for (let i = 0; i < grayData.length; i++) {
+            grayData[i] = Math.round(
+              0.299 * imgData.data[i * 4] +
+              0.587 * imgData.data[i * 4 + 1] +
+              0.114 * imgData.data[i * 4 + 2]
+            );
+          }
+          // Otsu threshold
+          const hist = new Float64Array(256);
+          for (const v of grayData) hist[v]++;
+          let sumAll = 0;
+          for (let t = 0; t < 256; t++) sumAll += t * hist[t];
+          let sumB = 0, wB = 0, maxVar = 0, thresh = 127;
+          for (let t = 0; t < 256; t++) {
+            wB += hist[t];
+            if (!wB) continue;
+            const wF = grayData.length - wB;
+            if (!wF) break;
+            sumB += t * hist[t];
+            const mB = sumB / wB, mF = (sumAll - sumB) / wF;
+            const bv = wB * wF * (mB - mF) ** 2;
+            if (bv > maxVar) { maxVar = bv; thresh = t; }
+          }
+          const binRgba = new Uint8ClampedArray(crop.w * crop.h * 4);
+          for (let i = 0; i < grayData.length; i++) {
+            const v = grayData[i] < thresh ? 0 : 255;
+            binRgba[i * 4] = binRgba[i * 4 + 1] = binRgba[i * 4 + 2] = v;
+            binRgba[i * 4 + 3] = 255;
+          }
+          res = jsQR(binRgba, crop.w, crop.h, { inversionAttempts: "attemptBoth" });
+          if (res?.data) return res.data;
         }
-        // Otsu threshold
-        const hist = new Float64Array(256);
-        for (const v of grayData) hist[v]++;
-        let sumAll = 0;
-        for (let t = 0; t < 256; t++) sumAll += t * hist[t];
-        let sumB = 0, wB = 0, maxVar = 0, thresh = 127;
-        for (let t = 0; t < 256; t++) {
-          wB += hist[t];
-          if (!wB) continue;
-          const wF = grayData.length - wB;
-          if (!wF) break;
-          sumB += t * hist[t];
-          const mB = sumB / wB, mF = (sumAll - sumB) / wF;
-          const bv = wB * wF * (mB - mF) ** 2;
-          if (bv > maxVar) { maxVar = bv; thresh = t; }
-        }
-        const binRgba = new Uint8ClampedArray(cw * ch * 4);
-        for (let i = 0; i < grayData.length; i++) {
-          const v = grayData[i] < thresh ? 0 : 255;
-          binRgba[i * 4] = binRgba[i * 4 + 1] = binRgba[i * 4 + 2] = v;
-          binRgba[i * 4 + 3] = 255;
-        }
-        res = jsQR(binRgba, cw, ch, { inversionAttempts: "attemptBoth" });
-        if (res?.data) return res.data;
       }
     } catch { /* try next scale */ }
   }

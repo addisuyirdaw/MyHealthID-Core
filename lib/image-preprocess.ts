@@ -41,37 +41,52 @@ function toGrayscale(data: Uint8ClampedArray): Uint8ClampedArray {
   return gray;
 }
 
-/**
- * Otsu's method — computes the optimal global threshold that maximises
- * inter-class variance between dark modules and light background.
- */
-function otsuThreshold(gray: Uint8ClampedArray): number {
-  const hist = new Float64Array(256);
-  for (let i = 0; i < gray.length; i++) hist[gray[i]]++;
-  const total = gray.length;
-
-  let sumAll = 0;
-  for (let t = 0; t < 256; t++) sumAll += t * hist[t];
-
-  let sumB = 0, wB = 0, max = 0, threshold = 127;
-  for (let t = 0; t < 256; t++) {
-    wB += hist[t];
-    if (wB === 0) continue;
-    const wF = total - wB;
-    if (wF === 0) break;
-    sumB += t * hist[t];
-    const mB = sumB / wB;
-    const mF = (sumAll - sumB) / wF;
-    const between = wB * wF * (mB - mF) ** 2;
-    if (between > max) { max = between; threshold = t; }
+function adaptiveThreshold(
+  gray: Uint8ClampedArray,
+  width: number,
+  height: number,
+  windowSize = 15,
+  C = 10
+): Uint8ClampedArray {
+  const out = new Uint8ClampedArray(gray.length);
+  const half = Math.floor(windowSize / 2);
+  
+  // Integral image for fast O(1) sum
+  const integral = new Uint32Array(width * height);
+  for (let y = 0; y < height; y++) {
+    let sum = 0;
+    for (let x = 0; x < width; x++) {
+      sum += gray[y * width + x];
+      integral[y * width + x] = (y > 0 ? integral[(y - 1) * width + x] : 0) + sum;
+    }
   }
-  return threshold;
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const x1 = Math.max(0, x - half);
+      const y1 = Math.max(0, y - half);
+      const x2 = Math.min(width - 1, x + half);
+      const y2 = Math.min(height - 1, y + half);
+
+      const count = (x2 - x1 + 1) * (y2 - y1 + 1);
+      
+      const A = integral[y2 * width + x2];
+      const B = x1 > 0 ? integral[y2 * width + (x1 - 1)] : 0;
+      const C_val = y1 > 0 ? integral[(y1 - 1) * width + x2] : 0;
+      const D = (x1 > 0 && y1 > 0) ? integral[(y1 - 1) * width + (x1 - 1)] : 0;
+      
+      const sum = A - B - C_val + D;
+      const mean = sum / count;
+      
+      out[y * width + x] = gray[y * width + x] < mean - C ? 0 : 255;
+    }
+  }
+  return out;
 }
 
 /**
  * Build a new RGBA ImageData where every pixel is either pure white (255) or
- * pure black (0) based on the Otsu threshold of the grayscale image.
- * Also applies mild contrast stretching to recover detail in washed-out photos.
+ * pure black (0) based on the adaptive threshold of the grayscale image.
  */
 function binarise(
   data: Uint8ClampedArray,
@@ -79,22 +94,11 @@ function binarise(
   height: number
 ): ImageData {
   const gray = toGrayscale(data);
-
-  // Contrast stretch: map [p5 … p95] to [0 … 255]
-  const sorted = Float64Array.from(gray).sort();
-  const lo = sorted[Math.floor(sorted.length * 0.05)];
-  const hi = sorted[Math.floor(sorted.length * 0.95)];
-  const range = hi - lo || 1;
-  const stretched = new Uint8ClampedArray(gray.length);
-  for (let i = 0; i < gray.length; i++) {
-    stretched[i] = Math.max(0, Math.min(255, Math.round(((gray[i] - lo) / range) * 255)));
-  }
-
-  const threshold = otsuThreshold(stretched);
+  const thresholded = adaptiveThreshold(gray, width, height, 21, 10); // Window 21, C=10
 
   const out = new Uint8ClampedArray(width * height * 4);
-  for (let i = 0; i < stretched.length; i++) {
-    const v = stretched[i] < threshold ? 0 : 255;
+  for (let i = 0; i < thresholded.length; i++) {
+    const v = thresholded[i];
     out[i * 4] = v;
     out[i * 4 + 1] = v;
     out[i * 4 + 2] = v;
@@ -150,14 +154,13 @@ export async function binarisedPng(file: File, suffix = ""): Promise<File | null
  */
 export async function upscaleThenBinarise(
   file: File,
-  minShortEdge = 1200
+  _minShortEdge = 1200 // ignored, forcing 3x
 ): Promise<File | null> {
   if (typeof createImageBitmap !== "function") return null;
   try {
     const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
     try {
-      const short = Math.min(bmp.width, bmp.height);
-      const factor = short < minShortEdge ? Math.min(4, minShortEdge / short) : 1.5;
+      const factor = 3;
       const w = Math.round(bmp.width * factor);
       const h = Math.round(bmp.height * factor);
 
@@ -165,7 +168,11 @@ export async function upscaleThenBinarise(
       canvas.width = w;
       canvas.height = h;
       const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
-      ctx.imageSmoothingEnabled = false;
+      
+      // 3x Bicubic Upscale Fallback
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      
       ctx.drawImage(bmp, 0, 0, w, h);
 
       const raw = ctx.getImageData(0, 0, w, h);
