@@ -8,7 +8,7 @@ import { revalidatePath } from "next/cache";
 const verifiedCitizen = (prisma as any).verifiedCitizen;
 
 /** Normalize phone for lookup: digits only, last 9–12 retained for local match. */
-export function normalizePhoneDigits(raw: string | null | undefined): string | null {
+export async function normalizePhoneDigits(raw: string | null | undefined): Promise<string | null> {
   if (!raw) return null;
   const d = String(raw).replace(/\D/g, "");
   if (d.length < 9) return null;
@@ -22,7 +22,7 @@ export async function upsertVerifiedCitizenFromRegistration(input: {
 }) {
   const fin = input.nationalFin ? String(input.nationalFin).replace(/\D/g, "") : null;
   const fin12 = fin && fin.length === 12 ? fin : fin && fin.length === 16 ? fin.slice(0, 12) : fin;
-  const phoneDigits = normalizePhoneDigits(input.phoneRaw);
+  const phoneDigits = await normalizePhoneDigits(input.phoneRaw);
   if (!fin12 && !phoneDigits) return { ok: true as const, skipped: true as const };
 
   const existing = await verifiedCitizen.findFirst({
