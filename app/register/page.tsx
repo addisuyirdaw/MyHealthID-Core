@@ -46,7 +46,7 @@ export default function RegisterPage() {
   const isSubmitting = useRef(false);
 
   // Identity Bridge State
-  const [identityMode, setIdentityMode] = useState<"FAYDA" | "NO_ID" | null>(null);
+  const [identityMode, setIdentityMode] = useState<"FAYDA" | "NO_ID" | "MANUAL" | null>(null);
   // No-ID path is on by default (server-generated MHID-XXXXXX). Set NEXT_PUBLIC_ALLOW_NO_ID=false to hide it only.
   const allowNoId = String(process.env.NEXT_PUBLIC_ALLOW_NO_ID ?? "true").toLowerCase() !== "false";
 
@@ -442,7 +442,7 @@ export default function RegisterPage() {
       }
     }
 
-    // For Fayda path: require verification. For No-ID path: skip.
+    // For Fayda path: require verification. For No-ID and Manual paths: skip.
     if (identityMode === "FAYDA" && !isVerified) {
       alert("Please scan and verify the Fayda ID before submitting.");
       setLoading(false);
@@ -452,9 +452,9 @@ export default function RegisterPage() {
 
     const data: any = {
       fullName: (formData.get("fullName") as string) || fullName,
-      faydaId: identityMode === "FAYDA" ? (nationalIdVal || undefined) : undefined,
-      nationalId: identityMode === "FAYDA" && nationalIdVal ? nationalIdVal : undefined,
-      generateMyHealthId: identityMode === "NO_ID",
+      faydaId: (identityMode === "FAYDA" || identityMode === "MANUAL") ? (nationalIdVal || undefined) : undefined,
+      nationalId: (identityMode === "FAYDA" || identityMode === "MANUAL") && nationalIdVal ? nationalIdVal : undefined,
+      generateMyHealthId: identityMode === "NO_ID" || identityMode === "MANUAL",
       fcn: identityMode === "FAYDA" ? (fcn || undefined) : undefined,
       dateOfBirth: dateOfBirth ? new Date(`${dateOfBirth}T00:00:00.000Z`) : undefined,
       age: Math.max(0, parseInt(formData.get("age") as string, 10) || 0),
@@ -575,18 +575,35 @@ export default function RegisterPage() {
                     </div>
                   )}
                 </div>
+                {/* Manual Entry — always visible, full-width */}
+                <button
+                  type="button"
+                  onClick={() => { resetIdentityState(); setIdentityMode("MANUAL"); setIsVerified(true); }}
+                  className="group w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 transition-all duration-200"
+                >
+                  <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform shrink-0">
+                    <ScanSearch className="w-5 h-5" />
+                  </div>
+                  <div className="text-center">
+                    <p className="font-bold text-amber-800">Manual Entry (No Scan Required)</p>
+                    <p className="text-xs text-amber-700 mt-0.5">Type your name, National ID, and details directly — no camera or QR needed.</p>
+                  </div>
+                </button>
+                </div>
               </div>
             ) : (
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-100 border border-slate-200">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${identityMode === "FAYDA" ? "bg-blue-600" : "bg-emerald-600"}`}>
-                  {identityMode === "FAYDA" ? <IdCard className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                  identityMode === "FAYDA" ? "bg-blue-600" : identityMode === "MANUAL" ? "bg-amber-500" : "bg-emerald-600"
+                }`}>
+                  {identityMode === "FAYDA" ? <IdCard className="w-4 h-4 text-white" /> : identityMode === "MANUAL" ? <ScanSearch className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-semibold text-slate-800">
-                    {identityMode === "FAYDA" ? t.registration.faydaPathTitle : t.registration.noIdPathTitle}
+                    {identityMode === "FAYDA" ? t.registration.faydaPathTitle : identityMode === "MANUAL" ? "Manual Entry" : t.registration.noIdPathTitle}
                   </p>
                   <p className="text-xs text-slate-500">
-                    {identityMode === "FAYDA" ? t.registration.faydaPathDesc : t.registration.noIdPathDesc}
+                    {identityMode === "FAYDA" ? t.registration.faydaPathDesc : identityMode === "MANUAL" ? "Fill in your details manually — no scan required." : t.registration.noIdPathDesc}
                   </p>
                 </div>
                 <button
@@ -615,6 +632,64 @@ export default function RegisterPage() {
                     onChange={(e) => setFullName(e.target.value)}
                     disabled={identityMode === "FAYDA" && isVerified}
                   />
+                </div>
+              </div>
+
+              {/* === MANUAL ENTRY PANEL === */}
+              {identityMode === "MANUAL" && (
+                <div className="mt-4 p-5 rounded-xl border-2 border-amber-200 bg-amber-50/60 space-y-4 animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
+                    <ScanSearch className="w-4 h-4" />
+                    Manual Registration — Enter Details Below
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="manual-nid">National ID (FIN) — Optional</Label>
+                      <Input
+                        id="manual-nid"
+                        placeholder="e.g. 1234 5678 9012"
+                        value={nationalId}
+                        onChange={handleNationalIdChange}
+                        onBlur={handleNidBlur}
+                        className={nidExistsError ? "border-red-400 bg-red-50" : ""}
+                      />
+                      {nidExistsError && <p className="text-xs text-red-600">{nidExistsError}</p>}
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="manual-sex">Sex</Label>
+                      <Select name="sex" value={sex} onValueChange={setSex}>
+                        <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Male">Male</SelectItem>
+                          <SelectItem value="Female">Female</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="manual-dob">Date of Birth</Label>
+                      <Input
+                        id="manual-dob"
+                        type="date"
+                        name="dateOfBirth"
+                        value={dateOfBirth}
+                        onChange={(e) => setDateOfBirth(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="manual-phone">Phone Number</Label>
+                      <Input
+                        id="manual-phone"
+                        name="phoneNumber"
+                        placeholder="+251 9XX XXX XXX"
+                        type="tel"
+                      />
+                    </div>
+                  </div>
+                  <div className="p-3 rounded-lg bg-amber-100 border border-amber-300 text-xs text-amber-900">
+                    ⚠️ <strong>Staff Note:</strong> Manual registration bypasses QR verification. A staff member should visually confirm the ID document before approving.
+                  </div>
+                </div>
+              )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
