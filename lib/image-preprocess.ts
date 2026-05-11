@@ -41,7 +41,7 @@ function toGrayscale(data: Uint8ClampedArray): Uint8ClampedArray {
   return gray;
 }
 
-function adaptiveThreshold(
+export function adaptiveThreshold(
   gray: Uint8ClampedArray,
   width: number,
   height: number,

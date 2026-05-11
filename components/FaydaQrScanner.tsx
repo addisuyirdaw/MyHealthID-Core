@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import jsQR from "jsqr";
-import { buildCandidateFiles, getJsQrImageData } from "@/lib/image-preprocess";
+import { buildCandidateFiles, adaptiveThreshold } from "@/lib/image-preprocess";
 
 type Props = {
   onDecodedText: (text: string, sourceFile?: File) => void;
@@ -21,6 +21,24 @@ const SCANNER_CONFIG = {
 };
 
 // ─── jsQR helpers (primary engine for uploaded files) ────────────────────────
+
+/**
+ * Server-side pre-process: calls /api/qr-preprocess which uses sharp (Lanczos3 resize,
+ * linear contrast boost, variance-based QR region detection). Returns the enhanced
+ * image as a File ready for jsQR, or null if the API fails.
+ */
+async function serverPreprocess(file: File): Promise<File | null> {
+  try {
+    const form = new FormData();
+    form.append("image", file);
+    const res = await fetch("/api/qr-preprocess", { method: "POST", body: form });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return new File([blob], "server-enhanced.png", { type: "image/png" });
+  } catch {
+    return null;
+  }
+}
 
 /**
  * Try jsQR with multiple upscale + rotation attempts on raw image data.
@@ -80,7 +98,7 @@ async function tryJsQrOnFile(file: File): Promise<string | null> {
           let res = jsQR(imgData.data, crop.w, crop.h, { inversionAttempts: "attemptBoth" });
           if (res?.data) return res.data;
 
-          // Attempt 2: inline Otsu binarisation then jsQR
+          // Attempt 2: adaptive binarisation then jsQR
           const grayData = new Uint8ClampedArray(imgData.data.length / 4);
           for (let i = 0; i < grayData.length; i++) {
             grayData[i] = Math.round(
@@ -89,25 +107,11 @@ async function tryJsQrOnFile(file: File): Promise<string | null> {
               0.114 * imgData.data[i * 4 + 2]
             );
           }
-          // Otsu threshold
-          const hist = new Float64Array(256);
-          for (const v of grayData) hist[v]++;
-          let sumAll = 0;
-          for (let t = 0; t < 256; t++) sumAll += t * hist[t];
-          let sumB = 0, wB = 0, maxVar = 0, thresh = 127;
-          for (let t = 0; t < 256; t++) {
-            wB += hist[t];
-            if (!wB) continue;
-            const wF = grayData.length - wB;
-            if (!wF) break;
-            sumB += t * hist[t];
-            const mB = sumB / wB, mF = (sumAll - sumB) / wF;
-            const bv = wB * wF * (mB - mF) ** 2;
-            if (bv > maxVar) { maxVar = bv; thresh = t; }
-          }
+          const binGray = adaptiveThreshold(grayData, crop.w, crop.h, 21, 10);
+
           const binRgba = new Uint8ClampedArray(crop.w * crop.h * 4);
           for (let i = 0; i < grayData.length; i++) {
-            const v = grayData[i] < thresh ? 0 : 255;
+            const v = binGray[i];
             binRgba[i * 4] = binRgba[i * 4 + 1] = binRgba[i * 4 + 2] = v;
             binRgba[i * 4 + 3] = 255;
           }
@@ -145,6 +149,13 @@ async function tryScanFile(regionId: string, file: File): Promise<string> {
  *  Round 3 — ZXing on original file
  */
 async function decodeUploadWithRetries(regionId: string, file: File): Promise<string> {
+  // Round 0: server-side sharp enhancement (region detect + 4x Lanczos + contrast)
+  const enhanced = await serverPreprocess(file);
+  if (enhanced) {
+    const enhancedResult = await tryJsQrOnFile(enhanced);
+    if (enhancedResult) return enhancedResult;
+  }
+
   // Round 1: jsQR — most reliable for dense 2D QRs
   const jsQrResult = await tryJsQrOnFile(file);
   if (jsQrResult) return jsQrResult;
@@ -171,7 +182,7 @@ async function decodeUploadWithRetries(regionId: string, file: File): Promise<st
 
   const hint = lastErr instanceof Error ? lastErr.message : "Could not detect a QR or barcode.";
   throw new Error(
-    `${hint} — The scanner tried 12+ image variants (binarised, upscaled ×4, rotated ×4). Tips: ` +
+    `${hint} — The scanner tried 12+ image variants (Adaptive Thresholding, 3x Bicubic Upscale, rotated ×4). Tips: ` +
     `photograph only the QR in bright, even light; avoid glare; export as PNG; hold the camera steady.`
   );
 }
@@ -280,7 +291,7 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead }: Props) {
     <div className="space-y-3">
       <div className="text-sm text-slate-600">
         <strong>Upload</strong> a clear photo of the <strong>QR on the back</strong> or the{" "}
-        <strong>barcode on the front</strong>. The scanner applies Otsu binarisation + 12 image variants
+        <strong>barcode on the front</strong>. The scanner applies Adaptive Thresholding + 12 image variants
         automatically. Optionally use <strong>Use camera</strong> on a phone.
       </div>
       <div className="flex flex-wrap gap-2">
@@ -326,7 +337,7 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead }: Props) {
       {cameraPhase === "idle" && !busy && (
         <div className="text-xs text-slate-500">
           Camera is off. For uploads: photograph <strong>only the QR</strong> in bright, even light — the scanner
-          runs Otsu adaptive binarisation at 3 resolutions × 4 rotations (12 attempts). JPEG/PNG;
+          runs Adaptive Thresholding at 3 resolutions × 4 rotations (12 attempts). JPEG/PNG;
           export as PNG if HEIC fails.
         </div>
       )}
