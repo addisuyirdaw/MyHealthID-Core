@@ -9,6 +9,8 @@ type Props = {
   onDecodedText: (text: string, sourceFile?: File) => void;
   onError?: (message: string) => void;
   onCodeRead?: (rawText: string) => void;
+  /** Shown after upload/camera decode fails — keeps the desk moving without a working scanner. */
+  onManualBypass?: () => void;
 };
 
 /**
@@ -133,12 +135,26 @@ async function canvasToPngFile(canvas: HTMLCanvasElement, name: string): Promise
   return new File([blob], name, { type: "image/png" });
 }
 
-async function tryScanFile(regionId: string, file: File): Promise<string> {
+/**
+ * ZXing file scan — often throws "No MultiFormat Readers" on dense QRs / bad lighting.
+ * Return null instead of throwing so jsQR and other rounds can still win.
+ */
+async function tryScanFile(regionId: string, file: File): Promise<string | null> {
   const scanner = new Html5Qrcode(regionId, SCANNER_CONFIG);
   try {
     return await scanner.scanFile(file, false);
+  } catch (e: unknown) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/multiformat|no readers|not found|decode/i.test(msg)) {
+      return null;
+    }
+    return null;
   } finally {
-    try { scanner.clear(); } catch { /* ignore */ }
+    try {
+      scanner.clear();
+    } catch {
+      /* ignore */
+    }
   }
 }
 
@@ -162,27 +178,18 @@ async function decodeUploadWithRetries(regionId: string, file: File): Promise<st
 
   // Round 2: ZXing on preprocessed Otsu-binarised variants + originals
   const candidates = await buildCandidateFiles(file);
-  let lastErr: unknown = null;
   for (const f of candidates) {
-    try {
-      const text = await tryScanFile(regionId, f);
-      if (text) return text;
-    } catch (e) {
-      lastErr = e;
-    }
+    const text = await tryScanFile(regionId, f);
+    if (text) return text;
   }
 
   // Round 3: ZXing on raw original (last resort)
-  try {
-    const text = await tryScanFile(regionId, file);
-    if (text) return text;
-  } catch (e) {
-    lastErr = e;
-  }
+  const rawZxing = await tryScanFile(regionId, file);
+  if (rawZxing) return rawZxing;
 
-  const hint = lastErr instanceof Error ? lastErr.message : "Could not detect a QR or barcode.";
+  const hint = "Could not detect a QR or barcode (including ZXing “No MultiFormat Readers” on difficult images).";
   throw new Error(
-    `${hint} — The scanner tried 12+ image variants (Adaptive Thresholding, 3x Bicubic Upscale, rotated ×4). Tips: ` +
+    `${hint} The scanner tried 12+ image variants (Adaptive Thresholding, 3x Bicubic Upscale, rotated ×4). Tips: ` +
     `photograph only the QR in bright, even light; avoid glare; export as PNG; hold the camera steady.`
   );
 }
@@ -201,7 +208,7 @@ function friendlyCameraMessage(err: unknown): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function FaydaQrScanner({ onDecodedText, onError, onCodeRead }: Props) {
+export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualBypass }: Props) {
   const regionId = useRef(`qr-reader-${Math.random().toString(16).slice(2)}`);
   const qrRef = useRef<Html5Qrcode | null>(null);
   const lastEmitRef = useRef<{ text: string; at: number } | null>(null);
@@ -209,6 +216,7 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead }: Props) {
   const [cameraHint, setCameraHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [busyStage, setBusyStage] = useState("");
+  const [decodeFailed, setDecodeFailed] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const lastFileRef = useRef<File | null>(null);
 
@@ -252,6 +260,7 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead }: Props) {
       setCameraPhase("live");
     } catch (e: unknown) {
       setCameraPhase("failed");
+      setDecodeFailed(true);
       setCameraHint(friendlyCameraMessage(e));
     }
   };
@@ -265,6 +274,7 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead }: Props) {
 
     lastFileRef.current = file;
     setBusy(true);
+    setDecodeFailed(false);
     setBusyStage("Binarising + multi-scale decode (jsQR)…");
     setCameraHint(null);
     try {
@@ -272,9 +282,11 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead }: Props) {
       setCameraPhase("idle");
       const text = await decodeUploadWithRetries(regionId.current, file);
       setBusyStage("");
+      setDecodeFailed(false);
       emitDecoded(text);
     } catch (err: unknown) {
       setBusyStage("");
+      setDecodeFailed(true);
       onError?.(
         err instanceof Error
           ? err.message
@@ -326,6 +338,28 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead }: Props) {
 
       {cameraHint && (
         <div className="text-xs rounded-lg border border-amber-200 bg-amber-50 text-amber-900 px-3 py-2">{cameraHint}</div>
+      )}
+
+      {(decodeFailed || cameraPhase === "failed") && onManualBypass && (
+        <div className="rounded-xl border-2 border-amber-500 bg-amber-50 p-3 space-y-2 shadow-md">
+          <p className="text-sm font-bold text-amber-950">Scanner blocked?</p>
+          <p className="text-xs text-amber-900/90">
+            Keep the line moving: type the <strong>12-digit FIN</strong> and <strong>16-digit FCN</strong> on the registration form below, then tap{" "}
+            <strong>Verify FIN + FCN</strong>.
+          </p>
+          <button
+            type="button"
+            onClick={() => {
+              setDecodeFailed(false);
+              setCameraPhase("idle");
+              setCameraHint(null);
+              onManualBypass();
+            }}
+            className="w-full text-sm font-bold py-2.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700 border border-amber-800 shadow"
+          >
+            Manual bypass — close scanner &amp; type IDs
+          </button>
+        </div>
       )}
 
       <div

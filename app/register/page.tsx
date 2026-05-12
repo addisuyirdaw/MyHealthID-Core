@@ -18,6 +18,8 @@ import { FrontIdCapture } from "@/components/FrontIdCapture";
 import { LogoIcon } from "@/components/LogoIcon";
 import { ChiefComplaintPicker } from "@/components/ChiefComplaintPicker";
 import { findTriageComplaintByLabel } from "@/lib/triage/triageList";
+import { isFaydaFin12, isFaydaFcn16 } from "@/lib/fayda-format";
+import { Ward, TriageStatus } from "@prisma/client";
 
 const FaydaQrScanner = dynamic(
   () => import("@/components/FaydaQrScanner").then((m) => m.FaydaQrScanner),
@@ -102,6 +104,16 @@ export default function RegisterPage() {
   const [suspectedDisease, setSuspectedDisease] = useState("");
 
   const [accessError, setAccessError] = useState("");
+
+  /** Desk-only emergency lane: minimal fields, no scanner / no FIN verification. */
+  const [emergencyFastPath, setEmergencyFastPath] = useState(false);
+  const [emergencyDeskName, setEmergencyDeskName] = useState("");
+  const [emergencyDeskPhone, setEmergencyDeskPhone] = useState("");
+
+  const finDigitsOnly = nationalId.replace(/\s/g, "");
+  const fcnDigitsOnly = fcn.replace(/\D/g, "");
+  const finFormatOk = isFaydaFin12(finDigitsOnly);
+  const fcnFormatOk = isFaydaFcn16(fcnDigitsOnly);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -265,6 +277,15 @@ export default function RegisterPage() {
     await verifyFayda(fin, f);
   };
 
+  const handleManualScanBypass = useCallback(() => {
+    setScanStep("idle");
+    setScanFeedback({
+      variant: "info",
+      title: "Manual entry",
+      detail: "Type the 12-digit FIN and 16-digit FCN below, then tap Verify FIN + FCN.",
+    });
+  }, []);
+
   /** Auto-submit: called after OCR step resolves (verified or staff-bypassed). */
   const triggerAutoSubmit = useCallback(async (patientFullName: string, patientFin: string, patientFcn: string, patientSex: string, patientDob: string) => {
     if (isAutoSubmitting.current) return;
@@ -420,6 +441,46 @@ export default function RegisterPage() {
     }
   };
 
+  const submitEmergencyDesk = async () => {
+    const name = emergencyDeskName.trim();
+    if (name.length < 2) {
+      alert("Enter the patient name (at least 2 characters).");
+      return;
+    }
+    if (isSubmitting.current) return;
+    isSubmitting.current = true;
+    setLoading(true);
+    try {
+      const result = await registerPatient({
+        fullName: name,
+        generateMyHealthId: true,
+        age: 25,
+        sex: "Not Specified",
+        chiefComplaint: "Emergency — expedited desk registration (ID deferred)",
+        reasonForVisit: "Emergency intake",
+        ward: Ward.EMERGENCY,
+        triageStatus: TriageStatus.WAITING_FOR_TRIAGE,
+        emergencyFlag: true,
+        phoneNumber: emergencyDeskPhone.trim() || undefined,
+      });
+      if (result?.error) {
+        alert(result.error);
+        return;
+      }
+      try {
+        await checkInToQueue(result.id);
+      } catch {
+        /* already queued */
+      }
+      router.push(`/queue?token=${result.queuePosition ?? 1}&name=${encodeURIComponent(name)}`);
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Emergency registration failed.");
+    } finally {
+      setLoading(false);
+      isSubmitting.current = false;
+    }
+  };
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (isSubmitting.current) return;
@@ -529,8 +590,70 @@ export default function RegisterPage() {
 
           <CardContent className="grid gap-6 pt-8 pb-4">
 
+            <div className="rounded-2xl border-4 border-red-600 bg-gradient-to-br from-red-950 via-red-900 to-red-950 p-4 text-white shadow-xl space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-6 h-6 text-red-300 shrink-0" />
+                  <span className="font-black text-lg tracking-tight uppercase">Red emergency</span>
+                </div>
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className="h-5 w-5 rounded border-red-300 accent-yellow-400"
+                    checked={emergencyFastPath}
+                    onChange={(e) => {
+                      setEmergencyFastPath(e.target.checked);
+                      if (e.target.checked) {
+                        resetIdentityState();
+                        setIdentityMode(null);
+                        setVisitEmergency(true);
+                        setWard("EMERGENCY");
+                      } else {
+                        setVisitEmergency(false);
+                        setWard("OPD_OUTPATIENT");
+                      }
+                    }}
+                  />
+                  <span className="text-sm font-bold">Activate — skip scanner &amp; ID checks</span>
+                </label>
+              </div>
+              {emergencyFastPath && (
+                <div className="space-y-3 pt-1 border-t border-red-700/50">
+                  <p className="text-xs text-red-200/90">
+                    For unstable patients only. Creates a <strong>temporary MHID</strong> and queues under emergency — complete full Fayda verification later when safe.
+                  </p>
+                  <div className="space-y-2">
+                    <Label className="text-red-100">Patient name</Label>
+                    <Input
+                      value={emergencyDeskName}
+                      onChange={(e) => setEmergencyDeskName(e.target.value)}
+                      placeholder="e.g. Alemayehu Tadesse"
+                      className="bg-white text-slate-900 border-red-300"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-red-100">Phone (optional)</Label>
+                    <Input
+                      value={emergencyDeskPhone}
+                      onChange={(e) => setEmergencyDeskPhone(e.target.value)}
+                      placeholder="+251…"
+                      className="bg-white text-slate-900 border-red-300"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    className="w-full h-12 text-lg font-black bg-yellow-400 text-red-950 hover:bg-yellow-300 border-2 border-yellow-200"
+                    disabled={loading}
+                    onClick={() => void submitEmergencyDesk()}
+                  >
+                    Register to queue now
+                  </Button>
+                </div>
+              )}
+            </div>
+
             {/* === HYBRID IDENTITY BRIDGE === */}
-            {!identityMode ? (
+            {!emergencyFastPath && (!identityMode ? (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
                   <h3 className="text-base font-bold text-slate-800 flex items-center justify-center gap-2">
@@ -541,7 +664,7 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <button
                     type="button"
-                    onClick={() => { resetIdentityState(); setIdentityMode("FAYDA"); }}
+                    onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode("FAYDA"); }}
                     className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all duration-200 text-left"
                   >
                     <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
@@ -555,7 +678,7 @@ export default function RegisterPage() {
                   {allowNoId ? (
                     <button
                       type="button"
-                      onClick={() => { resetIdentityState(); setIdentityMode("NO_ID"); setIsVerified(true); }}
+                      onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode("NO_ID"); setIsVerified(true); }}
                       className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-200 text-left"
                     >
                       <div className="w-12 h-12 rounded-full bg-slate-600 text-white flex items-center justify-center shadow-md group-hover:scale-110 group-hover:bg-emerald-600 transition-all">
@@ -575,7 +698,7 @@ export default function RegisterPage() {
                 {/* Manual Entry — always visible, full-width */}
                 <button
                   type="button"
-                  onClick={() => { resetIdentityState(); setIdentityMode("MANUAL"); setIsVerified(true); }}
+                  onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode("MANUAL"); setIsVerified(true); }}
                   className="group w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 transition-all duration-200"
                 >
                   <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform shrink-0">
@@ -604,16 +727,16 @@ export default function RegisterPage() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => { resetIdentityState(); setIdentityMode(null); }}
+                  onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode(null); }}
                   className="text-xs text-slate-400 hover:text-slate-700 underline"
                 >
                   {t.registration.change}
                 </button>
               </div>
-            )}
+            ))}
 
             {/* === DEMOGRAPHICS (shown after identity selection) === */}
-            {identityMode && (<>
+            {!emergencyFastPath && identityMode && (<>
               <div className="space-y-4">
                 <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">{t.registration.demographicsTitle}</h3>
               <div className="grid grid-cols-2 gap-4">
@@ -747,7 +870,15 @@ export default function RegisterPage() {
               {identityMode === "FAYDA" && (
               <div className="grid grid-cols-1 gap-4 mt-4">
                 <div className="space-y-2">
-                  <Label htmlFor="nationalId">{t.registration.faydaIdTitle}</Label>
+                  <div className="flex flex-wrap items-end justify-between gap-2">
+                    <Label htmlFor="nationalId">{t.registration.faydaIdTitle}</Label>
+                    {finFormatOk && !isVerified && (
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                        Fayda format verified (12-digit FIN)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-slate-400 -mt-1">Length check only — not proof the ID was issued by Fayda.</p>
                   <div className="flex gap-2">
                     <Input
                       id="nationalId"
@@ -797,6 +928,16 @@ export default function RegisterPage() {
                       <p className="font-semibold">{scanFeedback.title}</p>
                       {scanFeedback.detail && (
                         <p className="mt-1 text-xs opacity-90">{scanFeedback.detail}</p>
+                      )}
+                      {scanFeedback.variant === "error" && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="mt-3 w-full border-red-300 text-red-900 hover:bg-red-50"
+                          onClick={handleManualScanBypass}
+                        >
+                          Manual bypass — close scanner &amp; type FIN + FCN
+                        </Button>
                       )}
                     </div>
                   )}
@@ -852,6 +993,7 @@ export default function RegisterPage() {
                                 detail: msg,
                               })
                             }
+                            onManualBypass={handleManualScanBypass}
                           />
                         </div>
                       )}
@@ -1003,7 +1145,15 @@ export default function RegisterPage() {
                 </div>
                 {identityMode === "FAYDA" && (
                   <div className="space-y-2">
-                    <Label htmlFor="fcn">FCN (scan or type)</Label>
+                    <div className="flex flex-wrap items-end justify-between gap-2">
+                      <Label htmlFor="fcn">FCN (scan or type)</Label>
+                      {fcnFormatOk && !isVerified && (
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                          Fayda format verified (16-digit FCN)
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-slate-400 -mt-1">Length check only — not proof the ID was issued by Fayda.</p>
                     <Input
                       id="fcn"
                       name="fcn"
@@ -1197,11 +1347,13 @@ export default function RegisterPage() {
 
           </CardContent>
 
+          {!emergencyFastPath && (
           <CardFooter>
             <Button className="w-full" size="lg" disabled={loading || !isVerified || !identityMode} type="submit">
               {loading ? t.registration.registering : t.registration.completeRegistration}
             </Button>
           </CardFooter>
+          )}
         </form>
       </Card>
     </div>
