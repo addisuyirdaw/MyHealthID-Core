@@ -652,7 +652,7 @@ export async function mergeChildToAdult(childId: string, newFaydaId: string) {
       throw new Error("Fayda National ID must be exactly 12 or 16 digits.");
     }
 
-    const existingChild = await prisma.patient.findUnique({
+    const existingChild = await prisma.patient.findFirst({
       where: { nationalId: childId }
     });
 
@@ -664,7 +664,7 @@ export async function mergeChildToAdult(childId: string, newFaydaId: string) {
       throw new Error("The specified record is not a minor.");
     }
 
-    const existingAdult = await prisma.patient.findUnique({
+    const existingAdult = await prisma.patient.findFirst({
       where: { nationalId: cleanFaydaId }
     });
 
