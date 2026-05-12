@@ -6,7 +6,7 @@ import { generateHealthId, generateChildId, generateMhidSuffix, formatMyHealthPu
 import { randomUUID } from "crypto";
 import { z } from "zod";
 
-import { TriageStatus, Ward } from "@prisma/client";
+import { TriageStatus, Ward, PriorityLevel } from "@prisma/client";
 import { upsertVerifiedCitizenFromRegistration } from "@/lib/actions/verifiedCitizen.actions";
 
 async function allocateUniqueMhid(): Promise<string> {
@@ -145,8 +145,8 @@ export async function registerPatient(data: {
         ward === Ward.EMERGENCY,
       priorityLevel:
         (Boolean(data.emergencyFlag) || triageStatus === "RED" || ward === Ward.EMERGENCY) 
-          ? "EMERGENCY" 
-          : (triageStatus === "YELLOW" ? "URGENT" : "ROUTINE"),
+          ? PriorityLevel.EMERGENCY 
+          : (triageStatus === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE),
       religion: religion || "Not Specified",
       occupation: occupation || "Not Specified",
       maritalStatus: maritalStatus || "Not Specified",
@@ -476,7 +476,7 @@ export async function processTriage(
     const nextQueuePosition = 0;
     const estimatedWaitTime = 0;
     
-    const priorityLevel = priority === "RED" || ward === "EMERGENCY" ? "EMERGENCY" : priority === "YELLOW" ? "URGENT" : "ROUTINE";
+    const priorityLevel = priority === "RED" || ward === "EMERGENCY" ? PriorityLevel.EMERGENCY : priority === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE;
 
     const patient = await prisma.patient.update({
       where: { id: patientId },
