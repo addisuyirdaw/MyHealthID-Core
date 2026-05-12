@@ -13,7 +13,7 @@ export async function POST(request: Request) {
 
     const cleanNationalId = nationalId.replace(/\s/g, '');
 
-    const existingPatient = await prisma.patient.findUnique({
+    const existingPatient = await prisma.patient.findFirst({
       where: { nationalId: cleanNationalId }
     });
 
@@ -23,32 +23,30 @@ export async function POST(request: Request) {
 
     const otp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // OPEN REGISTRATION LOGIC: Upsert the patient
-    // If National ID exists, update email and otpCode.
-    // If not, automatically create a placeholder patient record to hold the linked email.
-    
-    // We dynamically generate a temporary Health ID purely for placeholder creation
-    const tempHealthId = `TMP-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
-
-    const upsertPayload = {
-      where: { nationalId: cleanNationalId },
-      update: {
-        email: email,
-        otpCode: otp
-      },
-      create: {
-        nationalId: cleanNationalId,
-        healthId: tempHealthId,
-        internalId: `MHI-${randomUUID()}`,
-        email: email,
-        otpCode: otp,
-        fullName: "Pending Registration",
-        age: 0,
-        sex: "Not Specified",
-      }
-    };
-
-    await prisma.patient.upsert(upsertPayload);
+    // OPEN REGISTRATION LOGIC: Create or Update the patient
+    if (existingPatient) {
+      await prisma.patient.update({
+        where: { id: existingPatient.id },
+        data: {
+          email: email,
+          otpCode: otp
+        }
+      });
+    } else {
+      const tempHealthId = `TMP-${Date.now()}-${Math.floor(Math.random() * 1000000)}`;
+      await prisma.patient.create({
+        data: {
+          nationalId: cleanNationalId,
+          healthId: tempHealthId,
+          internalId: `MHI-${randomUUID()}`,
+          email: email,
+          otpCode: otp,
+          fullName: "Pending Registration",
+          age: 0,
+          sex: "Not Specified",
+        }
+      });
+    }
 
     // Send the email to the dynamic recipient
     const result = await sendOTP(otp, email);

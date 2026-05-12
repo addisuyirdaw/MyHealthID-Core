@@ -11,7 +11,7 @@ export async function POST(request: Request) {
 
     const cleanNationalId = nationalId.replace(/\s/g, '');
 
-    const user = await prisma.patient.findUnique({
+    const user = await prisma.patient.findFirst({
       where: { nationalId: cleanNationalId }
     });
 

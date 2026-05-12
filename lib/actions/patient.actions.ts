@@ -621,8 +621,7 @@ export async function verifyNationalID(nationalId: string) {
     // Simulate lookup delay
     await new Promise((resolve) => setTimeout(resolve, 800));
 
-    // The Patient model acts as the National Linkage database.
-    const patientRecord = await prisma.patient.findUnique({
+    const patientRecord = await prisma.patient.findFirst({
       where: { nationalId: rawId }
     });
 
