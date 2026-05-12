@@ -62,6 +62,12 @@ enum TriageStatus {
   WAITING_FOR_TRIAGE
 }
 
+enum PriorityLevel {
+  EMERGENCY
+  URGENT
+  ROUTINE
+}
+
 /// Result of a structured clinical screening (Green / Yellow / Red).
 enum ScreeningTriageLevel {
   GREEN
@@ -138,6 +144,7 @@ model Patient {
 
   ward                  Ward     @default(OPD_OUTPATIENT)
   triageStatus          TriageStatus @default(WAITING_FOR_TRIAGE)
+  priorityLevel         PriorityLevel @default(ROUTINE)
   examStatus            String   @default("PENDING")
   status                String?  @default("ACTIVE")
 

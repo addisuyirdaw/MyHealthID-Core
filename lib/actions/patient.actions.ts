@@ -118,17 +118,9 @@ export async function registerPatient(data: {
     // internalId is always required — either mirrors faydaId or is a fresh UUID
     const internalId = idValue ?? `MHI-${randomUUID()}`;
 
-    // Calculate queue position
-    const maxQueue = await prisma.patient.aggregate({
-      _max: {
-        queuePosition: true
-      },
-      where: {
-        triageStatus: "WAITING_FOR_TRIAGE"
-      }
-    });
-    const nextQueuePosition = (maxQueue._max?.queuePosition ?? 0) + 1;
-    const estimatedWaitTime = nextQueuePosition * 15;
+    // Queue positions are now dynamically calculated at read-time based on PriorityLevel
+    const nextQueuePosition = 0;
+    const estimatedWaitTime = 0;
 
     const nationalDigitsOnly = data.nationalId ? String(data.nationalId).replace(/\D/g, "") : "";
     const nationalForRecord =
@@ -151,6 +143,10 @@ export async function registerPatient(data: {
         Boolean(data.emergencyFlag) ||
         triageStatus === "RED" ||
         ward === Ward.EMERGENCY,
+      priorityLevel:
+        (Boolean(data.emergencyFlag) || triageStatus === "RED" || ward === Ward.EMERGENCY) 
+          ? "EMERGENCY" 
+          : (triageStatus === "YELLOW" ? "URGENT" : "ROUTINE"),
       religion: religion || "Not Specified",
       occupation: occupation || "Not Specified",
       maritalStatus: maritalStatus || "Not Specified",
@@ -476,24 +472,18 @@ export async function processTriage(
   serviceType: string
 ) {
   try {
-    const maxQueue = await prisma.patient.aggregate({
-      _max: {
-        queuePosition: true
-      },
-      where: {
-        ward: ward,
-        triageStatus: { not: 'WAITING_FOR_TRIAGE' }
-      }
-    });
-
-    const nextQueuePosition = (maxQueue._max?.queuePosition ?? 0) + 1;
-    const estimatedWaitTime = nextQueuePosition * 15;
+    // Queue positions are now dynamically calculated at read-time
+    const nextQueuePosition = 0;
+    const estimatedWaitTime = 0;
+    
+    const priorityLevel = priority === "RED" || ward === "EMERGENCY" ? "EMERGENCY" : priority === "YELLOW" ? "URGENT" : "ROUTINE";
 
     const patient = await prisma.patient.update({
       where: { id: patientId },
       data: {
         ward: ward,
         triageStatus: priority,
+        priorityLevel: priorityLevel,
         serviceType: serviceType,
         queuePosition: nextQueuePosition,
         estimatedWait: estimatedWaitTime,
@@ -558,6 +548,43 @@ export async function getPatientQueueStatus(identifier: string) {
 
     if (!patient) return null;
 
+    // Fetch all active patients in the SAME ward (or waiting for triage) to calculate dynamic queue
+    const allPatients = await prisma.patient.findMany({
+      where: {
+        status: 'ACTIVE',
+        ward: patient.ward,
+        examStatus: { not: "EXAMINATION_COMPLETE" },
+        // if this patient is waiting for triage, compare with others waiting for triage
+        ...(patient.triageStatus === "WAITING_FOR_TRIAGE" ? { triageStatus: "WAITING_FOR_TRIAGE" } : { triageStatus: { not: "WAITING_FOR_TRIAGE" } })
+      },
+      select: { id: true, priorityLevel: true, createdAt: true }
+    });
+
+    const priorityWeight: Record<string, number> = {
+      EMERGENCY: 1,
+      URGENT: 2,
+      ROUTINE: 3,
+    };
+
+    allPatients.sort((a, b) => {
+      const pA = priorityWeight[a.priorityLevel] || 3;
+      const pB = priorityWeight[b.priorityLevel] || 3;
+      if (pA !== pB) return pA - pB;
+      return a.createdAt.getTime() - b.createdAt.getTime(); // older patients first
+    });
+
+    const queueIndex = allPatients.findIndex(p => p.id === patient.id);
+    const queuePosition = queueIndex !== -1 ? queueIndex + 1 : 1;
+
+    // Wait Time Engine: Triage Buffer
+    let estimatedWait = queuePosition * 15;
+    const emergencyCount = allPatients.filter(p => p.priorityLevel === "EMERGENCY").length;
+    
+    // Add Triage Buffer for everyone EXCEPT emergencies themselves
+    if (patient.priorityLevel !== "EMERGENCY") {
+      estimatedWait += (emergencyCount * 15);
+    }
+
     const latestScreening = await prisma.screening.findFirst({
       where: { patientId: patient.id },
       orderBy: { createdAt: "desc" },
@@ -566,8 +593,8 @@ export async function getPatientQueueStatus(identifier: string) {
 
     return {
       fullName: patient.fullName,
-      queuePosition: patient.queuePosition,
-      estimatedWait: patient.estimatedWait,
+      queuePosition: queuePosition,
+      estimatedWait: estimatedWait,
       status:
         patient.triageStatus === "WAITING_FOR_TRIAGE"
           ? "Waiting for Triage"
