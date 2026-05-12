@@ -84,10 +84,10 @@ enum QueueStatus {
 model Patient {
   id                String   @id @default(uuid()) @map("_id")
   healthId          String   @unique
-  nationalId        String?  @unique
-  faydaId           String?  @unique @map("fayda_id")
-  hospitalId        String?  @unique @map("hospital_id")
-  fcn               String?  @unique @map("fcn")
+  nationalId        String?
+  faydaId           String?  @map("fayda_id")
+  hospitalId        String?  @map("hospital_id")
+  fcn               String?  @map("fcn")
   internalId        String   @unique @map("internal_id")
   isMinor           Boolean  @default(false)
   guardianId        String?
@@ -167,6 +167,11 @@ model Patient {
   journals          PatientJournal[]
   screenings        Screening[]
   medicalTimeline   MedicalTimelineEntry[]
+
+  @@index([nationalId])
+  @@index([faydaId])
+  @@index([hospitalId])
+  @@index([fcn])
 }
 
 /// Append-only clinical timeline (never update rows — new facts = new documents).

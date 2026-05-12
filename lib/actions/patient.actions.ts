@@ -144,9 +144,9 @@ export async function registerPatient(data: {
         triageStatus === "RED" ||
         ward === Ward.EMERGENCY,
       priorityLevel:
-        (Boolean(data.emergencyFlag) || triageStatus === "RED" || ward === Ward.EMERGENCY) 
+        ((Boolean(data.emergencyFlag) || triageStatus === "RED" || ward === Ward.EMERGENCY) 
           ? PriorityLevel.EMERGENCY 
-          : (triageStatus === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE),
+          : (triageStatus === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE)) as PriorityLevel,
       religion: religion || "Not Specified",
       occupation: occupation || "Not Specified",
       maritalStatus: maritalStatus || "Not Specified",
@@ -476,7 +476,7 @@ export async function processTriage(
     const nextQueuePosition = 0;
     const estimatedWaitTime = 0;
     
-    const priorityLevel = priority === "RED" || ward === "EMERGENCY" ? PriorityLevel.EMERGENCY : priority === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE;
+    const priorityLevel = (priority === "RED" || ward === "EMERGENCY" ? PriorityLevel.EMERGENCY : priority === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE) as PriorityLevel;
 
     const patient = await prisma.patient.update({
       where: { id: patientId },
