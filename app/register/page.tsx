@@ -586,7 +586,6 @@ export default function RegisterPage() {
                     <p className="text-xs text-amber-700 mt-0.5">Type your name, National ID, and details directly — no camera or QR needed.</p>
                   </div>
                 </button>
-                </div>
               </div>
             ) : (
               <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-100 border border-slate-200">
@@ -687,7 +686,6 @@ export default function RegisterPage() {
                   </div>
                 </div>
               )}
-                </div>
                 <div className="space-y-2">
                   <Label htmlFor="email">Email Address</Label>
                   <div className="flex gap-2">
@@ -1069,7 +1067,6 @@ export default function RegisterPage() {
                   <Input id="religion" name="religion" placeholder="Religion (Optional)" />
                 </div>
               </div>
-            </div>
 
             {/* Lock overlay — shown when Fayda path but not yet verified */}
             {identityMode === "FAYDA" && !isVerified ? (
@@ -1193,7 +1190,7 @@ export default function RegisterPage() {
                 </div>
               </div>
             </div>
-          </div>
+            </div>
           ) : null}
           </>
           )}
