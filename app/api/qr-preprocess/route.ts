@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
       .png()
       .toBuffer();
 
-    return new NextResponse(processed, {
+    return new NextResponse(processed as any, {
       headers: { "Content-Type": "image/png", "X-Region": JSON.stringify(region) },
     });
   } catch (err: any) {
