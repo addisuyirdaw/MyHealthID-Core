@@ -47,18 +47,46 @@ export async function getLiveQueueStatus(patientId: string) {
       return { inQueue: false };
     }
 
-    // Calculate queue position: number of people waiting who checked in earlier
-    const peopleAheadCount = await prisma.queue.count({
-      where: {
-        status: "WAITING",
-        checkInTime: {
-          lt: activeQueue.checkInTime,
-        },
-      },
+    // Fetch all WAITING queues to sort them
+    const allWaitingQueues = await prisma.queue.findMany({
+      where: { status: "WAITING" },
+      include: { patient: true },
     });
 
-    const queuePosition = peopleAheadCount + 1; // 1-indexed position
-    const estimatedWait = queuePosition * 15; // 15 mins per person
+    const priorityWeight: Record<string, number> = {
+      EMERGENCY: 1,
+      URGENT: 2,
+      ROUTINE: 3,
+    };
+
+    // Sort by priority first, then by checkInTime
+    allWaitingQueues.sort((a, b) => {
+      const pA = priorityWeight[a.patient.priorityLevel] || 3;
+      const pB = priorityWeight[b.patient.priorityLevel] || 3;
+      if (pA !== pB) return pA - pB;
+      return a.checkInTime.getTime() - b.checkInTime.getTime();
+    });
+
+    const queueIndex = allWaitingQueues.findIndex(q => q.patientId === patientId);
+    let queuePosition = 1;
+    let isEmergency = false;
+
+    if (queueIndex !== -1) {
+      queuePosition = queueIndex + 1;
+      isEmergency = allWaitingQueues[queueIndex].patient.priorityLevel === "EMERGENCY";
+    } else {
+      // If patient is not waiting (e.g. IN_PROGRESS), just return 0 wait
+      const patient = await prisma.patient.findUnique({ where: { id: patientId } });
+      isEmergency = patient?.priorityLevel === "EMERGENCY";
+    }
+
+    let estimatedWait = queuePosition * 15;
+    const emergencyCount = allWaitingQueues.filter(q => q.patient.priorityLevel === "EMERGENCY").length;
+    
+    // Add Triage Buffer for everyone EXCEPT emergencies themselves
+    if (!isEmergency) {
+      estimatedWait += (emergencyCount * 15);
+    }
 
     return {
       inQueue: true,
