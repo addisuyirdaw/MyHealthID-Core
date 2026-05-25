@@ -11,6 +11,7 @@ export async function createLabOrder(data: {
   clinicalNote: string;
 }) {
   try {
+    const organizationId = cookies().get("organizationId")?.value || null;
     const investigation = await prisma.investigation.create({
       data: {
         patient: {
@@ -21,6 +22,7 @@ export async function createLabOrder(data: {
         category: data.category,
         department: data.clinicalNote ? `Note: ${data.clinicalNote}` : null,
         status: "PENDING",
+        organizationId: organizationId,
       },
     });
     revalidatePath("/dashboard");

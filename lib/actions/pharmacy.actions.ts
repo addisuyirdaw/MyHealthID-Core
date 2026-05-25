@@ -6,6 +6,7 @@ import { cookies } from "next/headers";
 
 export async function createPrescription(data: { patientId: string; drugName: string; dosage: string; frequency: string; duration: string; notes?: string }) {
   try {
+    const organizationId = cookies().get("organizationId")?.value || null;
     const prescription = await prisma.prescription.create({
       data: {
         patientId: data.patientId,
@@ -15,6 +16,7 @@ export async function createPrescription(data: { patientId: string; drugName: st
         duration: data.duration,
         notes: data.notes,
         status: "PENDING",
+        organizationId: organizationId,
       },
     });
 

@@ -217,6 +217,7 @@ model VerifiedCitizen {
 model ClinicalExamination {
   id                String   @id @default(uuid()) @map("_id")
   patientId         String   @unique
+  organizationId    String?  @map("organization_id")
   
   generalAppearance String?
   heent             String?
@@ -241,6 +242,7 @@ model Vitals {
   id        String   @id @default(uuid()) @map("_id")
   patientId String
   
+  organizationId String? @map("organization_id")
   // Mandatory Vital Signs
   bp        String   // Blood Pressure e.g., "120/80"
   pulse     Int      // Pulse Rate (PR)
@@ -289,6 +291,7 @@ model Investigation {
   id          String   @id @default(uuid()) @map("_id")
   patientId   String
   doctorId    String?
+  organizationId String? @map("organization_id")
   
   testName    String
   category    String? 
@@ -314,6 +317,7 @@ model Prescription {
   id          String   @id @default(uuid()) @map("_id")
   patientId   String
   doctorId    String?
+  organizationId String? @map("organization_id")
   
   drugName    String   @map("medication")
   dosage      String

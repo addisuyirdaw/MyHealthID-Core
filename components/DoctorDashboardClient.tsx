@@ -194,7 +194,8 @@ export default function DoctorDashboardClient({
         title: "Vitals Recorded", 
         description: `BP: ${v.bp} | Pulse: ${v.pulse} bpm | Temp: ${v.temp}°C | SpO2: ${v.spO2}%`,
         icon: <HeartPulse className="w-5 h-5 text-rose-500" />,
-        bgColor: "bg-rose-100"
+        bgColor: "bg-rose-100",
+        badge: v.facilityName ? `Origin: ${v.facilityName}` : (v.organizationId ? `Origin: ${v.organizationId}` : undefined)
       }));
     }
 
@@ -205,7 +206,7 @@ export default function DoctorDashboardClient({
         date: i.updatedAt, 
         title: `Lab Test: ${i.testName}`, 
         description: i.status === "COMPLETED" ? `Result: ${i.result}` : "Awaiting processing.", 
-        badge: i.status,
+        badge: i.facilityName ? `Origin: ${i.facilityName}` : i.status,
         badgeColor: i.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
         icon: <FlaskConical className="w-5 h-5 text-indigo-500" />,
         bgColor: "bg-indigo-100"
@@ -219,7 +220,7 @@ export default function DoctorDashboardClient({
         date: p.updatedAt, 
         title: `Prescribed: ${p.drugName}`, 
         description: `Dosage: ${p.dosage} | Freq: ${p.frequency}`, 
-        badge: p.status,
+        badge: p.facilityName ? `Origin: ${p.facilityName}` : p.status,
         badgeColor: p.status === "DISPENSED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
         icon: <Pill className="w-5 h-5 text-teal-500" />,
         bgColor: "bg-teal-100"
@@ -233,6 +234,7 @@ export default function DoctorDashboardClient({
         date: selectedPatient.clinicalExam.updatedAt, 
         title: "Clinical Exam Recorded", 
         description: selectedPatient.clinicalExam.clinicalNotes || "Exam summary recorded.",
+        badge: selectedPatient.clinicalExam.facilityName ? `Origin: ${selectedPatient.clinicalExam.facilityName}` : (selectedPatient.clinicalExam.organizationId ? `Origin: ${selectedPatient.clinicalExam.organizationId}` : undefined),
         icon: <ActivitySquare className="w-5 h-5 text-purple-500" />,
         bgColor: "bg-purple-100"
       });

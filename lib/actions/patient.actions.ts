@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { checkInToQueue } from "./queue.actions";
 import { generateHealthId, generateChildId, generateMhidSuffix, formatMyHealthPublicId } from "../utils";
 import { randomUUID } from "crypto";
 import { z } from "zod";
@@ -300,7 +301,42 @@ export async function getPatientsByWard(ward: Ward) {
       return weightA - weightB;
     });
 
-    return JSON.parse(JSON.stringify(patients));
+    const organizations = await prisma.organization.findMany({
+      select: { id: true, name: true }
+    });
+    const orgMap = Object.fromEntries(organizations.map(o => [o.id, o.name]));
+
+    const formatFacilityName = (orgId: string | null | undefined) => {
+      if (!orgId) return null;
+      if (orgMap[orgId]) return orgMap[orgId];
+      return orgId
+        .split("-")
+        .filter(part => part.toUpperCase() !== "MH")
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(" ");
+    };
+
+    const mappedPatients = patients.map((p: any) => ({
+      ...p,
+      vitals: p.vitals?.map((v: any) => ({
+        ...v,
+        facilityName: formatFacilityName(v.organizationId)
+      })) || [],
+      investigations: p.investigations?.map((i: any) => ({
+        ...i,
+        facilityName: formatFacilityName(i.organizationId)
+      })) || [],
+      prescriptions: p.prescriptions?.map((pr: any) => ({
+        ...pr,
+        facilityName: formatFacilityName(pr.organizationId)
+      })) || [],
+      clinicalExam: p.clinicalExam ? {
+        ...p.clinicalExam,
+        facilityName: formatFacilityName(p.clinicalExam.organizationId)
+      } : null
+    }));
+
+    return JSON.parse(JSON.stringify(mappedPatients));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR [getPatientsByWard]:", error.message);
     return []; // Return empty list so the dashboard renders instead of crashing
@@ -310,27 +346,55 @@ export async function getPatientsByWard(ward: Ward) {
 export async function searchPatients(query: string) {
   try {
     const organizationId = cookies().get("organizationId")?.value || null;
-    const patients = await prisma.patient.findMany({
-      where: {
-        status: 'ACTIVE',
-        organizationId: organizationId,
-        OR: [
-          { healthId: { contains: query, mode: 'insensitive' } },
-          { nationalId: { contains: query, mode: 'insensitive' } },
-          { fullName: { contains: query, mode: 'insensitive' } },
-        ]
-      },
-      orderBy: {
-        createdAt: 'desc',
-      },
-      include: {
-        vitals: true,
-        investigations: true,
-        prescriptions: true,
-        clinicalExam: true,
-        queues: true,
+  const patients = await prisma.patient.findMany({
+    where: {
+      status: 'ACTIVE',
+      // Global search: organization filter removed to allow cross-facility lookup
+      OR: [
+        { healthId: { contains: query, mode: 'insensitive' } },
+        { nationalId: { contains: query, mode: 'insensitive' } },
+        { fullName: { contains: query, mode: 'insensitive' } },
+      ]
+    },
+    orderBy: {
+      createdAt: 'desc',
+    },
+    include: {
+      vitals: true,
+      investigations: true,
+      prescriptions: true,
+      clinicalExam: true,
+      queues: true,
+    }
+  });
+
+// Auto‑Admission logic: approve pending intake requests and add patient to live queue
+if (organizationId) {
+  for (const p of patients) {
+    const targetId = p.nationalId ?? p.faydaId ?? p.hospitalId;
+    if (targetId) {
+      const intakeReq = await prisma.intakeRequest.findFirst({
+        where: {
+          nationalId: targetId,
+          organizationId: organizationId,
+          status: "PENDING",
+        },
+      });
+      if (intakeReq) {
+        await prisma.intakeRequest.update({
+          where: { id: intakeReq.id },
+          data: { status: "APPROVED" },
+        });
+        // Update patient's active facility to our current logged-in facility so they show up in the queues/wards
+        await prisma.patient.update({
+          where: { id: p.id },
+          data: { organizationId: organizationId },
+        });
+        await checkInToQueue(p.id);
       }
-    });
+    }
+  }
+}
 
     const priorityWeight: Record<string, number> = {
       WAITING_FOR_TRIAGE: 0,
@@ -345,7 +409,42 @@ export async function searchPatients(query: string) {
       return weightA - weightB;
     });
 
-    return JSON.parse(JSON.stringify(patients));
+    const organizations = await prisma.organization.findMany({
+      select: { id: true, name: true }
+    });
+    const orgMap = Object.fromEntries(organizations.map(o => [o.id, o.name]));
+
+    const formatFacilityName = (orgId: string | null | undefined) => {
+      if (!orgId) return null;
+      if (orgMap[orgId]) return orgMap[orgId];
+      return orgId
+        .split("-")
+        .filter(part => part.toUpperCase() !== "MH")
+        .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(" ");
+    };
+
+    const mappedPatients = patients.map((p: any) => ({
+      ...p,
+      vitals: p.vitals?.map((v: any) => ({
+        ...v,
+        facilityName: formatFacilityName(v.organizationId)
+      })) || [],
+      investigations: p.investigations?.map((i: any) => ({
+        ...i,
+        facilityName: formatFacilityName(i.organizationId)
+      })) || [],
+      prescriptions: p.prescriptions?.map((pr: any) => ({
+        ...pr,
+        facilityName: formatFacilityName(pr.organizationId)
+      })) || [],
+      clinicalExam: p.clinicalExam ? {
+        ...p.clinicalExam,
+        facilityName: formatFacilityName(p.clinicalExam.organizationId)
+      } : null
+    }));
+
+    return JSON.parse(JSON.stringify(mappedPatients));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR [searchPatients]:", error.message);
     return []; // Return empty list so search results render instead of crashing
@@ -372,6 +471,7 @@ export async function recordVitals(data: {
       bmi = Math.round((w / (m * m)) * 10) / 10;
     }
 
+    const organizationId = cookies().get("organizationId")?.value || null;
     const vitals = await prisma.vitals.create({
       data: {
         patientId: data.patientId,
@@ -384,6 +484,7 @@ export async function recordVitals(data: {
         painLevel: data.painLevel ?? null,
         weightKg: w ?? null,
         heightCm: data.heightCm ?? null,
+        organizationId: organizationId,
       },
     });
 
@@ -514,13 +615,16 @@ export async function processTriage(
 
 export async function saveClinicalExam(patientId: string, examData: any) {
   try {
+    const organizationId = cookies().get("organizationId")?.value || null;
     const exam = await prisma.clinicalExamination.upsert({
       where: { patientId },
       create: {
         patientId,
+        organizationId,
         ...examData
       },
       update: {
+        organizationId,
         ...examData
       }
     });

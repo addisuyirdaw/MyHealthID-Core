@@ -38,6 +38,21 @@ export default async function PatientDashboard({ params }: { params: { id: strin
 
   if (!patient) return notFound();
 
+  const organizations = await prisma.organization.findMany({
+    select: { id: true, name: true }
+  });
+  const orgMap = Object.fromEntries(organizations.map(o => [o.id, o.name]));
+
+  const formatFacilityName = (orgId: string | null | undefined) => {
+    if (!orgId) return null;
+    if (orgMap[orgId]) return orgMap[orgId];
+    return orgId
+      .split("-")
+      .filter(part => part.toUpperCase() !== "MH")
+      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .join(" ");
+  };
+
   const events: TimelineEvent[] = [];
 
   // Admission event
@@ -58,7 +73,8 @@ export default async function PatientDashboard({ params }: { params: { id: strin
     title: "Vitals Recorded", 
     description: `BP: ${v.bp} | Pulse: ${v.pulse} bpm | Temp: ${v.temp}°C | SpO2: ${v.spO2}%`,
     icon: <HeartPulse className="w-5 h-5 text-rose-500" />,
-    bgColor: "bg-rose-100"
+    bgColor: "bg-rose-100",
+    badge: formatFacilityName(v.organizationId) ? `Origin: ${formatFacilityName(v.organizationId)}` : undefined
   }));
 
   patient.investigations.forEach((i: any) => events.push({
@@ -67,7 +83,7 @@ export default async function PatientDashboard({ params }: { params: { id: strin
     date: i.updatedAt, 
     title: `Lab Test: ${i.testName}`, 
     description: i.status === "COMPLETED" ? `Result: ${i.result}` : "Awaiting sample or processing.", 
-    badge: i.status,
+    badge: formatFacilityName(i.organizationId) ? `Origin: ${formatFacilityName(i.organizationId)}` : i.status,
     badgeColor: i.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
     icon: <FlaskConical className="w-5 h-5 text-indigo-500" />,
     bgColor: "bg-indigo-100"
@@ -79,7 +95,7 @@ export default async function PatientDashboard({ params }: { params: { id: strin
     date: p.updatedAt, 
     title: `Prescription: ${p.drugName}`, 
     description: `Dosage: ${p.dosage} | Freq: ${p.frequency}`, 
-    badge: p.status,
+    badge: formatFacilityName(p.organizationId) ? `Origin: ${formatFacilityName(p.organizationId)}` : p.status,
     badgeColor: p.status === "DISPENSED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
     icon: <Pill className="w-5 h-5 text-teal-500" />,
     bgColor: "bg-teal-100"
@@ -92,6 +108,7 @@ export default async function PatientDashboard({ params }: { params: { id: strin
       date: patient.clinicalExam.updatedAt, 
       title: "Clinical Examination", 
       description: patient.clinicalExam.clinicalNotes || "General physical examination completed.",
+      badge: formatFacilityName(patient.clinicalExam.organizationId) ? `Origin: ${formatFacilityName(patient.clinicalExam.organizationId)}` : undefined,
       icon: <ActivitySquare className="w-5 h-5 text-purple-500" />,
       bgColor: "bg-purple-100"
     });
