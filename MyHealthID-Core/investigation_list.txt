@@ -1,0 +1,726 @@
+Medical Tests and Investigations
+1. Imaging / Radiology
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+X-ray (Radiography)
+Computed Tomography Scan
+Magnetic Resonance Imaging
+Ultrasound Scan (Ultrasonography)
+Doppler Ultrasound
+Mammography (Breast X-ray Imaging)
+Fluoroscopy (Real-time X-ray Imaging)
+Positron Emission Tomography Scan
+Nuclear Medicine Scan
+Bone Densitometry (Dual-Energy X-ray Absorptiometry – DEXA)
+Angiography (Imaging of Blood Vessels)
+Barium Studies (Contrast X-ray of Gastrointestinal Tract)
+Intravenous Urography / Intravenous Pyelography
+
+2. Cardiac / Cardiovascular
+
+
+
+
+
+
+
+
+
+Electrocardiogram (ECG)
+Echocardiography
+Stress Test / Exercise ECG
+Holter Monitoring
+Cardiac Catheterization
+Coronary Angiography
+Cardiac Biomarkers: Troponin, Creatine Kinase-MB, B-type Natriuretic Peptide
+Ambulatory Blood Pressure Monitoring
+
+3. Hematology
+
+
+
+
+
+
+
+
+
+
+
+Complete Blood Count
+Peripheral Blood Smear
+Hemoglobin Electrophoresis
+Erythrocyte Sedimentation Rate
+Reticulocyte Count
+Platelet Count
+Coagulation Profile (PT, aPTT, INR)
+Bone Marrow Aspiration
+Bone Marrow Biopsy
+Platelet Function Assay
+
+
+
+D-Dimer
+
+4. Clinical Chemistry
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Blood Glucose (Fasting, Random, Post-Prandial)
+Glycated Hemoglobin (HbA1c)
+Blood Urea
+Serum Creatinine
+Serum Electrolytes
+Liver Function Tests (ALT, AST, ALP, Bilirubin)
+Serum Albumin and Total Protein
+Albumin/Globulin Ratio
+Lipid Profile
+Urinalysis
+Amylase and Lipase
+Serum Osmolality
+Minerals: Calcium, Phosphate, Magnesium
+Iron Studies: Iron, TIBC, Ferritin
+
+5. Microbiology
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Blood Culture
+Urine Culture
+Sputum Culture
+Stool Culture
+Wound/Swab Culture
+Cerebrospinal Fluid Culture
+Throat Swab Culture
+Antibiotic Sensitivity Testing
+Polymerase Chain Reaction Test
+Rapid Antigen Tests
+Viral Culture
+Fungal Culture
+Potassium Hydroxide Mount
+Stool Microscopy for Parasites
+Malaria Blood Smear
+Tuberculosis GeneXpert / AFB Smear
+
+6. Immunology / Serology
+
+
+
+HIV Test
+Hepatitis Serology
+
+
+
+
+
+
+
+
+
+Rheumatoid Factor
+Antinuclear Antibody Test
+C-Reactive Protein
+Anti-Streptolysin O Titer
+Complement Levels
+Allergy Panels
+Autoimmune Panels
+
+7. Endocrinology
+
+
+
+
+
+
+
+Thyroid Function Tests (TSH, T3, T4)
+Cortisol and ACTH
+Sex Hormones (FSH, LH, Estradiol, Progesterone, Testosterone)
+Prolactin
+Insulin Assay
+HbA1c
+
+8. Toxicology / Drug Monitoring
+
+
+
+
+
+Blood Alcohol Test
+Toxicology Screen
+Therapeutic Drug Monitoring
+Poison Panels
+
+9. Respiratory / Pulmonary
+
+
+
+
+
+
+
+Spirometry
+Peak Flow Test
+Arterial Blood Gas
+Pulse Oximetry
+Lung Function Tests
+Sleep Study (Polysomnography)
+
+10. Neurology
+
+
+
+
+Electroencephalography (EEG)
+Nerve Conduction Study
+Electromyography
+
+11. Gynecology & Maternity
+
+
+Pregnancy Test (Serum/Urine)
+
+
+
+
+
+
+
+
+
+
+
+
+Beta-hCG Quantitative Test
+Pap Smear
+Human Papillomavirus Test
+Vaginal/Cervical Swab Culture
+Hormonal Panels
+Obstetric/Pelvic Ultrasound
+Fetal Monitoring (CTG)
+Amniocentesis
+Quadruple Screen
+Group B Streptococcus Screening
+
+12. Pediatrics
+
+
+
+
+
+Neonatal Screening Panel
+Heel-Prick Metabolic Screen
+Growth Hormone Testing
+Pediatric Genetic Tests
+
+13. Surgery / Pre-Operative
+
+
+
+
+
+
+
+Type and Crossmatch
+Pre-operative Coagulation Profile
+Pre-operative Electrolytes and Renal Function
+Pre-operative Chest X-ray
+Pre-operative ECG
+Pre-operative Abdominal Ultrasound
+
+14. Gastroenterology
+
+
+
+
+
+
+Endoscopy
+Colonoscopy
+Upper Gastrointestinal Study
+Liver Elastography
+Helicobacter pylori Testing
+
+15. Urology
+
+
+
+
+
+Cystoscopy
+Renal Ultrasound
+Uroflowmetry
+Prostate Specific Antigen (PSA)
+
+16. Orthopedics
+
+
+
+
+
+
+Bone Density Scan (DEXA)
+Bone Scan
+Joint X-ray
+MRI of Joint
+CT of Bone
+
+17. Oncology / Tumor Markers
+
+
+
+
+
+Tumor Markers (AFP, CEA, CA-125, CA15-3, PSA)
+Biopsy (Tissue/Cytology)
+Flow Cytometry
+Genetic Tumor Panels
+
+18. Pathology
+
+
+
+
+
+
+
+Histopathology
+Cytology
+Fine Needle Aspiration
+Tissue Biopsy
+Frozen Section
+Immunohistochemistry
+
+19. Other / Miscellaneous
+
+
+
+
+
+
+Bone Marrow Examination
+Synovial Fluid Analysis
+Cerebrospinal Fluid Analysis
+Sweat Chloride Test
+Genetic Sequencing / Biochemical Genetic Tests
+
+ AFTER THIS FOLLOW THE
+INSTRUCTION
+Hospital Investigation Management System
+Theoretical Proposal
+
+1. Introduction
+Hospitals perform a large number of diagnostic investigations such as laboratory tests,
+imaging procedures, and specialized examinations. However, not every hospital provides
+all possible investigations due to differences in equipment, laboratory capacity, staff
+availability, and operational policies.
+To manage this efficiently, a Hospital Investigation Management System is required.
+This system maintains a complete master list of all medical investigations while allowing
+the hospital manager to activate only the investigations available in the hospital.
+The system provides an easy interface where investigations can be searched, filtered by
+category, and activated or deactivated using checkboxes with visual indicators.
+
+2. System Objectives
+The main objectives of the system are:
+To maintain a centralized master list of all medical investigations.
+To allow hospital administrators or managers to control which investigations are
+available in their hospital.
+To improve clinical workflow for doctors when ordering tests.
+To ensure patients only see investigations that are actually available.
+To provide easy search and category-based filtering of investigations.
+
+3. System Structure
+The system is designed with three main components:
+1. Master Investigation Database
+
+This database contains all possible medical investigations, categorized by department or
+medical specialty.
+
+Examples of categories include:
+Imaging / Radiology
+Cardiology
+Hematology
+Clinical Chemistry
+Microbiology
+Immunology
+Endocrinology
+Respiratory Medicine
+Neurology
+Gynecology
+Pediatrics
+Surgery
+Gastroenterology
+Urology
+Orthopedics
+Oncology
+Pathology
+
+
+This master list ensures that the system always contains the complete range of
+investigations.
+
+2. Hospital Investigation Availability
+
+Each hospital can select which investigations are available.
+
+The hospital manager can:
+
+
+Activate investigations that the hospital provides
+Deactivate investigations that are not available
+The system stores this status as:
+Active (Available)
+Inactive (Not Available)
+
+
+4. Investigation Management Interface
+The system includes a management dashboard where the hospital manager controls
+investigation availability.
+Features of the interface include:
+Search Function
+
+Managers can search investigations by name.
+Example:
+Search: Blood
+Results:
+Blood Glucose
+Blood Culture
+Complete Blood Count
+
+
+Category Filter
+
+Investigations can be filtered by medical category using a dropdown menu.
+Example categories:
+Imaging / Radiology
+Cardiac / Cardiovascular
+Hematology
+Microbiology
+Clinical Chemistry
+Neurology
+Oncology
+
+
+5. Investigation Status Indicators
+Each investigation has a visual status indicator.
+Active Investigation
+
+Checkbox: Checked
+Color: Green
+Status: AvailableExample:
+☑ X-ray — 🟢 Available
+
+Inactive Investigation
+
+Checkbox: Unchecked
+Color: Red
+
+Status: Not Available
+Example:
+☐ CT Scan — 🟢 Not Available
+
+6. Investigation Selection Process
+The hospital manager performs the following steps:
+Opens the Investigation Management Page
+Searches or filters investigations
+Activates investigations by checking the box
+Deactivates investigations by unchecking the box
+Saves the changes
+1.
+This allows the hospital to quickly configure its diagnostic services.
+
+7. Investigation Ordering by Doctors
+When doctors order investigations for patients:
+The system displays only active investigations.
+Inactive investigations are hidden.
+Available investigations:
+✔ X-ray
+✔ MRI
+✔ ECG
+✔ Blood Glucose
+Unavailable investigations are not shown in the ordering interface.
+
+8. Advantages of the System
+The system provides several benefits:
+1. Accurate Investigation Availability
+
+Doctors will not request tests that are unavailable.
+2. Efficient Hospital Management
+
+Managers can easily control investigation availability.
+3. Faster Clinical Workflow
+
+Doctors can quickly find available investigations.
+4. Flexible System Configuration
+
+Hospitals can adjust services based on equipment or staffing.
+5. Improved Patient Service
+
+Patients receive only tests that the hospital can perform.
+
+9. Future Enhancements
+The system can be expanded with additional features such as:
+Investigation pricing management
+Equipment status monitoring
+Department-based investigation assignment
+Laboratory result integration
+Investigation scheduling
+Electronic medical record integration
+
+Hospital Investigation Workflow in Your System
+1. Patient Registration
+First, the patient must exist in the system.
+Each patient has a Health ID.
+Example:
+Patient Name Health ID Age
+Ahmed Ali
+
+HLT-000234 45
+
+Sara Mohamed HLT-000235 30
+
+This Health ID connects all records:
+
+
+Doctor visit
+
+
+
+Investigations
+
+
+
+Lab results
+
+
+
+Diagnosis
+
+
+
+Treatment
+
+
+2. Doctor Opens Patient Record
+Doctor searches patient:
+Search Patient: Ahmed Ali
+Health ID: HLT-000234
+Doctor dashboard shows:
+Patient Information
+-------------------------------Name: Ahmed Ali
+Health ID: HLT-000234
+Age: 45
+Visit Date: 12/05/2026
+--------------------------------
+
+[ Diagnosis ]
+[ Investigations ]
+[ Prescription ]
+Doctor clicks Investigations.
+
+3. Doctor Selects Investigation
+System shows only ACTIVE investigations.
+Example:
+Investigation Order
+-------------------------------Category: [ Laboratory ▼ ]
+Search: [__________]
+Available Investigations
+☑ Complete Blood Count
+☑ Blood Glucose
+☑ Lipid Profile
+☑ Liver Function Test
+☑ Urine Analysis
+-------------------------------[ Submit Investigation Order ]
+Doctor selects needed tests.
+Example selected:
+
+☑ Complete Blood Count
+☑ Blood Glucose
+☑ Liver Function Test
+Then doctor clicks:
+Submit Order
+
+4. Investigation Order Sent to Department
+After submission, the system automatically sends the order to the correct department.
+Example routing:
+Investigation Department
+CBC
+
+Laboratory
+
+Blood Glucose Laboratory
+MRI
+
+Radiology
+
+ECG
+
+Cardiology
+
+Order example:
+New Investigation Request
+Patient: Ahmed Ali
+Health ID: HLT-000234
+Requested Tests
+• Complete Blood Count
+• Blood Glucose
+• Liver Function Test
+
+Status: Pending
+
+5. Laboratory / Radiology Technician Portal
+Lab technician logs in.
+Portal shows pending investigation requests.
+Example:
+Laboratory Dashboard
+Pending Tests
+-------------------------------Patient: Ahmed Ali
+Health ID: HLT-000234
+Tests Requested
+• Complete Blood Count
+• Blood Glucose
+• Liver Function Test
+Status: Pending
+[ Start Test ]
+After performing tests, technician enters results.
+
+6. Technician Submits Result
+Technician opens patient:
+
+Patient: Ahmed Ali
+Health ID: HLT-000234
+Then enters results:
+Complete Blood Count
+WBC: 6.5
+RBC: 4.8
+Hemoglobin: 13.5
+Blood Glucose
+Result: 120 mg/dL
+Liver Function Test
+ALT: 32
+AST: 28
+Technician clicks:
+Submit Result
+System status becomes:
+🟢 Result Available
+
+7. Doctor Receives Result
+Doctor opens patient again.
+Now system shows:
+Investigation Status
+Complete Blood Count
+
+🟢 Result Available
+
+Blood Glucose
+Liver Function Test
+
+🟢 Result Available
+🟢 Result Available
+
+Doctor clicks View Result.
+
+8. Doctor Reviews Result
+Example screen:
+Patient: Ahmed Ali
+Health ID: HLT-000234
+Lab Results
+-------------------------------Complete Blood Count
+WBC: 6.5
+RBC: 4.8
+Hemoglobin: 13.5
+Blood Glucose
+Result: 120 mg/dL
+Liver Function
+ALT: 32
+AST: 28
+--------------------------------
+
+9. Doctor Makes Diagnosis
+Doctor writes diagnosis.
+Example:
+
+Diagnosis
+Mild Hyperglycemia
+Plan
+• Lifestyle modification
+• Follow up in 1 month
+• Repeat blood glucose
+
+10. Final Patient Record
+All information stored in patient history:
+Patient History
+Visit Date: 12/05/2026
+Doctor: Dr. John
+Investigations
+✔ CBC
+✔ Blood Glucose
+✔ Liver Function Test
+Results: Available
+Diagnosis: Mild Hyperglycemia
+Treatment: Medication + Diet Control
+
+11. Investigation Status Colors
+
+System color logic:
+Status
+Ordered
+
+Color
+🟢 Yellow
+
+In Progress 🟢 Blue
+Result Ready 🟢 Green
+Cancelled
+
+🟢 Red
+
+12. System Modules Involved
+Your HIS system modules:
+Patient Registration
+Doctor Consultation
+Investigation Ordering
+Laboratory Management
+Radiology Management
+Result Reporting
+Diagnosis & Treatment
+
+

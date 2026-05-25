@@ -1,0 +1,170 @@
+"use server";
+
+import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+
+export async function checkInToQueue(patientId: string) {
+  try {
+    // Check if patient already has an active queue waiting
+    const existingWaiting = await prisma.queue.findFirst({
+      where: {
+        patientId,
+        status: "WAITING",
+      },
+    });
+
+    if (existingWaiting) {
+      return { success: false, message: "Patient is already in the queue waiting." };
+    }
+
+    const queue = await prisma.queue.create({
+      data: {
+        patientId,
+        status: "WAITING",
+      },
+    });
+
+    revalidatePath(`/patients/${patientId}/dashboard`);
+    return { success: true, queue };
+  } catch (error: any) {
+    console.error("Queue Check-In Error:", error);
+    return { success: false, message: error.message || "Failed to check-in to queue." };
+  }
+}
+
+export async function getLiveQueueStatus(patientId: string) {
+  try {
+    // Find the current active or recent queue for this patient
+    const activeQueue = await prisma.queue.findFirst({
+      where: {
+        patientId,
+        status: { in: ["WAITING", "IN_PROGRESS", "COMPLETED"] },
+      },
+      orderBy: { checkInTime: "desc" },
+    });
+
+    if (!activeQueue) {
+      return { inQueue: false };
+    }
+
+    // Find the patient to get their organization ID
+    const patientRecord = await prisma.patient.findUnique({ where: { id: patientId } });
+    if (!patientRecord) return { inQueue: false };
+
+    // Fetch all WAITING queues under the same organization
+    const allWaitingQueues = await prisma.queue.findMany({
+      where: { 
+        status: "WAITING",
+        patient: {
+          organizationId: patientRecord.organizationId
+        }
+      },
+      include: { patient: true },
+    });
+
+    const priorityWeight: Record<string, number> = {
+      EMERGENCY: 1,
+      URGENT: 2,
+      ROUTINE: 3,
+    };
+
+    // Sort by priority first, then by checkInTime
+    allWaitingQueues.sort((a, b) => {
+      const pA = priorityWeight[a.patient.priorityLevel] || 3;
+      const pB = priorityWeight[b.patient.priorityLevel] || 3;
+      if (pA !== pB) return pA - pB;
+      return a.checkInTime.getTime() - b.checkInTime.getTime();
+    });
+
+    const queueIndex = allWaitingQueues.findIndex(q => q.patientId === patientId);
+    let queuePosition = 1;
+    let isEmergency = false;
+
+    if (queueIndex !== -1) {
+      queuePosition = queueIndex + 1;
+      isEmergency = allWaitingQueues[queueIndex].patient.priorityLevel === "EMERGENCY";
+    } else {
+      // If patient is not waiting (e.g. IN_PROGRESS), just return 0 wait
+      const patient = await prisma.patient.findUnique({ where: { id: patientId } });
+      isEmergency = patient?.priorityLevel === "EMERGENCY";
+    }
+
+    let estimatedWait = queuePosition * 15;
+    const emergencyCount = allWaitingQueues.filter(q => q.patient.priorityLevel === "EMERGENCY").length;
+    
+    // Add Triage Buffer for everyone EXCEPT emergencies themselves
+    if (!isEmergency) {
+      estimatedWait += (emergencyCount * 15);
+    }
+
+    return {
+      inQueue: true,
+      queuePosition,
+      estimatedWait,
+      checkInTime: activeQueue.checkInTime,
+      status: activeQueue.status,
+    };
+  } catch (error: any) {
+    console.error("Get Live Queue Status Error:", error);
+    return { inQueue: false, error: "Failed to fetch status" };
+  }
+}
+
+export async function callNextPatient(patientId: string) {
+  try {
+    // Mark patient's queue status as IN_PROGRESS
+    const activeQueue = await prisma.queue.findFirst({
+      where: { patientId, status: "WAITING" },
+      orderBy: { checkInTime: "desc" },
+    });
+
+    if (activeQueue) {
+      await prisma.queue.update({
+        where: { id: activeQueue.id },
+        data: { status: "IN_PROGRESS" }
+      });
+    }
+
+    // Mark patient's examStatus
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: { examStatus: "IN_PROGRESS" }
+    });
+
+    revalidatePath("/doctor/dashboard");
+    revalidatePath(`/doctor/patient/${patientId}`);
+    revalidatePath(`/manage/${patientId}`);
+
+    return { success: true, message: "Patient called in via SMS notification successfully!" };
+  } catch (error: any) {
+    console.error("Call Next Patient Error:", error);
+    return { success: false, message: "Failed to call next patient." };
+  }
+}
+
+export async function finishPatientVisit(patientId: string) {
+  try {
+    // Ensure queues are marked COMPLETED
+    await prisma.queue.updateMany({
+      where: { patientId, status: { in: ["WAITING", "IN_PROGRESS"] } },
+      data: { status: "COMPLETED" }
+    });
+
+    // Mark patient as discharged from active queue
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: { 
+        examStatus: "EXAMINATION_COMPLETE",
+        status: "DISCHARGED"
+      }
+    });
+
+    revalidatePath("/doctor/dashboard");
+    revalidatePath(`/manage/${patientId}`);
+    revalidatePath(`/doctor/patient/${patientId}`);
+    return { success: true, message: "Patient visit marked as finished." };
+  } catch (error: any) {
+    console.error("Finish Visit Error:", error);
+    return { success: false, message: "Failed to finish visit." };
+  }
+}
