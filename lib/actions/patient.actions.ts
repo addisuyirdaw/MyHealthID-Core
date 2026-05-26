@@ -1016,3 +1016,46 @@ export async function searchOfflineReferenceServer(query: string) {
   const { searchOfflineReference } = await import("../ai/dictionary.server");
   return searchOfflineReference(query);
 }
+
+/**
+ * searchPatientMasterRecord()
+ *
+ * Global fallback search for the Doctor Console.
+ * Queries the FULL Patient collection — no status, ward, or org restrictions.
+ * Used when a doctor searches a National ID / Health ID / name that isn't in
+ * the current active queue, so they can still open the patient's clinical chart.
+ *
+ * Returns up to 10 matches ordered by most-recently-updated.
+ */
+export async function searchPatientMasterRecord(query: string) {
+  try {
+    const q = query.trim();
+    if (!q || q.length < 2) return [];
+
+    const patients = await prisma.patient.findMany({
+      where: {
+        OR: [
+          { healthId:  { contains: q, mode: "insensitive" } },
+          { nationalId:{ contains: q, mode: "insensitive" } },
+          { faydaId:   { contains: q, mode: "insensitive" } },
+          { hospitalId:{ contains: q, mode: "insensitive" } },
+          { internalId:{ contains: q, mode: "insensitive" } },
+          { fullName:  { contains: q, mode: "insensitive" } },
+        ],
+      },
+      orderBy: { updatedAt: "desc" },
+      take: 10,
+      include: {
+        vitals:        { orderBy: { createdAt: "desc" }, take: 1 },
+        clinicalExam:  true,
+        investigations:{ orderBy: { createdAt: "desc" }, take: 3 },
+        prescriptions: { orderBy: { createdAt: "desc" }, take: 3 },
+      },
+    });
+
+    return JSON.parse(JSON.stringify(patients));
+  } catch (error: any) {
+    console.error("❌ DATABASE ERROR [searchPatientMasterRecord]:", error.message);
+    return [];
+  }
+}

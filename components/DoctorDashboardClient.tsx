@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,10 @@ import {
   HeartPulse, AlertTriangle, Search, ExternalLink,
   Stethoscope, Users, Zap, Clock, Activity,
   Calendar, ChevronRight, RefreshCw, Building2,
-  User, FlaskConical, Pill
+  User, FlaskConical, Pill, DatabaseZap, Loader2,
+  ArrowUpRight, Globe, X
 } from "lucide-react";
-import { getActivePatientsForFacility } from "@/lib/actions/patient.actions";
+import { getActivePatientsForFacility, searchPatientMasterRecord } from "@/lib/actions/patient.actions";
 
 type Patient = any;
 
@@ -47,6 +48,76 @@ function StatusBadge({ examStatus }: { examStatus: string }) {
   );
 }
 
+/** Global-search result card shown when the patient isn't in today's active queue */
+function GlobalSearchResult({ patient, onOpen, onDismiss }: { patient: Patient; onOpen: () => void; onDismiss: () => void }) {
+  const latestVital = patient.vitals?.[0];
+  const triageCfg = TRIAGE_CONFIG[patient.triageStatus] || TRIAGE_CONFIG["WAITING_FOR_TRIAGE"];
+  return (
+    <div className="rounded-xl border border-blue-500/40 bg-blue-950/30 backdrop-blur-sm p-4 relative">
+      <button
+        onClick={onDismiss}
+        className="absolute top-3 right-3 text-slate-500 hover:text-slate-300 transition-colors"
+        aria-label="Dismiss"
+      >
+        <X className="w-4 h-4" />
+      </button>
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center shrink-0">
+          <User className="w-5 h-5 text-blue-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <p className="font-bold text-slate-100 text-sm">{patient.fullName}</p>
+            <TriageBadge status={patient.triageStatus} />
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
+              patient.status === "ACTIVE" ? "bg-green-900/50 text-green-400" :
+              patient.status === "DISCHARGED" ? "bg-slate-700 text-slate-400" :
+              "bg-slate-700 text-slate-400"
+            }`}>
+              {patient.status || "UNKNOWN"}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 mt-1">
+            <span className="text-xs text-blue-400 font-mono">{patient.healthId}</span>
+            {(patient.nationalId || patient.faydaId || patient.hospitalId) && (
+              <span className="text-xs text-slate-500 font-mono">
+                NID: {patient.nationalId || patient.faydaId || patient.hospitalId}
+              </span>
+            )}
+            <span className="text-xs text-slate-400">{patient.sex} · {patient.age} yrs</span>
+            {patient.ward && (
+              <span className="text-xs text-slate-400">{patient.ward.replace(/_/g, " ")}</span>
+            )}
+          </div>
+          {patient.chiefComplaint && (
+            <p className="text-xs text-slate-500 mt-0.5 truncate">
+              Chief Complaint: <span className="text-slate-300">{patient.chiefComplaint}</span>
+            </p>
+          )}
+          {patient.suspectedDisease && (
+            <p className="text-xs text-purple-400 mt-0.5 truncate">Dx: {patient.suspectedDisease}</p>
+          )}
+          {latestVital && (
+            <p className="text-xs text-slate-500 mt-0.5">
+              Last Vitals — BP: <span className="text-slate-300 font-mono">{latestVital.bp}</span>
+              {latestVital.pulse ? <> · Pulse: <span className="text-slate-300 font-mono">{latestVital.pulse} bpm</span></> : null}
+              {latestVital.spO2 ? <> · SpO₂: <span className="text-slate-300 font-mono">{latestVital.spO2}%</span></> : null}
+            </p>
+          )}
+        </div>
+      </div>
+      <Button
+        size="sm"
+        className="mt-3 w-full h-9 bg-blue-600 hover:bg-blue-500 text-white font-semibold gap-2"
+        onClick={onOpen}
+      >
+        <ArrowUpRight className="w-4 h-4" />
+        Open Full Clinical Chart
+      </Button>
+    </div>
+  );
+}
+
 export default function DoctorDashboardClient({
   initialPatients,
   role,
@@ -63,6 +134,12 @@ export default function DoctorDashboardClient({
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<"ALL" | "RED" | "YELLOW" | "GREEN" | "WAITING_FOR_TRIAGE">("ALL");
   const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // ── Global Fallback Search State ──────────────────────────────────────────
+  const [globalResults, setGlobalResults] = useState<Patient[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showGlobal, setShowGlobal] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Auto-refresh every 30 seconds
   useEffect(() => {
@@ -96,11 +173,51 @@ export default function DoctorDashboardClient({
         p.fullName?.toLowerCase().includes(search.toLowerCase()) ||
         p.healthId?.toLowerCase().includes(search.toLowerCase()) ||
         p.nationalId?.toLowerCase().includes(search.toLowerCase()) ||
+        p.faydaId?.toLowerCase().includes(search.toLowerCase()) ||
         p.hospitalId?.toLowerCase().includes(search.toLowerCase());
       const matchesFilter = filter === "ALL" || p.triageStatus === filter;
       return matchesSearch && matchesFilter;
     });
   }, [patients, search, filter]);
+
+  // ── Trigger global search when local results are empty ────────────────────
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+
+    // Only fire global search when there's a query and local results are empty
+    if (!search || search.trim().length < 2) {
+      setShowGlobal(false);
+      setGlobalResults([]);
+      return;
+    }
+
+    if (filteredPatients.length > 0) {
+      // Local results exist — don't show global panel
+      setShowGlobal(false);
+      setGlobalResults([]);
+      return;
+    }
+
+    // Debounce: wait 600 ms after the user stops typing before hitting the server
+    debounceRef.current = setTimeout(async () => {
+      setIsSearching(true);
+      try {
+        const results = await searchPatientMasterRecord(search.trim());
+        setGlobalResults(results);
+        setShowGlobal(true);
+      } catch (e) {
+        console.error("Global search failed", e);
+        setGlobalResults([]);
+        setShowGlobal(true);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 600);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [search, filteredPatients.length]);
 
   // Stats
   const stats = useMemo(() => ({
@@ -183,33 +300,92 @@ export default function DoctorDashboardClient({
       </div>
 
       {/* ── Search & Filters ── */}
-      <div className="px-6 py-4 bg-[#0f1117] border-b border-slate-700/30 flex items-center gap-3">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <Input
-            type="text"
-            placeholder="Search patient by name, Health ID, National ID…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="pl-9 bg-slate-800 border-slate-600 text-slate-200 placeholder-slate-500 focus:border-blue-500"
-          />
+      <div className="px-6 py-4 bg-[#0f1117] border-b border-slate-700/30 flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          <div className="relative flex-1 max-w-md">
+            {isSearching ? (
+              <Loader2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-blue-400 animate-spin" />
+            ) : (
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            )}
+            <Input
+              id="doctor-search-input"
+              type="text"
+              placeholder="Search by name, Health ID, National ID, Fayda ID…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 bg-slate-800 border-slate-600 text-slate-200 placeholder-slate-500 focus:border-blue-500"
+            />
+            {search && (
+              <button
+                onClick={() => { setSearch(""); setShowGlobal(false); setGlobalResults([]); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300"
+                aria-label="Clear search"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <span className="text-xs text-slate-500">
+            {filteredPatients.length} patient{filteredPatients.length !== 1 ? "s" : ""} shown
+          </span>
         </div>
-        <span className="text-xs text-slate-500">
-          {filteredPatients.length} patient{filteredPatients.length !== 1 ? "s" : ""} shown
-        </span>
+
+        {/* ── Global Fallback Search Panel ── */}
+        {search.trim().length >= 2 && filteredPatients.length === 0 && (
+          <div className="mt-1">
+            {isSearching && (
+              <div className="flex items-center gap-2 text-xs text-blue-400 py-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Searching entire patient database…
+              </div>
+            )}
+
+            {!isSearching && showGlobal && (
+              <div className="space-y-2">
+                {/* Header badge */}
+                <div className="flex items-center gap-2">
+                  <Globe className="w-3.5 h-3.5 text-blue-400" />
+                  <span className="text-xs text-blue-400 font-semibold">
+                    {globalResults.length > 0
+                      ? `${globalResults.length} patient${globalResults.length > 1 ? "s" : ""} found in system (not in today's active queue)`
+                      : "No patient found anywhere in the system for this search."}
+                  </span>
+                </div>
+
+                {/* Result cards */}
+                {globalResults.map((p) => (
+                  <GlobalSearchResult
+                    key={p.id}
+                    patient={p}
+                    onOpen={() => router.push(`/doctor/patient/${p.id}`)}
+                    onDismiss={() => {
+                      setGlobalResults((prev) => prev.filter((r) => r.id !== p.id));
+                      if (globalResults.length <= 1) setShowGlobal(false);
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Active Patient Table ── */}
       <div className="flex-1 overflow-auto px-6 py-4">
-        {filteredPatients.length === 0 ? (
+        {filteredPatients.length === 0 && !search ? (
           <div className="flex flex-col items-center justify-center h-64 text-slate-500">
             <Users className="w-16 h-16 mb-4 opacity-30" />
             <p className="text-lg font-medium">No active patients</p>
             <p className="text-sm text-slate-600 mt-1">
-              {search || filter !== "ALL"
-                ? "Try adjusting your search or filter"
-                : "Patients will appear here once registered and triaged"}
+              Patients will appear here once registered and triaged
             </p>
+          </div>
+        ) : filteredPatients.length === 0 && search ? (
+          /* "Nothing in queue" placeholder — global results shown above */
+          <div className="flex flex-col items-center justify-center h-40 text-slate-600">
+            <DatabaseZap className="w-10 h-10 mb-3 opacity-30" />
+            <p className="text-sm">No active-queue match — see system-wide results above</p>
           </div>
         ) : (
           <div className="rounded-xl border border-slate-700/50 overflow-hidden bg-[#161b27]">
