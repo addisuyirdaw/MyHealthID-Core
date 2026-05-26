@@ -4,6 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Html5Qrcode } from "html5-qrcode";
 import jsQR from "jsqr";
 import { buildCandidateFiles, adaptiveThreshold } from "@/lib/image-preprocess";
+import { convertPdfToImages } from "@/lib/pdf-helper";
 
 type Props = {
   onDecodedText: (text: string, sourceFile?: File) => void;
@@ -272,25 +273,65 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualByp
     e.target.value = "";
     if (!file || busy) return;
 
-    lastFileRef.current = file;
     setBusy(true);
     setDecodeFailed(false);
-    setBusyStage("Binarising + multi-scale decode (jsQR)…");
     setCameraHint(null);
     try {
       await stopCamera();
       setCameraPhase("idle");
-      const text = await decodeUploadWithRetries(regionId.current, file);
-      setBusyStage("");
-      setDecodeFailed(false);
-      emitDecoded(text);
+
+      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+
+      if (isPdf) {
+        setBusyStage("Parsing PDF document (rendering pages)…");
+        const pages = await convertPdfToImages(file);
+        if (pages.length === 0) {
+          throw new Error("The uploaded PDF has no pages.");
+        }
+
+        let decodedText = null;
+        let successfulPage: File | null = null;
+
+        for (let i = 0; i < pages.length; i++) {
+          setBusyStage(`Scanning PDF page ${i + 1} of ${pages.length}...`);
+          try {
+            const text = await decodeUploadWithRetries(regionId.current, pages[i]);
+            if (text) {
+              decodedText = text;
+              successfulPage = pages[i];
+              break;
+            }
+          } catch {
+            // Check next page
+          }
+        }
+
+        if (decodedText && successfulPage) {
+          lastFileRef.current = successfulPage; // Store the PNG image page for later OCR
+          setBusyStage("");
+          setDecodeFailed(false);
+          emitDecoded(decodedText);
+        } else {
+          throw new Error(
+            "Could not read QR or barcode from any page of the PDF. " +
+            "Please upload a PDF containing a clear and high-contrast view of the ID card."
+          );
+        }
+      } else {
+        lastFileRef.current = file;
+        setBusyStage("Binarising + multi-scale decode (jsQR)…");
+        const text = await decodeUploadWithRetries(regionId.current, file);
+        setBusyStage("");
+        setDecodeFailed(false);
+        emitDecoded(text);
+      }
     } catch (err: unknown) {
       setBusyStage("");
       setDecodeFailed(true);
       onError?.(
         err instanceof Error
           ? err.message
-          : "Could not read that image. Try a sharper, well-lit photo of just the QR code."
+          : "Could not read that document. Try a sharper, well-lit image of the QR code."
       );
     } finally {
       setBusy(false);
@@ -302,19 +343,19 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualByp
   return (
     <div className="space-y-3">
       <div className="text-sm text-slate-600">
-        <strong>Upload</strong> a clear photo of the <strong>QR on the back</strong> or the{" "}
-        <strong>barcode on the front</strong>. The scanner applies Adaptive Thresholding + 12 image variants
+        <strong>Upload</strong> a clear photo or PDF document of the <strong>QR on the back</strong> or the{" "}
+        <strong>barcode on the front</strong>. The scanner applies Adaptive Thresholding + PDF rendering + 12 image variants
         automatically. Optionally use <strong>Use camera</strong> on a phone.
       </div>
       <div className="flex flex-wrap gap-2">
-        <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handlePickFile} />
+        <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handlePickFile} />
         <button
           type="button"
           disabled={busy}
           onClick={() => fileInputRef.current?.click()}
           className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-600 text-white border border-blue-700 hover:bg-blue-700 disabled:opacity-50"
         >
-          {busy ? "Processing…" : "Upload photo of QR / barcode"}
+          {busy ? "Processing…" : "Upload photo or PDF of ID"}
         </button>
         <button
           type="button"
