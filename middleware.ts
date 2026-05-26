@@ -35,8 +35,8 @@ export function middleware(request: NextRequest) {
     if (protectedPrefixes.some((p) => path.startsWith(p))) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
-    // /register and /scan are also staff-only
-    if (path === "/register" || path.startsWith("/scan")) {
+    // /scan is staff-only for unauthenticated users; /register is intentionally public for citizen self-registration (no login required)
+    if (path.startsWith("/scan")) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
     return NextResponse.next();
@@ -82,14 +82,7 @@ export function middleware(request: NextRequest) {
     return deny(request, "Nurse role required for the screening portal.");
   }
 
-  // ── /register (patient registration) → RECEPTIONIST or ADMIN
-  if (
-    path === "/register" &&
-    userRole !== "RECEPTIONIST" &&
-    userRole !== "ADMIN"
-  ) {
-    return deny(request, "Receptionist role required for patient registration.");
-  }
+  // ── /register is PUBLIC – any citizen or staff member can register a patient
 
   // ── /scan → RECEPTIONIST
   if (path.startsWith("/scan") && userRole !== "RECEPTIONIST" && userRole !== "ADMIN") {
@@ -133,7 +126,7 @@ export const config = {
     "/triage",
     "/screening/:path*",
     "/screening",
-    "/register",
+    // "/register" is intentionally excluded – it's a public route
     "/scan/:path*",
     "/scan",
     "/dashboard/settings/:path*",

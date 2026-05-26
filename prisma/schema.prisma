@@ -231,6 +231,12 @@ model ClinicalExamination {
   neurological      String?
   
   clinicalNotes     String?  // Final impressions
+
+  // Doctor Assessment Fields
+  chiefAssessment       String?  @map("chief_assessment")
+  workingDiagnosis      String?  @map("working_diagnosis")
+  differentialDiagnosis String?  @map("differential_diagnosis")
+  progressNotes         String?  @map("progress_notes")
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

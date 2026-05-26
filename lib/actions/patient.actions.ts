@@ -580,7 +580,7 @@ export async function getWaitingForTriagePatients() {
 
 export async function processTriage(
   patientId: string, 
-  ward: Ward, 
+  ward: Ward | "DISCHARGE", 
   priority: TriageStatus, 
   serviceType: string
 ) {
@@ -589,19 +589,31 @@ export async function processTriage(
     const nextQueuePosition = 0;
     const estimatedWaitTime = 0;
     
-    const priorityLevel = (priority === "RED" || ward === "EMERGENCY" ? PriorityLevel.EMERGENCY : priority === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE) as PriorityLevel;
+    const isDischarge = ward === "DISCHARGE";
+    const dbWard = isDischarge ? "OPD_OUTPATIENT" : ward;
+    
+    const priorityLevel = (priority === "RED" || dbWard === "EMERGENCY" ? PriorityLevel.EMERGENCY : priority === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE) as PriorityLevel;
 
     const patient = await prisma.patient.update({
       where: { id: patientId },
       data: {
-        ward: ward,
+        ward: dbWard as Ward,
         triageStatus: priority,
         priorityLevel: priorityLevel,
         serviceType: serviceType,
         queuePosition: nextQueuePosition,
         estimatedWait: estimatedWaitTime,
+        ...(isDischarge ? { status: "DISCHARGED" } : {})
       }
     });
+
+    if (isDischarge) {
+      // Also complete all active queues for the patient
+      await prisma.queue.updateMany({
+        where: { patientId, status: { in: ["WAITING", "IN_PROGRESS"] } },
+        data: { status: "COMPLETED" }
+      });
+    }
 
     revalidatePath(`/manage/${patientId}`);
     revalidatePath(`/doctor/patient/${patientId}`);
@@ -644,6 +656,94 @@ export async function saveClinicalExam(patientId: string, examData: any) {
   } catch (error: any) {
     console.error("❌ DATABASE ERROR:", error.message);
     throw new Error(error.message || "Failed to save clinical examination.");
+  }
+}
+
+export async function getActivePatientsForFacility() {
+  try {
+    const organizationId = cookies().get("organizationId")?.value || null;
+    const patients = await prisma.patient.findMany({
+      where: {
+        status: "ACTIVE",
+        organizationId: organizationId,
+      },
+      orderBy: [
+        { updatedAt: "desc" },
+      ],
+      include: {
+        vitals: { orderBy: { createdAt: "desc" }, take: 1 },
+        investigations: { orderBy: { createdAt: "desc" }, take: 5 },
+        prescriptions: { orderBy: { createdAt: "desc" }, take: 5 },
+        clinicalExam: true,
+      },
+    });
+
+    const priorityWeight: Record<string, number> = {
+      RED: 1,
+      YELLOW: 2,
+      GREEN: 3,
+      WAITING_FOR_TRIAGE: 4,
+    };
+
+    patients.sort((a, b) => {
+      const weightA = priorityWeight[a.triageStatus] || 99;
+      const weightB = priorityWeight[b.triageStatus] || 99;
+      return weightA - weightB;
+    });
+
+    return JSON.parse(JSON.stringify(patients));
+  } catch (error: any) {
+    console.error("❌ DATABASE ERROR [getActivePatientsForFacility]:", error.message);
+    return [];
+  }
+}
+
+export async function saveDoctorAssessment(
+  patientId: string,
+  data: {
+    chiefAssessment?: string;
+    workingDiagnosis?: string;
+    differentialDiagnosis?: string;
+    progressNotes?: string;
+  }
+) {
+  try {
+    const organizationId = cookies().get("organizationId")?.value || null;
+
+    const exam = await prisma.clinicalExamination.upsert({
+      where: { patientId },
+      create: {
+        patientId,
+        organizationId,
+        chiefAssessment: data.chiefAssessment,
+        workingDiagnosis: data.workingDiagnosis,
+        differentialDiagnosis: data.differentialDiagnosis,
+        progressNotes: data.progressNotes,
+      },
+      update: {
+        ...(data.chiefAssessment !== undefined && { chiefAssessment: data.chiefAssessment }),
+        ...(data.workingDiagnosis !== undefined && { workingDiagnosis: data.workingDiagnosis }),
+        ...(data.differentialDiagnosis !== undefined && { differentialDiagnosis: data.differentialDiagnosis }),
+        ...(data.progressNotes !== undefined && { progressNotes: data.progressNotes }),
+      },
+    });
+
+    // Reflect working diagnosis on the patient record
+    if (data.workingDiagnosis) {
+      await prisma.patient.update({
+        where: { id: patientId },
+        data: { suspectedDisease: data.workingDiagnosis },
+      });
+    }
+
+    revalidatePath(`/doctor/patient/${patientId}`);
+    revalidatePath(`/doctor/dashboard`);
+    revalidatePath(`/manage/${patientId}`);
+
+    return JSON.parse(JSON.stringify(exam));
+  } catch (error: any) {
+    console.error("❌ DATABASE ERROR [saveDoctorAssessment]:", error.message);
+    throw new Error(error.message || "Failed to save doctor assessment.");
   }
 }
 
