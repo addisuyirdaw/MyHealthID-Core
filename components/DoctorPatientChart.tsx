@@ -16,7 +16,7 @@ import { saveClinicalExam, saveDoctorAssessment } from "@/lib/actions/patient.ac
 import { createLabOrder } from "@/lib/actions/investigation.actions";
 import { OrderTestModal } from "@/components/OrderTestModal";
 import { PrescribeModal } from "@/components/PrescribeModal";
-import { AddVitalsModal } from "@/components/AddVitalsModal";
+import { DynamicVitalsModal } from "@/components/DynamicVitalsModal";
 import { ReferModal } from "@/components/ReferModal";
 
 // ─── Investigation Catalog ─────────────────────────────────────────────────
@@ -313,7 +313,7 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
 
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap gap-2">
-              <AddVitalsModal patientId={patient.id} patientName={patient.fullName} />
+              <DynamicVitalsModal patientId={patient.id} patientName={patient.fullName} />
               <PrescribeModal patientId={patient.id} patientName={patient.fullName} patientAllergies={patient.allergyInformation} />
               <ReferModal patientId={patient.id} patientName={patient.fullName} />
             </div>
