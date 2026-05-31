@@ -12,7 +12,7 @@ function LoginForm() {
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
   const [hospitalIdCode, setHospitalIdCode] = useState("");
   const [orgIdPrefilled, setOrgIdPrefilled] = useState(false);
-  const [email, setEmail] = useState("");
+  const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
   const [sessionCleared, setSessionCleared] = useState(false);
 
@@ -44,7 +44,7 @@ function LoginForm() {
 
   const handleDemoLogin = () => {
     const fd = new FormData();
-    fd.append("email", "dr.dawit@myhealthid.gov.et");
+    fd.append("emailOrUsername", "dr.dawit@myhealthid.gov.et");
     fd.append("password", "demo-password-hash");
     fd.append("hospitalIdCode", "");
     handleSubmit(fd);
@@ -152,18 +152,18 @@ function LoginForm() {
 
           {/* Email */}
           <div className="space-y-1.5">
-            <label htmlFor="email" className="text-xs font-bold text-slate-400 uppercase tracking-widest">
+            <label htmlFor="emailOrUsername" className="text-xs font-bold text-slate-400 uppercase tracking-widest">
               Email or License Username
             </label>
             <div className="relative">
               <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
               <input
                 type="text"
-                id="email"
-                name="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. admin@myhealthid.gov.et"
+                id="emailOrUsername"
+                name="emailOrUsername"
+                value={emailOrUsername}
+                onChange={(e) => setEmailOrUsername(e.target.value)}
+                placeholder="e.g. admin@myhealthid.gov.et or md-2026-eth"
                 className="w-full h-12 rounded-xl border border-slate-800 bg-slate-950/80 pl-11 pr-4 font-medium text-white placeholder-slate-600 focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500 outline-none transition text-sm"
                 required
               />

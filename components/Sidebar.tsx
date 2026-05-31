@@ -2,17 +2,18 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import {
   Shield, Activity, Users, ClipboardList, Pill,
-  TestTubeDiagonal, QrCode, UserCircle, Lock, History, Settings, Search, Hospital
+  TestTubeDiagonal, QrCode, UserCircle, Lock, History, Settings, Search, Hospital, LogOut
 } from "lucide-react";
 import { LanguageToggle } from "./LanguageToggle";
 import { LocalizedText } from "./LocalizedText";
 import { LogoIcon } from "./LogoIcon";
 import prisma from "@/lib/prisma";
+import { logoutUser } from "@/lib/actions/auth.actions";
 
 export async function Sidebar() {
   const cookieStore = cookies();
   const roleCookie = cookieStore.get("userRole");
-  const role = roleCookie?.value || "RECEPTIONIST";
+  const role = roleCookie?.value || null;
   const citizenPatientId = cookieStore.get("citizenPatientId")?.value;
   const orgId = cookieStore.get("organizationId")?.value;
 
@@ -47,13 +48,18 @@ export async function Sidebar() {
     LAB_TECH: "text-cyan-400 bg-cyan-500/10 border-cyan-500/30",
     PHARMACIST: "text-amber-400 bg-amber-500/10 border-amber-500/30",
   };
-  const currentBadgeColor = badgeColors[role] || "text-slate-300 bg-slate-800/60 border-slate-700";
+  const currentBadgeColor = role ? (badgeColors[role] ?? "text-slate-300 bg-slate-800/60 border-slate-700") : "text-slate-300 bg-slate-800/60 border-slate-700";
 
   return (
     <aside className="w-64 bg-slate-900 text-slate-300 min-h-screen p-4 flex flex-col hidden md:flex shrink-0">
-      <div className="flex items-center gap-2 text-white font-bold text-xl mb-8 px-2 py-4 border-b border-slate-700">
-        <LogoIcon className="w-8 h-8" />
-        <span>MyHealthID</span>
+      <div className="flex items-center justify-between gap-2 text-white font-bold text-xl mb-8 px-2 py-4 border-b border-slate-700">
+        <div className="flex items-center gap-3">
+          <LogoIcon className="w-8 h-8" />
+          <span>MyHealthID</span>
+        </div>
+        <div>
+          <Link href="/" className="text-sm text-slate-300 hover:text-white px-2 py-1 rounded-md">Home</Link>
+        </div>
       </div>
 
       <nav className="flex flex-col gap-1">
@@ -221,7 +227,7 @@ export async function Sidebar() {
 
       {/* Footer */}
       <div className="mt-auto px-2 pb-4 text-xs text-slate-500 flex flex-col gap-1 border-t border-slate-800/60 pt-4">
-        {!isCitizen && (
+        {!role ? (
           <div className="mb-3 space-y-2">
             <Link
               href="/signin"
@@ -232,6 +238,18 @@ export async function Sidebar() {
                 <LocalizedText tKey="nav.citizenSignIn" />
               </span>
             </Link>
+          </div>
+        ) : (
+          <div className="mb-3">
+            <form action={logoutUser} method="POST">
+              <button
+                type="submit"
+                className="w-full flex items-center gap-2 p-2 rounded-lg border border-transparent bg-slate-800 text-slate-200 hover:bg-red-50 hover:text-red-600 transition-colors"
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="font-medium text-sm">Logout</span>
+              </button>
+            </form>
           </div>
         )}
 
@@ -245,7 +263,7 @@ export async function Sidebar() {
         <span>
           <LocalizedText tKey="nav.loggedInAs" />:
         </span>
-        <span className={`font-mono font-bold px-2 py-0.5 rounded border w-max mb-1 text-xs ${currentBadgeColor}`}>{role}</span>
+        <span className={`font-mono font-bold px-2 py-0.5 rounded border w-max mb-1 text-xs ${currentBadgeColor}`}>{role || "None"}</span>
         <LanguageToggle />
       </div>
     </aside>

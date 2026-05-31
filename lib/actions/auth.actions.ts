@@ -1,5 +1,6 @@
 "use server";
 
+import crypto from "crypto";
 import prisma from "@/lib/prisma";
 
 import { cookies } from "next/headers";
@@ -66,6 +67,21 @@ export async function registerOrganization(data: {
   }
 }
 
+function normalizeLoginIdentifier(value: string) {
+  const raw = String(value || "").trim().toLowerCase();
+  if (raw.includes("@")) {
+    return raw;
+  }
+  return raw.replace(/[^a-z0-9]/g, "");
+}
+
+function hashPassword(password: string) {
+  return crypto
+    .createHmac("sha256", process.env.PASSWORD_SALT || "myhealthid-secret")
+    .update(password)
+    .digest("hex");
+}
+
 export async function onboardHealthcareProfessional(data: {
   fullName: string;
   licenseNumber: string;
@@ -80,6 +96,8 @@ export async function onboardHealthcareProfessional(data: {
     }
 
     const email = `${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@myhealthid.gov.et`;
+    const emailOrUsername = normalizeLoginIdentifier(data.licenseNumber);
+    const hospitalName = (await prisma.organization.findUnique({ where: { id: activeOrgId }, select: { name: true } }))?.name || null;
 
     const [firstName = "", ...lastNameParts] = data.fullName.trim().split(" ");
     const lastName = lastNameParts.join(" ");
@@ -98,13 +116,16 @@ export async function onboardHealthcareProfessional(data: {
     const newUser = await prisma.user.create({
       data: {
         email,
-        password: data.pin,
+        emailOrUsername,
+        passwordHash: hashPassword(data.pin),
         role: data.role as any,
         firstName,
         lastName,
         professionalLicenseNumber: data.licenseNumber,
+        hospitalId: activeOrgId,
+        hospitalName,
         organizationId: activeOrgId,
-        nationalId, // populated with unique string to bypass MongoDB null index unique constraint failure
+        nationalId,
       }
     });
 
@@ -149,6 +170,8 @@ export async function registerHealthcareProfessional(data: {
     }
 
     const email = `${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@myhealthid.gov.et`;
+    const emailOrUsername = normalizeLoginIdentifier(data.licenseNumber);
+    const hospitalName = org.name;
 
     const [firstName = "", ...lastNameParts] = data.fullName.trim().split(" ");
     const lastName = lastNameParts.join(" ");
@@ -167,11 +190,14 @@ export async function registerHealthcareProfessional(data: {
     const newUser = await prisma.user.create({
       data: {
         email,
-        password: data.pin,
+        emailOrUsername,
+        passwordHash: hashPassword(data.pin),
         role: data.role as any,
         firstName,
         lastName,
         professionalLicenseNumber: data.licenseNumber,
+        hospitalId: org.id,
+        hospitalName,
         organizationId: org.id,
         nationalId,
       }
@@ -197,20 +223,26 @@ export async function registerHealthcareProfessional(data: {
 }
 
 export async function loginUser(formData: FormData) {
-  const email = formData.get("email") as string;
+  const emailOrUsername = formData.get("emailOrUsername") as string;
   const password = formData.get("password") as string;
   const hospitalIdCode = formData.get("hospitalIdCode") as string;
 
-  if (!email) {
-    throw new Error("Email/ID is required for login.");
+  if (!emailOrUsername) {
+    throw new Error("Email/Username is required for login.");
   }
 
-  const cleanEmail = email.toLowerCase().trim();
-  let dbUser = await prisma.user.findUnique({
-    where: { email: cleanEmail }
+  const cleanIdentifier = normalizeLoginIdentifier(emailOrUsername);
+  let dbUser = await prisma.user.findFirst({
+    where: {
+      OR: [
+        { email: cleanIdentifier },
+        { emailOrUsername: cleanIdentifier }
+      ]
+    }
   });
 
   let finalOrgId: string;
+  const cleanEmail = cleanIdentifier;
 
   if (cleanEmail === "dr.dawit@myhealthid.gov.et") {
     const orgId = await ensureDefaultOrganization();
@@ -218,11 +250,14 @@ export async function loginUser(formData: FormData) {
       dbUser = await prisma.user.create({
         data: {
           email: cleanEmail,
-          password: "demo-password-hash",
+          emailOrUsername: cleanEmail,
+          passwordHash: hashPassword("demo-password-hash"),
           role: "DOCTOR",
           firstName: "Dawit",
           lastName: "Tadesse",
           professionalLicenseNumber: "MD-2026-ETH",
+          hospitalId: orgId,
+          hospitalName: "Debre Berhan Referral Hospital",
           organizationId: orgId,
           nationalId: `demo-nid-${Math.random().toString(36).substring(2, 9)}`,
         }
@@ -246,26 +281,29 @@ export async function loginUser(formData: FormData) {
     if (!dbUser) {
       // First login for a new facility → create as ADMIN so they can manage the hospital
       const formRole = (formData.get("role") as string) || "ADMIN";
-      const [firstName, ...lastNameParts] = cleanEmail.split("@")[0].split(".");
+      const [firstName, ...lastNameParts] = cleanIdentifier.split("@")[0].split(".");
       dbUser = await prisma.user.create({
         data: {
-          email: cleanEmail,
-          password: password || "password",
+          email: cleanIdentifier.includes("@") ? cleanIdentifier : `${cleanIdentifier}@myhealthid.gov.et`,
+          emailOrUsername: cleanIdentifier,
+          passwordHash: hashPassword(password || "password"),
           role: formRole as any,
           firstName: firstName || "Facility",
           lastName: lastNameParts.join(" ") || "Administrator",
+          hospitalId: org.id,
+          hospitalName: org.name,
           organizationId: org.id,
           nationalId: `sim-nid-${Math.random().toString(36).substring(2, 9)}`,
         }
       });
-      console.log(`[TENANCY] Auto-created facility admin: ${cleanEmail} for org ${org.id}`);
+      console.log(`[TENANCY] Auto-created facility admin: ${cleanIdentifier} for org ${org.id}`);
     }
 
     if (dbUser.organizationId !== org.id) {
       throw new Error("This account is not registered under this facility. Check your Organization ID.");
     }
 
-    if (password && dbUser.password !== password) {
+    if (password && dbUser.passwordHash !== hashPassword(password)) {
       throw new Error("Invalid Security PIN/Password.");
     }
 

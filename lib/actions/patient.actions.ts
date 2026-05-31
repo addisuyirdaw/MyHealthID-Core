@@ -1053,7 +1053,40 @@ export async function searchPatientMasterRecord(query: string) {
       },
     });
 
-    return JSON.parse(JSON.stringify(patients));
+    const organizations = await prisma.organization.findMany({ select: { id: true, name: true } });
+    const orgMap = Object.fromEntries(organizations.map((o) => [o.id, o.name]));
+    const formatFacilityName = (orgId: string | null | undefined) => {
+      if (!orgId) return null;
+      if (orgMap[orgId]) return orgMap[orgId];
+      return orgId
+        .split("-")
+        .filter((part) => part.toUpperCase() !== "MH")
+        .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+        .join(" ");
+    };
+
+    const mappedPatients = patients.map((p: any) => ({
+      ...p,
+      facilityName: formatFacilityName(p.organizationId),
+      vitals: p.vitals?.map((v: any) => ({
+        ...v,
+        facilityName: formatFacilityName(v.organizationId),
+      })) || [],
+      investigations: p.investigations?.map((i: any) => ({
+        ...i,
+        facilityName: formatFacilityName(i.organizationId),
+      })) || [],
+      prescriptions: p.prescriptions?.map((pr: any) => ({
+        ...pr,
+        facilityName: formatFacilityName(pr.organizationId),
+      })) || [],
+      clinicalExam: p.clinicalExam ? {
+        ...p.clinicalExam,
+        facilityName: formatFacilityName(p.clinicalExam.organizationId),
+      } : null,
+    }));
+
+    return JSON.parse(JSON.stringify(mappedPatients));
   } catch (error: any) {
     console.error("❌ DATABASE ERROR [searchPatientMasterRecord]:", error.message);
     return [];

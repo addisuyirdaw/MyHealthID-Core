@@ -20,17 +20,21 @@ enum Role {
 }
 
 model User {
-  id        String   @id @default(uuid()) @map("_id")
-  email     String   @unique
-  password  String
-  role      Role     @default(RECEPTIONIST)
+  id              String   @id @default(uuid()) @map("_id")
+  email           String   @unique
+  emailOrUsername String   @unique
+  passwordHash    String
+  role            Role     @default(RECEPTIONIST)
   
-  firstName String?
-  lastName  String?
+  firstName       String?
+  lastName        String?
   professionalLicenseNumber String?
 
-  nationalId String? @unique
-  otpCode    String?
+  hospitalId      String?  @map("hospital_id")
+  hospitalName    String?
+
+  nationalId      String? @unique
+  otpCode         String?
 
   organizationId String?       @map("organization_id")
   organization   Organization? @relation(fields: [organizationId], references: [id])

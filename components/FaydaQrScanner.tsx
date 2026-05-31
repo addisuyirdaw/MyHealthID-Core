@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Html5Qrcode } from "html5-qrcode";
+import { Html5Qrcode, Html5QrcodeSupportedFormats } from "html5-qrcode";
 import jsQR from "jsqr";
 import { buildCandidateFiles, adaptiveThreshold } from "@/lib/image-preprocess";
 import { convertPdfToImages } from "@/lib/pdf-helper";
@@ -10,6 +10,7 @@ type Props = {
   onDecodedText: (text: string, sourceFile?: File) => void;
   onError?: (message: string) => void;
   onCodeRead?: (rawText: string) => void;
+  onFaydaPair?: (fcn: string, fin: string, sourceFile?: File) => void;
   /** Shown after upload/camera decode fails — keeps the desk moving without a working scanner. */
   onManualBypass?: () => void;
 };
@@ -35,10 +36,16 @@ async function serverPreprocess(file: File): Promise<File | null> {
     const form = new FormData();
     form.append("image", file);
     const res = await fetch("/api/qr-preprocess", { method: "POST", body: form });
-    if (!res.ok) return null;
+    console.debug("[FaydaQrScanner] serverPreprocess response", { status: res.status, ok: res.ok, url: res.url });
+    if (!res.ok) {
+      const body = await res.text();
+      console.debug("[FaydaQrScanner] serverPreprocess failed body", body.slice(0, 400));
+      return null;
+    }
     const blob = await res.blob();
     return new File([blob], "server-enhanced.png", { type: "image/png" });
-  } catch {
+  } catch (err) {
+    console.debug("[FaydaQrScanner] serverPreprocess exception", err);
     return null;
   }
 }
@@ -166,15 +173,19 @@ async function tryScanFile(regionId: string, file: File): Promise<string | null>
  *  Round 3 — ZXing on original file
  */
 async function decodeUploadWithRetries(regionId: string, file: File): Promise<string> {
+  console.debug("[FaydaQrScanner] decodeUploadWithRetries start", { file: file.name });
   // Round 0: server-side sharp enhancement (region detect + 4x Lanczos + contrast)
   const enhanced = await serverPreprocess(file);
+  console.debug("[FaydaQrScanner] serverPreprocess returned", { enhanced: !!enhanced });
   if (enhanced) {
     const enhancedResult = await tryJsQrOnFile(enhanced);
+    console.debug("[FaydaQrScanner] tryJsQrOnFile(enhanced) returned", enhancedResult);
     if (enhancedResult) return enhancedResult;
   }
 
   // Round 1: jsQR — most reliable for dense 2D QRs
   const jsQrResult = await tryJsQrOnFile(file);
+  console.debug("[FaydaQrScanner] tryJsQrOnFile(file) returned", jsQrResult);
   if (jsQrResult) return jsQrResult;
 
   // Round 2: ZXing on preprocessed Otsu-binarised variants + originals
@@ -209,10 +220,13 @@ function friendlyCameraMessage(err: unknown): string {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualBypass }: Props) {
+export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onFaydaPair, onManualBypass }: Props) {
   const regionId = useRef(`qr-reader-${Math.random().toString(16).slice(2)}`);
   const qrRef = useRef<Html5Qrcode | null>(null);
   const lastEmitRef = useRef<{ text: string; at: number } | null>(null);
+  const [scanStep, setScanStep] = useState<"front" | "back">("back");
+  const [frontFcn, setFrontFcn] = useState<string | null>(null);
+  const [backFin, setBackFin] = useState<string | null>(null);
   const [cameraPhase, setCameraPhase] = useState<"idle" | "starting" | "live" | "failed">("idle");
   const [cameraHint, setCameraHint] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -228,9 +242,83 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualByp
       if (prev && prev.text === text && now - prev.at < 1200) return;
       lastEmitRef.current = { text, at: now };
       onCodeRead?.(text);
-      onDecodedText(text, lastFileRef.current ?? undefined);
     },
-    [onDecodedText, onCodeRead]
+    [onCodeRead]
+  );
+
+  // Process a decoded value according to the current scan step.
+  const processDecodedValue = useCallback(
+    async (raw: string, sourceFile?: File) => {
+      // Normalize digits-only strings
+      const digits = raw.replace(/[^0-9]/g, "");
+
+      const emitPairIfReady = async (fcn: string, fin: string) => {
+        try {
+          onFaydaPair?.(fcn, fin, sourceFile);
+        } catch {
+          /* ignore */
+        }
+        onDecodedText?.(JSON.stringify({ fcn, fin }), sourceFile);
+      };
+
+      if (scanStep === "back") {
+        if (/^\d{12}$/.test(digits)) {
+          setBackFin(digits);
+          onCodeRead?.(digits);
+          onDecodedText?.(digits, sourceFile);
+
+          if (frontFcn) {
+            await emitPairIfReady(frontFcn, digits);
+          } else {
+            setTimeout(() => setScanStep("front"), 300);
+          }
+          return;
+        }
+
+        if (/^\d{16}$/.test(digits)) {
+          setFrontFcn(digits);
+          onCodeRead?.(digits);
+          onDecodedText?.(digits, sourceFile);
+
+          if (backFin) {
+            await emitPairIfReady(digits, backFin);
+          }
+          return;
+        }
+
+        onCodeRead?.(raw);
+        return;
+      }
+
+      if (scanStep === "front") {
+        if (/^\d{16}$/.test(digits)) {
+          setFrontFcn(digits);
+          onCodeRead?.(digits);
+          onDecodedText?.(digits, sourceFile);
+
+          if (backFin) {
+            await emitPairIfReady(digits, backFin);
+          }
+          return;
+        }
+
+        if (/^\d{12}$/.test(digits)) {
+          setBackFin(digits);
+          onCodeRead?.(digits);
+          onDecodedText?.(digits, sourceFile);
+
+          if (frontFcn) {
+            await emitPairIfReady(frontFcn, digits);
+          } else {
+            setTimeout(() => setScanStep("front"), 300);
+          }
+          return;
+        }
+
+        onCodeRead?.(raw);
+      }
+    },
+    [scanStep, frontFcn, backFin, onCodeRead, onDecodedText, onFaydaPair]
   );
 
   const stopCamera = useCallback(async () => {
@@ -245,13 +333,26 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualByp
     await stopCamera();
     const qr = new Html5Qrcode(regionId.current, SCANNER_CONFIG);
     qrRef.current = qr;
+    // Configure formats and scanning box depending on the current scan step
+    const isFront = scanStep === "front";
+    const formats = isFront
+      ? [Html5QrcodeSupportedFormats.CODE_128]
+      : [Html5QrcodeSupportedFormats.QR_CODE, Html5QrcodeSupportedFormats.DATA_MATRIX];
+
+    const config = {
+      fps: isFront ? 8 : 12,
+      aspectRatio: 1.333334,
+      qrbox: isFront ? { width: 400, height: 120 } : { width: 520, height: 520 },
+      formatsToSupport: formats,
+    } as any;
+
     await qr.start(
       { facingMode: "environment" },
-      { fps: 12, aspectRatio: 1.333334 },
-      (decodedText: string) => { emitDecoded(decodedText); },
+      config,
+      (decodedText: string) => { emitDecoded(decodedText); processDecodedValue(decodedText); },
       () => {}
     );
-  }, [emitDecoded, stopCamera]);
+  }, [emitDecoded, stopCamera, scanStep, processDecodedValue]);
 
   const handleUseCamera = async () => {
     setCameraHint(null);
@@ -268,11 +369,19 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualByp
 
   useEffect(() => { return () => { void stopCamera(); }; }, [stopCamera]);
 
-  const handlePickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file || busy) return;
+  // Reconfigure camera when switching scan step while live
+  useEffect(() => {
+    if (cameraPhase === "live") {
+      void startCamera();
+    }
+  }, [scanStep, cameraPhase, startCamera]);
 
+  const handlePickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    e.target.value = "";
+    if (files.length === 0 || busy) return;
+
+    console.debug("[FaydaQrScanner] handlePickFile start", { files: files.map((f) => f.name), scanStep });
     setBusy(true);
     setDecodeFailed(false);
     setCameraHint(null);
@@ -280,50 +389,119 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualByp
       await stopCamera();
       setCameraPhase("idle");
 
-      const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+      let decodedAny = false;
+      let lastError: unknown = null;
 
-      if (isPdf) {
-        setBusyStage("Parsing PDF document (rendering pages)…");
-        const pages = await convertPdfToImages(file);
-        if (pages.length === 0) {
-          throw new Error("The uploaded PDF has no pages.");
-        }
-
-        let decodedText = null;
-        let successfulPage: File | null = null;
-
-        for (let i = 0; i < pages.length; i++) {
-          setBusyStage(`Scanning PDF page ${i + 1} of ${pages.length}...`);
-          try {
-            const text = await decodeUploadWithRetries(regionId.current, pages[i]);
-            if (text) {
-              decodedText = text;
-              successfulPage = pages[i];
-              break;
+      for (const file of files) {
+        const isPdf = file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf");
+        try {
+          if (isPdf) {
+            console.debug("[FaydaQrScanner] PDF upload detected", { file: file.name, scanStep });
+            setBusyStage("Parsing PDF document (rendering pages)…");
+            const pages = await convertPdfToImages(file);
+            if (pages.length === 0) {
+              throw new Error("The uploaded PDF has no pages.");
             }
-          } catch {
-            // Check next page
+
+            let decodedText = null;
+            let successfulPage: File | null = null;
+
+            for (let i = 0; i < pages.length; i++) {
+              setBusyStage(`Scanning PDF page ${i + 1} of ${pages.length}...`);
+              try {
+                const text = await decodeUploadWithRetries(regionId.current, pages[i]);
+                if (text) {
+                  decodedText = text;
+                  successfulPage = pages[i];
+                  break;
+                }
+              } catch {
+                // Check next page
+              }
+            }
+
+            if (decodedText && successfulPage) {
+              lastFileRef.current = successfulPage;
+              setBusyStage("");
+              setDecodeFailed(false);
+              decodedAny = true;
+              emitDecoded(decodedText);
+              await processDecodedValue(decodedText, successfulPage);
+            } else {
+              throw new Error(
+                "Could not read QR or barcode from any page of the PDF. " +
+                "Please upload a PDF containing a clear and high-contrast view of the ID card."
+              );
+            }
+          } else {
+            console.debug("[FaydaQrScanner] starting file decode", { file: file.name, scanStep });
+            lastFileRef.current = file;
+            setBusyStage("Binarising + multi-scale decode (jsQR)…");
+            const text = await decodeUploadWithRetries(regionId.current, file);
+            console.debug("[FaydaQrScanner] decodeUploadWithRetries returned", { file: file.name, text });
+            setBusyStage("");
+            setDecodeFailed(false);
+            decodedAny = true;
+            emitDecoded(text);
+            await processDecodedValue(text, file);
+          }
+
+          if (backFin && frontFcn) {
+            break;
+          }
+        } catch (fullErr) {
+          console.debug("[FaydaQrScanner] decodeUploadWithRetries failed", { file: file.name, scanStep, error: fullErr instanceof Error ? fullErr.message : String(fullErr) });
+          lastError = fullErr;
+          if (scanStep === "front" && file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
+            setBusyStage("Focused front-side barcode scan (cropping)…");
+            const tryFront = async (): Promise<string | null> => {
+              try {
+                const bmp = await createImageBitmap(file, { imageOrientation: "from-image" });
+                const w = bmp.width, h = bmp.height;
+                const cropW = Math.floor(w * 0.4), cropH = Math.floor(h * 0.35);
+                const cropX = 0, cropY = Math.floor(h - cropH - Math.floor(h * 0.03));
+
+                const canvas = document.createElement("canvas");
+                canvas.width = cropW; canvas.height = cropH;
+                const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+                ctx.drawImage(bmp, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+                bmp.close();
+                const f = await canvasToPngFile(canvas, "crop-bottom-left.png");
+                const text = await tryScanFile(regionId.current, f);
+                if (text) return text;
+              } catch {
+                /* fallthrough */
+              }
+              try {
+                const candidates = await buildCandidateFiles(file);
+                for (const c of candidates) {
+                  const t = await tryScanFile(regionId.current, c);
+                  if (t) return t;
+                }
+              } catch {}
+              return null;
+            };
+
+            const found = await tryFront();
+            console.debug("[FaydaQrScanner] focused front scan result", { file: file.name, found });
+            setBusyStage("");
+            if (found) {
+              setDecodeFailed(false);
+              decodedAny = true;
+              emitDecoded(found);
+              await processDecodedValue(found, file);
+              if (backFin && frontFcn) {
+                break;
+              }
+              continue;
+            }
           }
         }
+      }
 
-        if (decodedText && successfulPage) {
-          lastFileRef.current = successfulPage; // Store the PNG image page for later OCR
-          setBusyStage("");
-          setDecodeFailed(false);
-          emitDecoded(decodedText);
-        } else {
-          throw new Error(
-            "Could not read QR or barcode from any page of the PDF. " +
-            "Please upload a PDF containing a clear and high-contrast view of the ID card."
-          );
-        }
-      } else {
-        lastFileRef.current = file;
-        setBusyStage("Binarising + multi-scale decode (jsQR)…");
-        const text = await decodeUploadWithRetries(regionId.current, file);
-        setBusyStage("");
-        setDecodeFailed(false);
-        emitDecoded(text);
+      if (!decodedAny) {
+        console.debug("[FaydaQrScanner] no file decoded after all attempts", { lastError });
+        throw lastError ?? new Error("Could not read that document. Try a sharper, well-lit image of the QR code.");
       }
     } catch (err: unknown) {
       setBusyStage("");
@@ -347,8 +525,20 @@ export function FaydaQrScanner({ onDecodedText, onError, onCodeRead, onManualByp
         <strong>barcode on the front</strong>. The scanner applies Adaptive Thresholding + PDF rendering + 12 image variants
         automatically. Optionally use <strong>Use camera</strong> on a phone.
       </div>
+
+      <div className="text-xs text-slate-700">
+        <strong>Current step:</strong>{' '}
+        {scanStep === 'front' ? (
+          <span className="font-semibold">Scan Front (1D barcode — FCN)</span>
+        ) : (
+          <span className="font-semibold">Scan Back (2D QR — FIN)</span>
+        )}
+        {frontFcn && (
+          <span className="ml-3 text-emerald-700">Front FCN captured: {frontFcn}</span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2">
-        <input ref={fileInputRef} type="file" accept="image/*,.pdf" className="hidden" onChange={handlePickFile} />
+        <input ref={fileInputRef} type="file" accept="image/*,.pdf" multiple className="hidden" onChange={handlePickFile} />
         <button
           type="button"
           disabled={busy}

@@ -904,6 +904,11 @@ export default function RegisterPage() {
                               })
                             }
                             onDecodedText={(text, file) => handleDecodedQr(text, file)}
+                            onFaydaPair={async (fcn, fin, file) => {
+                              if (file) lastUploadedFile.current = file;
+                              setScanFeedback({ variant: "info", title: "Code detected", detail: "Extracting FIN and FCN from the scan…" });
+                              await verifyFayda(fin, fcn);
+                            }}
                             onError={(msg) =>
                               setScanFeedback({
                                 variant: "error",

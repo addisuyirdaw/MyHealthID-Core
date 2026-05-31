@@ -11,6 +11,9 @@ import {
 } from "lucide-react";
 import { processTriage, recordVitals } from "@/lib/actions/patient.actions";
 import { logoutUser } from "@/lib/actions/auth.actions";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import GlobalPatientLookup from "@/components/GlobalPatientLookup";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type TriageCategory = "EMERGENCY" | "URGENT" | "SEMI_URGENT" | "NON_URGENT";
@@ -422,6 +425,25 @@ export default function TriageDashboardClient({
             </div>
             <span className="text-xs font-medium text-neutral-300">Triage Nurse</span>
           </div>
+
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="border-neutral-700 text-neutral-300 hover:bg-neutral-800">
+                Patient History
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-3xl w-full">
+              <DialogHeader>
+                <DialogTitle>Patient History Lookup</DialogTitle>
+                <DialogDescription>
+                  Search system-wide patient history using Health ID, FIN, NID, or full name.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-4">
+                <GlobalPatientLookup />
+              </div>
+            </DialogContent>
+          </Dialog>
 
           {/* Logout button */}
           <button

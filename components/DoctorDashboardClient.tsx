@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import GlobalPatientLookup from "@/components/GlobalPatientLookup";
 import {
   HeartPulse, AlertTriangle, Search, ExternalLink,
   Stethoscope, Users, Zap, Clock, Activity,
@@ -260,6 +262,24 @@ export default function DoctorDashboardClient({
             <p className="text-xs text-slate-400">Logged in as</p>
             <p className="text-sm font-semibold text-blue-400">{role}</p>
           </div>
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" size="sm" className="border-slate-600 text-slate-300 hover:bg-slate-700 bg-slate-800">
+                Patient Lookup
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl w-full">
+              <DialogHeader>
+                <DialogTitle>Global Patient History Lookup</DialogTitle>
+                <DialogDescription>
+                  Search across facilities by Health ID, National ID, FIN, card number, or name.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="mt-4">
+                <GlobalPatientLookup onOpenPatient={(patientId) => router.push(`/doctor/patient/${patientId}`)} />
+              </div>
+            </DialogContent>
+          </Dialog>
           <Button
             variant="outline"
             size="sm"

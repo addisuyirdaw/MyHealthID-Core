@@ -13,6 +13,10 @@ async function findQrRegion(buffer: Buffer, width: number, height: number) {
   const cellW = Math.floor(width / N);
   const cellH = Math.floor(height / N);
 
+  if (cellW <= 0 || cellH <= 0 || width <= 0 || height <= 0) {
+    throw new Error(`Invalid dimensions: width=${width}, height=${height}, cellW=${cellW}, cellH=${cellH}`);
+  }
+
   let bestScore = 0;
   let bestRegion = { left: 0, top: 0, width, height }; // fallback = full image
 
@@ -22,31 +26,45 @@ async function findQrRegion(buffer: Buffer, width: number, height: number) {
     .raw()
     .toBuffer();
 
+  if (raw.length !== width * height) {
+    console.warn(`[findQrRegion] raw buffer size mismatch: expected ${width * height}, got ${raw.length}`);
+    return bestRegion; // return fallback
+  }
+
   for (let gy = 0; gy < N; gy++) {
     for (let gx = 0; gx < N; gx++) {
       const x0 = gx * cellW;
       const y0 = gy * cellH;
       let sum = 0, sumSq = 0, count = 0;
 
-      for (let py = y0; py < y0 + cellH; py++) {
-        for (let px = x0; px < x0 + cellW; px++) {
-          const val = raw[py * width + px];
-          sum += val;
-          sumSq += val * val;
-          count++;
+      for (let py = y0; py < y0 + cellH && py < height; py++) {
+        for (let px = x0; px < x0 + cellW && px < width; px++) {
+          const idx = py * width + px;
+          if (idx < raw.length) {
+            const val = raw[idx];
+            sum += val;
+            sumSq += val * val;
+            count++;
+          }
         }
       }
+
+      if (count === 0) continue;
       const mean = sum / count;
       const variance = sumSq / count - mean * mean;
       if (variance > bestScore) {
         bestScore = variance;
         // Expand region 10% to avoid clipping finder patterns
         const pad = 0.1;
+        const expandedLeft = Math.max(0, Math.floor(x0 - cellW * pad));
+        const expandedTop = Math.max(0, Math.floor(y0 - cellH * pad));
+        const expandedRight = Math.min(width, Math.ceil(x0 + cellW * (1 + pad)));
+        const expandedBottom = Math.min(height, Math.ceil(y0 + cellH * (1 + pad)));
         bestRegion = {
-          left: Math.max(0, Math.floor(x0 - cellW * pad)),
-          top: Math.max(0, Math.floor(y0 - cellH * pad)),
-          width: Math.min(width - x0, Math.floor(cellW * (1 + 2 * pad))),
-          height: Math.min(height - y0, Math.floor(cellH * (1 + 2 * pad))),
+          left: expandedLeft,
+          top: expandedTop,
+          width: expandedRight - expandedLeft,
+          height: expandedBottom - expandedTop,
         };
       }
     }
@@ -61,28 +79,50 @@ export async function POST(req: NextRequest) {
     if (!file) return NextResponse.json({ error: "No image" }, { status: 400 });
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const meta = await sharp(buffer).metadata();
-    const W = meta.width ?? 1024;
-    const H = meta.height ?? 1024;
+    let meta: any;
+    try {
+      meta = await sharp(buffer).metadata();
+    } catch (metaErr) {
+      console.error("[qr-preprocess] sharp.metadata() failed", metaErr);
+      meta = {};
+    }
+    const W = meta?.width ?? 1024;
+    const H = meta?.height ?? 1024;
 
-    // Step 1: Find the QR region via variance grid
-    const region = await findQrRegion(buffer, W, H);
+    // Step 1: Find the QR region via variance grid (with fallback)
+    let region = { left: 0, top: 0, width: W, height: H }; // fallback = full image
+    try {
+      region = await findQrRegion(buffer, W, H);
+    } catch (regionErr) {
+      console.error("[qr-preprocess] findQrRegion() failed, using full image", regionErr);
+      // Already have fallback region, continue
+    }
 
     // Step 2: Crop, upscale 4x, sharpen, high contrast
-    const processed = await sharp(buffer)
-      .extract(region)
-      .resize(Math.min(region.width * 4, 2400), undefined, { kernel: "lanczos3" })
-      .sharpen({ sigma: 1.2, m1: 2, m2: 8 })
-      .linear(1.8, -(0.8 * 128)) // strong contrast boost
-      .grayscale()
-      .normalize()
-      .png()
-      .toBuffer();
+    try {
+      const processed = await sharp(buffer)
+        .extract({ left: region.left, top: region.top, width: region.width, height: region.height })
+        .resize(Math.min(region.width * 4, 2400), undefined, { kernel: "lanczos3" })
+        .sharpen({ sigma: 1.2, m1: 2, m2: 8 })
+        .linear(1.8, -(0.8 * 128)) // strong contrast boost
+        .grayscale()
+        .normalize()
+        .png()
+        .toBuffer();
 
-    return new NextResponse(processed as any, {
-      headers: { "Content-Type": "image/png", "X-Region": JSON.stringify(region) },
-    });
+      return new NextResponse(processed as any, {
+        headers: { "Content-Type": "image/png", "X-Region": JSON.stringify(region) },
+      });
+    } catch (processErr) {
+      console.error("[qr-preprocess] processing failed", processErr);
+      // Fallback: return original image as PNG
+      const fallback = await sharp(buffer).png().toBuffer();
+      return new NextResponse(fallback as any, {
+        headers: { "Content-Type": "image/png" },
+      });
+    }
   } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    console.error("[qr-preprocess] unhandled error", err);
+    return NextResponse.json({ error: err.message || "Processing failed" }, { status: 500 });
   }
 }
