@@ -3,9 +3,7 @@ import React from "react";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { ADMIN_ROLES, CLINICAL_ROLES, normalizeHealthcareRole } from "@/lib/locales/enums";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, FileText, User } from "lucide-react";
+import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, FileText, User, ShieldAlert, Lock } from "lucide-react";
 import { LiveQueueStatus } from "@/components/LiveQueueStatus";
 import { CheckInButton } from "@/components/CheckInButton";
 import BreakGlassClient from "@/components/BreakGlassClient";
@@ -20,7 +18,8 @@ type TimelineEvent = {
   badge?: string;
   badgeColor?: string;
   icon: React.ReactNode;
-  bgColor: string;
+  dotColor: string;
+  accentColor: string;
 };
 
 export default async function ClinicalRecordsDashboard({
@@ -42,34 +41,23 @@ export default async function ClinicalRecordsDashboard({
 
   if (!patient) return notFound();
 
-  // Determine viewer role from cookie
   const cookieStore = cookies();
   const viewerRole = cookieStore.get("userRole")?.value || "UNKNOWN";
   const isCitizen = viewerRole === "CITIZEN";
   const isClinicalUser = CLINICAL_ROLES.includes(viewerRole as any) || ADMIN_ROLES.includes(viewerRole as any);
   const hasOverride = searchParams.override === "1";
 
-  // RBAC Gate: if a clinical provider tries to view a restricted patient without override → show Break-Glass
   if (!isCitizen && isClinicalUser && patient.isRestricted && !hasOverride) {
-    return (
-      <BreakGlassClient
-        patientId={patient.id}
-        patientName={patient.fullName}
-      />
-    );
+    return <BreakGlassClient patientId={patient.id} patientName={patient.fullName} />;
   }
 
-  // Log VIEW event if a clinical provider (not citizen) is accessing
   if (isClinicalUser && !hasOverride) {
     try {
       const clinicianName = cookieStore.get("professionalName")?.value || "Dr. Dawit Tadesse";
       const userId = cookieStore.get("userId")?.value || "";
       const organizationId = cookieStore.get("organizationId")?.value || patient.organizationId || "";
-
-      // Normalize role to canonical enum
       const normalizedRole = normalizeHealthcareRole(viewerRole) as Role;
 
-      // Get facility service type from organization
       let facilityServiceType = undefined;
       if (organizationId) {
         const org = await prisma.organization.findUnique({
@@ -91,22 +79,20 @@ export default async function ClinicalRecordsDashboard({
         },
       });
     } catch {
-      // Non-blocking — log failure doesn't break the page
+      // Non-blocking
     }
   }
 
-  const organizations = await prisma.organization.findMany({
-    select: { id: true, name: true }
-  });
-  const orgMap = Object.fromEntries(organizations.map(o => [o.id, o.name]));
+  const organizations = await prisma.organization.findMany({ select: { id: true, name: true } });
+  const orgMap = Object.fromEntries(organizations.map((o) => [o.id, o.name]));
 
   const formatFacilityName = (orgId: string | null | undefined) => {
     if (!orgId) return null;
     if (orgMap[orgId]) return orgMap[orgId];
     return orgId
       .split("-")
-      .filter(part => part.toUpperCase() !== "MH")
-      .map(part => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
+      .filter((part) => part.toUpperCase() !== "MH")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase())
       .join(" ");
   };
 
@@ -119,8 +105,9 @@ export default async function ClinicalRecordsDashboard({
     date: patient.dateOfAdmission || patient.createdAt,
     title: "Patient Registered",
     description: `Registered at ${patient.ward.replace(/_/g, " ")}. Chief Complaint: ${patient.chiefComplaint || "N/A"}`,
-    icon: <User className="w-5 h-5 text-slate-500" />,
-    bgColor: "bg-slate-100",
+    icon: <User className="w-4 h-4 text-neutral-300" />,
+    dotColor: "bg-neutral-600",
+    accentColor: "border-neutral-700",
   });
 
   patient.vitals.forEach((v: any) =>
@@ -129,10 +116,11 @@ export default async function ClinicalRecordsDashboard({
       type: "VITAL",
       date: v.createdAt,
       title: "Vitals Recorded",
-      description: `BP: ${v.bp} | Pulse: ${v.pulse} bpm | Temp: ${v.temp}°C | SpO2: ${v.spO2}%`,
-      icon: <HeartPulse className="w-5 h-5 text-rose-500" />,
-      bgColor: "bg-rose-100",
+      description: `BP: ${v.bp} | Pulse: ${v.pulse} bpm | Temp: ${v.temp}°C | SpO₂: ${v.spO2}%`,
       badge: formatFacilityName(v.organizationId) ? `Origin: ${formatFacilityName(v.organizationId)}` : undefined,
+      icon: <HeartPulse className="w-4 h-4 text-rose-400" />,
+      dotColor: "bg-rose-500",
+      accentColor: "border-rose-500/30",
     })
   );
 
@@ -144,9 +132,10 @@ export default async function ClinicalRecordsDashboard({
       title: `Lab Test: ${i.testName}`,
       description: i.status === "COMPLETED" ? `Result: ${i.result}` : "Awaiting sample or processing.",
       badge: formatFacilityName(i.organizationId) ? `Origin: ${formatFacilityName(i.organizationId)}` : i.status,
-      badgeColor: i.status === "COMPLETED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
-      icon: <FlaskConical className="w-5 h-5 text-indigo-500" />,
-      bgColor: "bg-indigo-100",
+      badgeColor: i.status === "COMPLETED" ? "bg-emerald-900/50 text-emerald-300 border-emerald-500/30" : "bg-amber-900/50 text-amber-300 border-amber-500/30",
+      icon: <FlaskConical className="w-4 h-4 text-indigo-400" />,
+      dotColor: "bg-indigo-500",
+      accentColor: "border-indigo-500/30",
     })
   );
 
@@ -158,9 +147,10 @@ export default async function ClinicalRecordsDashboard({
       title: `Prescription: ${p.drugName}`,
       description: `Dosage: ${p.dosage} | Freq: ${p.frequency}`,
       badge: formatFacilityName(p.organizationId) ? `Origin: ${formatFacilityName(p.organizationId)}` : p.status,
-      badgeColor: p.status === "DISPENSED" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700",
-      icon: <Pill className="w-5 h-5 text-teal-500" />,
-      bgColor: "bg-teal-100",
+      badgeColor: p.status === "DISPENSED" ? "bg-emerald-900/50 text-emerald-300 border-emerald-500/30" : "bg-amber-900/50 text-amber-300 border-amber-500/30",
+      icon: <Pill className="w-4 h-4 text-teal-400" />,
+      dotColor: "bg-teal-500",
+      accentColor: "border-teal-500/30",
     })
   );
 
@@ -171,126 +161,155 @@ export default async function ClinicalRecordsDashboard({
       date: patient.clinicalExam.updatedAt,
       title: "Clinical Examination",
       description: patient.clinicalExam.clinicalNotes || "General physical examination completed.",
-      badge: formatFacilityName(patient.clinicalExam.organizationId) ? `Origin: ${formatFacilityName(patient.clinicalExam.organizationId)}` : undefined,
-      icon: <ActivitySquare className="w-5 h-5 text-purple-500" />,
-      bgColor: "bg-purple-100",
+      badge: formatFacilityName(patient.clinicalExam.organizationId)
+        ? `Origin: ${formatFacilityName(patient.clinicalExam.organizationId)}`
+        : undefined,
+      icon: <ActivitySquare className="w-4 h-4 text-purple-400" />,
+      dotColor: "bg-purple-500",
+      accentColor: "border-purple-500/30",
     });
   }
 
   events.sort((a, b) => b.date.getTime() - a.date.getTime());
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
-      <div className="max-w-4xl mx-auto space-y-6">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
 
-        {/* Emergency Override Banner */}
+        {/* Emergency Break-Glass Banner */}
         {hasOverride && (
-          <div className="bg-red-600 text-white rounded-2xl px-6 py-4 flex items-center gap-3 shadow-lg">
-            <span className="text-2xl">🚨</span>
+          <div className="flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-950/40 px-6 py-4">
+            <ShieldAlert className="w-5 h-5 text-red-400 shrink-0" />
             <div>
-              <p className="font-black">Emergency Break-Glass Override Active</p>
-              <p className="text-red-200 text-sm">This access has been permanently logged in the patient's audit trail.</p>
+              <p className="font-black text-red-300">Emergency Break-Glass Override Active</p>
+              <p className="text-red-400/70 text-sm">This access has been permanently logged in the patient's audit trail.</p>
             </div>
           </div>
         )}
 
-        {/* Personalized Welcome Banner */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 md:p-8 text-white shadow-xl relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <User className="w-48 h-48" />
+        {/* Hero welcome banner */}
+        <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-blue-900/60 to-indigo-900/50 border border-blue-500/20 p-6 md:p-8">
+          <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-indigo-600/10 pointer-events-none" />
+          <div className="absolute -top-8 -right-8 w-48 h-48 opacity-5">
+            <User className="w-full h-full" />
           </div>
           <div className="relative z-10">
-            <h1 className="text-4xl font-black mb-2 tracking-tight">
+            <p className="text-blue-300 text-sm font-semibold mb-1">MyHealthID Clinical Record</p>
+            <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">
               Welcome back, {patient.fullName.split(" ")[0]}!
             </h1>
-            <p className="text-blue-100 text-lg">Here is your live clinical dashboard and secure medical record.</p>
+            <p className="text-blue-200/70 text-base">Your live clinical dashboard and secure medical record.</p>
           </div>
         </div>
 
-        {/* Header Profile */}
-        <Card className="border-none shadow-sm">
-          <CardHeader className="flex flex-col md:flex-row justify-between md:items-center gap-4">
-            <div>
-              <CardTitle className="text-2xl font-bold flex items-center gap-3">
-                {patient.fullName}
+        {/* Patient identity card */}
+        <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl p-6">
+          <div className="flex flex-col md:flex-row justify-between gap-5 md:items-center">
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-xl font-bold text-white">{patient.fullName}</h2>
                 {patient.isRestricted && (
-                  <Badge className="bg-red-100 text-red-700 text-xs font-bold">🔒 Restricted</Badge>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border bg-red-900/40 text-red-300 border-red-500/30">
+                    <Lock className="w-2.5 h-2.5" /> Restricted
+                  </span>
                 )}
-              </CardTitle>
-              <CardDescription className="text-base mt-1 flex items-center gap-2">
-                <span className="font-mono text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md">ID: {patient.healthId}</span>
-                {patient.nationalId && <span className="text-slate-500 text-sm">| NID: {patient.nationalId}</span>}
-              </CardDescription>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-mono text-xs text-emerald-400 bg-emerald-900/30 border border-emerald-500/20 px-2.5 py-1 rounded-lg">
+                  ID: {patient.healthId}
+                </span>
+                {patient.nationalId && (
+                  <span className="text-neutral-500 text-xs">NID: {patient.nationalId}</span>
+                )}
+              </div>
             </div>
-            <div className="text-left md:text-right flex flex-col gap-3 items-start md:items-end">
-              <div>
-                <div className="text-sm font-medium text-slate-600">{patient.age} years old • {patient.sex}</div>
-                <div className="text-sm text-slate-500">
-                  Current Ward: <span className="font-medium text-slate-700">{patient.ward.replace(/_/g, " ")}</span>
-                </div>
+            <div className="flex flex-col gap-2 items-start md:items-end">
+              <div className="text-sm text-neutral-400">
+                <span className="font-semibold text-neutral-300">{patient.age}</span> years ·{" "}
+                <span className="font-semibold text-neutral-300">{patient.sex}</span>
+              </div>
+              <div className="text-xs text-neutral-500">
+                Ward: <span className="font-semibold text-neutral-300">{patient.ward.replace(/_/g, " ")}</span>
               </div>
               <CheckInButton patientId={patient.id} />
             </div>
-          </CardHeader>
-        </Card>
+          </div>
+        </div>
 
-        {/* Privacy Dashboard Link for Citizens */}
+        {/* Privacy control link for citizens */}
         {isCitizen && (
           <a
             href={`/patients/${patient.id}/privacy`}
-            className="flex items-center justify-between bg-indigo-50 border border-indigo-200 rounded-2xl px-6 py-4 hover:bg-indigo-100 transition-colors group"
+            className="flex items-center justify-between bg-indigo-950/40 border border-indigo-500/20 rounded-2xl px-6 py-4 hover:bg-indigo-950/60 transition-colors group"
           >
             <div>
-              <p className="font-bold text-indigo-800">🔐 Privacy & Data Control</p>
-              <p className="text-indigo-600 text-sm">Manage who can see your records · ግላዊነት እና የዳታ ቁጥጥር</p>
+              <p className="font-bold text-indigo-300">🔐 Privacy & Data Control</p>
+              <p className="text-indigo-400/70 text-sm">Manage who can see your records · ግላዊነት እና የዳታ ቁጥጥር</p>
             </div>
             <span className="text-indigo-400 group-hover:translate-x-1 transition-transform text-xl">→</span>
           </a>
         )}
 
-        {/* Live Queue Status Section */}
+        {/* Live queue status */}
         <LiveQueueStatus patientId={patient.id} />
 
-        {/* Timeline */}
-        <Card className="shadow-sm border-none">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-xl">
-              <Clock className="w-5 h-5 text-slate-500" />
-              Patient Clinical Timeline
-            </CardTitle>
-            <CardDescription>A complete historical record of visits, tests, and prescriptions.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="relative border-l-2 border-slate-200 ml-4 pl-6 space-y-8 mt-4">
-              {events.length === 0 && (
-                <p className="text-slate-400 italic py-4">No events recorded yet.</p>
-              )}
-              {events.map((ev) => (
-                <div key={ev.id} className="relative">
-                  <div className={`absolute -left-[35px] top-1 w-8 h-8 rounded-full flex items-center justify-center ring-4 ring-white ${ev.bgColor}`}>
-                    {ev.icon}
-                  </div>
-                  <div className="bg-white p-4 rounded-xl border border-slate-100 shadow-sm transition-all hover:shadow-md">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                      <h4 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                        {ev.title}
-                        {ev.badge && (
-                          <Badge variant="secondary" className={`text-[10px] uppercase font-bold ${ev.badgeColor}`}>
-                            {ev.badge}
-                          </Badge>
-                        )}
-                      </h4>
-                      <time className="text-xs text-slate-400 font-medium whitespace-nowrap bg-slate-50 px-2 py-1 rounded-md">
-                        {ev.date.toLocaleString()}
-                      </time>
-                    </div>
-                    <p className="text-slate-600 text-sm leading-relaxed whitespace-pre-wrap">{ev.description}</p>
-                  </div>
-                </div>
-              ))}
+        {/* Clinical Timeline */}
+        <div className="bg-neutral-900/60 border border-neutral-800 rounded-2xl overflow-hidden">
+          <div className="flex items-center gap-2.5 px-6 py-5 border-b border-neutral-800">
+            <Clock className="w-5 h-5 text-neutral-500" />
+            <div>
+              <h3 className="text-base font-bold text-white">Patient Clinical Timeline</h3>
+              <p className="text-xs text-neutral-500">Complete historical record of visits, tests, and prescriptions.</p>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+
+          <div className="px-6 py-6">
+            {events.length === 0 && (
+              <div className="py-12 text-center">
+                <FileText className="w-10 h-10 text-neutral-700 mx-auto mb-3" />
+                <p className="text-neutral-500 italic">No events recorded yet.</p>
+              </div>
+            )}
+
+            <div className="relative">
+              {/* Timeline vertical line */}
+              <div className="absolute left-4 top-2 bottom-2 w-px bg-neutral-800" />
+
+              <div className="space-y-6">
+                {events.map((ev) => (
+                  <div key={ev.id} className="relative pl-12">
+                    {/* Dot */}
+                    <div className={`absolute left-[9px] top-1.5 w-2.5 h-2.5 rounded-full ring-2 ring-neutral-950 ${ev.dotColor}`} />
+
+                    {/* Card */}
+                    <div className={`rounded-2xl border bg-neutral-900/80 p-4 hover:bg-neutral-900 transition-colors ${ev.accentColor}`}>
+                      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2 mb-2">
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-lg bg-neutral-800 flex items-center justify-center shrink-0">
+                            {ev.icon}
+                          </div>
+                          <h4 className="font-bold text-neutral-200 text-sm">{ev.title}</h4>
+                          {ev.badge && (
+                            <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${ev.badgeColor ?? "bg-neutral-800 text-neutral-400 border-neutral-700"}`}>
+                              {ev.badge}
+                            </span>
+                          )}
+                        </div>
+                        <time className="text-[10px] text-neutral-600 font-mono whitespace-nowrap bg-neutral-800/60 px-2 py-1 rounded-lg shrink-0">
+                          {ev.date.toLocaleString()}
+                        </time>
+                      </div>
+                      <p className="text-neutral-400 text-sm leading-relaxed whitespace-pre-wrap pl-9">
+                        {ev.description}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
   );

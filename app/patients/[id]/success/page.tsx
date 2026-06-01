@@ -1,80 +1,96 @@
 import prisma from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { CheckCircle2, ShieldCheck, QrCode, Home } from "lucide-react";
+import { CheckCircle2, ShieldCheck, QrCode, Home, HeartPulse } from "lucide-react";
 import { PatientQR } from "@/components/PatientQR";
-import { Button } from "@/components/ui/button";
 import Link from "next/link";
 
 export default async function SuccessPage({ params }: { params: { id: string } }) {
-  // Fetch the Patient record using the id from the URL
   const patient = await prisma.patient.findFirst({
-    where: {
-      OR: [
-        { id: params.id },
-        { healthId: params.id }
-      ]
-    }
+    where: { OR: [{ id: params.id }, { healthId: params.id }] },
   });
 
-  if (!patient) {
-    return notFound();
-  }
+  if (!patient) return notFound();
 
   return (
-    <div className="min-h-screen bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
-      <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-green-500/10 blur-3xl" />
-      
-      {/* Digital ID Card container with green border and white background */}
-      <Card className="w-full max-w-md border-green-500 bg-white shadow-2xl relative z-10 text-center py-8">
-        <CardHeader className="flex flex-col items-center pb-2">
-          <div className="mx-auto bg-green-100 w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner">
-            <CheckCircle2 className="h-8 w-8 text-green-600" />
-          </div>
-          <CardTitle className="text-2xl font-bold tracking-tight text-slate-900">Registration Complete</CardTitle>
-          <CardDescription className="text-slate-500">Patient securely added to registry</CardDescription>
+    <div className="min-h-screen bg-neutral-950 relative overflow-hidden flex items-center justify-center p-4">
+      {/* Ambient glow */}
+      <div className="pointer-events-none absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-emerald-600/10 blur-3xl" />
+      <div className="pointer-events-none absolute -bottom-24 -right-24 w-[400px] h-[400px] rounded-full bg-blue-600/8 blur-3xl" />
 
-          <Badge variant="outline" className="bg-emerald-50 text-emerald-700 border-emerald-200 mt-4 px-3 py-1 space-x-1.5 shadow-sm">
-            <ShieldCheck className="w-4 h-4" />
-            <span>Verified Profile</span>
-          </Badge>
-        </CardHeader>
-        
-        <CardContent className="flex flex-col items-center gap-6 pt-4">
-          <div className="text-center w-full">
-            <p className="text-sm text-slate-500 uppercase tracking-wider font-semibold mb-1">Digital Health Passport</p>
-            <h2 className="text-2xl font-bold text-slate-800">{patient.fullName}</h2>
-            {patient.nationalId && (
-              <p className="text-sm text-slate-500 mt-1">Fayda ID: <span className="font-mono text-slate-700">{patient.nationalId}</span></p>
-            )}
+      <div className="w-full max-w-md relative z-10">
+        {/* Brand */}
+        <div className="flex items-center justify-center gap-2 mb-6">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-900/40">
+            <HeartPulse className="w-4 h-4 text-white" />
           </div>
-          
-          <div className="p-4 bg-slate-50 rounded-2xl border border-slate-200 shadow-sm inline-block">
-            <PatientQR value={patient.healthId} size={160} />
+          <span className="text-white font-black text-sm">MyHealthID</span>
+        </div>
+
+        {/* Main card */}
+        <div className="bg-neutral-900/70 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl backdrop-blur-xl ring-1 ring-white/5">
+
+          {/* Success header */}
+          <div className="bg-gradient-to-br from-emerald-900/40 to-teal-900/30 border-b border-emerald-500/15 px-8 py-8 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-emerald-500/15 border border-emerald-500/25 mb-4 shadow-inner">
+              <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+            </div>
+            <h1 className="text-2xl font-black text-white mb-1">Registration Complete</h1>
+            <p className="text-emerald-400/70 text-sm">Patient securely added to the national registry</p>
+
+            <div className="inline-flex items-center gap-1.5 bg-emerald-900/40 border border-emerald-500/25 text-emerald-300 text-xs font-bold px-3 py-1.5 rounded-full mt-4">
+              <ShieldCheck className="w-3.5 h-3.5" /> Verified Profile
+            </div>
           </div>
 
-          <div className="bg-green-50/50 p-4 rounded-xl border border-green-100 w-full text-center">
-            <p className="text-xs font-semibold text-green-600/80 mb-1 uppercase tracking-wider">System Health ID</p>
-            {/* Display the ETH-MH-XXXXXX Health ID prominently */}
-            <p className="text-3xl font-mono font-bold text-green-700 tracking-widest">{patient.healthId}</p>
+          {/* Patient identity */}
+          <div className="px-8 py-6 text-center space-y-6">
+            <div>
+              <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold mb-1">Digital Health Passport</p>
+              <h2 className="text-xl font-bold text-white">{patient.fullName}</h2>
+              {patient.nationalId && (
+                <p className="text-sm text-neutral-500 mt-1">
+                  Fayda ID: <span className="font-mono text-neutral-300">{patient.nationalId}</span>
+                </p>
+              )}
+            </div>
+
+            {/* QR code */}
+            <div className="flex justify-center">
+              <div className="p-4 bg-white rounded-2xl shadow-lg shadow-neutral-900/50 inline-block">
+                <PatientQR value={patient.healthId} size={160} />
+              </div>
+            </div>
+
+            {/* Health ID */}
+            <div className="bg-emerald-950/40 border border-emerald-500/20 rounded-2xl py-4 px-5">
+              <p className="text-[10px] text-emerald-500/70 uppercase tracking-widest font-bold mb-2">
+                System Health ID
+              </p>
+              <p className="text-3xl font-mono font-black text-emerald-400 tracking-widest">
+                {patient.healthId}
+              </p>
+            </div>
+
+            {/* Actions */}
+            <div className="space-y-3 pt-1">
+              <Link href={`/patients/${patient.id}/dashboard`} className="block">
+                <button className="w-full h-12 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/30 active:scale-[0.98]">
+                  View Live Queue &amp; Dashboard
+                </button>
+              </Link>
+              <Link href="/register" className="block">
+                <button className="w-full h-12 flex items-center justify-center gap-2 border border-neutral-700 hover:border-neutral-600 text-neutral-300 hover:text-white font-semibold rounded-xl transition-all hover:bg-neutral-800/60">
+                  <Home className="w-4 h-4" /> New Registration
+                </button>
+              </Link>
+            </div>
           </div>
-          
-          <div className="w-full space-y-3 mt-4">
-            <Link href={`/patients/${patient.id}/dashboard`} className="block w-full">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white shadow-lg">
-                View Live Queue & Dashboard
-              </Button>
-            </Link>
-            <Link href="/register" className="block w-full">
-              <Button className="w-full bg-slate-100 hover:bg-slate-200 text-slate-800 shadow-sm border border-slate-200">
-                <Home className="w-4 h-4 mr-2" />
-                New Registration
-              </Button>
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        <p className="text-center text-[11px] text-neutral-700 mt-6">
+          MyHealthID · National Health Information System
+        </p>
+      </div>
     </div>
   );
 }
