@@ -49,17 +49,17 @@ export async function Sidebar() {
     LAB_TECH: "text-cyan-400 bg-cyan-500/10 border-cyan-500/30",
     PHARMACIST: "text-amber-400 bg-amber-500/10 border-amber-500/30",
   };
-  const currentBadgeColor = role ? (badgeColors[role] ?? "text-slate-300 bg-slate-800/60 border-slate-700") : "text-slate-300 bg-slate-800/60 border-slate-700";
+  const currentBadgeColor = role ? (badgeColors[role] ?? "text-neutral-300 bg-neutral-800/60 border-neutral-700") : "text-neutral-300 bg-neutral-800/60 border-neutral-700";
 
   return (
-    <aside className="w-64 bg-slate-900 text-slate-300 min-h-screen p-4 flex flex-col hidden md:flex shrink-0">
-      <div className="flex items-center justify-between gap-2 text-white font-bold text-xl mb-8 px-2 py-4 border-b border-slate-700">
+    <aside className="w-64 bg-neutral-900 text-neutral-300 min-h-screen p-4 flex flex-col hidden md:flex shrink-0">
+      <div className="flex items-center justify-between gap-2 text-white font-bold text-xl mb-8 px-2 py-4 border-b border-neutral-700">
         <div className="flex items-center gap-3">
           <LogoIcon className="w-8 h-8" />
           <span>MyHealthID</span>
         </div>
         <div>
-          <Link href="/" className="text-sm text-slate-300 hover:text-white px-2 py-1 rounded-md">Home</Link>
+          <Link href="/" className="text-sm text-neutral-300 hover:text-white px-2 py-1 rounded-md">Home</Link>
         </div>
       </div>
 
@@ -68,11 +68,11 @@ export async function Sidebar() {
         {/* ── CITIZEN ROLE ─────────────────────────────────────────── */}
         {isCitizen && citizenPatientId && (
           <>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-3 py-2">My Portal</p>
+            <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest px-3 py-2">My Portal</p>
 
             <Link
               href={`/patients/${citizenPatientId}/clinical-records`}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <History className="w-5 h-5 text-blue-400" />
               <span>
@@ -82,7 +82,7 @@ export async function Sidebar() {
 
             <Link
               href={`/patients/${citizenPatientId}/privacy`}
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <Lock className="w-5 h-5 text-indigo-400" />
               <span>
@@ -92,7 +92,7 @@ export async function Sidebar() {
 
             <Link
               href="/hospitals"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <Hospital className="w-5 h-5 text-emerald-400" />
               <span>Search Facilities</span>
@@ -103,11 +103,11 @@ export async function Sidebar() {
         {/* ── CLINICAL SUITE (DOCTOR / ADMIN) ────────────────────────── */}
         {canAccessClinical && (
           <>
-            <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-3 py-2">Clinical</p>
+            <p className="text-xs font-bold text-neutral-500 uppercase tracking-widest px-3 py-2">Clinical</p>
 
             <Link
               href="/doctor/dashboard?filter=EMERGENCY"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <Activity className="w-5 h-5 text-red-400" />
               <span className="text-red-100 font-medium">
@@ -117,17 +117,17 @@ export async function Sidebar() {
 
             <Link
               href="/doctor/dashboard"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
-              <Search className="w-5 h-5 text-slate-400" />
+              <Search className="w-5 h-5 text-neutral-400" />
               <LocalizedText tKey="nav.patientSearch" />
             </Link>
 
             <Link
               href="/doctor/dashboard"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
-              <ClipboardList className="w-5 h-5 text-slate-400" />
+              <ClipboardList className="w-5 h-5 text-neutral-400" />
               <LocalizedText tKey="nav.clinicalRecords" />
             </Link>
           </>
@@ -139,14 +139,14 @@ export async function Sidebar() {
             <p className="text-xs font-bold text-teal-500/80 uppercase tracking-widest px-3 py-2 mt-2">Nurse Portal</p>
             <Link
               href="/triage"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <Activity className="w-5 h-5 text-teal-400" />
               <span>Triage Queue</span>
             </Link>
             <Link
               href="/screening"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <ClipboardList className="w-5 h-5 text-cyan-400" />
               <span>Clinical Screening</span>
@@ -160,21 +160,21 @@ export async function Sidebar() {
             <p className="text-xs font-bold text-pink-500/80 uppercase tracking-widest px-3 py-2 mt-2">Reception</p>
             <Link
               href="/reception"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <ClipboardList className="w-5 h-5 text-pink-400" />
               <span className="font-semibold text-pink-100">Reception Desk</span>
             </Link>
             <Link
               href="/register"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <Users className="w-5 h-5 text-pink-400" />
               <LocalizedText tKey="nav.citizenRegistration" />
             </Link>
             <Link
               href="/scan"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <QrCode className="w-5 h-5 text-pink-400" />
               <span>Scan ID</span>
@@ -188,7 +188,7 @@ export async function Sidebar() {
             <p className="text-xs font-bold text-amber-500/80 uppercase tracking-widest px-3 py-2 mt-2">Pharmacy</p>
             <Link
               href="/pharmacy"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <Pill className="w-5 h-5 text-amber-400" />
               <span>Pharmacy Portal</span>
@@ -202,7 +202,7 @@ export async function Sidebar() {
             <p className="text-xs font-bold text-cyan-500/80 uppercase tracking-widest px-3 py-2 mt-2">Laboratory</p>
             <Link
               href="/lab"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <TestTubeDiagonal className="w-5 h-5 text-cyan-400" />
               <span>Laboratory Portal</span>
@@ -216,7 +216,7 @@ export async function Sidebar() {
             <p className="text-xs font-bold text-emerald-500/80 uppercase tracking-widest px-3 py-2 mt-2">Admin</p>
             <Link
               href="/admin/dashboard"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <Shield className="w-5 h-5 text-emerald-400" />
               <span>Management Analytics</span>
@@ -224,7 +224,7 @@ export async function Sidebar() {
 
             <Link
               href="/dashboard/settings/staff"
-              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
             >
               <Settings className="w-5 h-5 text-indigo-400" />
               <span>Staff Management</span>
@@ -234,12 +234,12 @@ export async function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="mt-auto px-2 pb-4 text-xs text-slate-500 flex flex-col gap-1 border-t border-slate-800/60 pt-4">
+      <div className="mt-auto px-2 pb-4 text-xs text-neutral-500 flex flex-col gap-1 border-t border-neutral-800/60 pt-4">
         {!role ? (
           <div className="mb-3 space-y-2">
             <Link
               href="/signin"
-              className="flex items-center gap-2 p-2 rounded-lg border border-slate-700/50 bg-slate-800/50 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
+              className="flex items-center gap-2 p-2 rounded-lg border border-neutral-700/50 bg-neutral-800/50 hover:bg-neutral-700 text-neutral-300 hover:text-white transition-colors"
             >
               <UserCircle className="w-4 h-4 text-blue-400" />
               <span className="font-medium text-sm">
@@ -252,7 +252,7 @@ export async function Sidebar() {
             <form action={logoutUser} method="POST">
               <button
                 type="submit"
-                className="w-full flex items-center gap-2 p-2 rounded-lg border border-transparent bg-slate-800 text-slate-200 hover:bg-red-50 hover:text-red-600 transition-colors"
+                className="w-full flex items-center gap-2 p-2 rounded-lg border border-transparent bg-neutral-800 text-neutral-200 hover:bg-red-50 hover:text-red-600 transition-colors"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="font-medium text-sm">Logout</span>
@@ -262,9 +262,9 @@ export async function Sidebar() {
         )}
 
         {orgId && (
-          <div className="mb-3 text-slate-400 font-medium">
-            <p className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Active Facility</p>
-            <p className="text-slate-300 font-bold truncate mt-0.5" title={facilityName}>{facilityName}</p>
+          <div className="mb-3 text-neutral-400 font-medium">
+            <p className="text-[10px] text-neutral-500 uppercase tracking-wider font-semibold">Active Facility</p>
+            <p className="text-neutral-300 font-bold truncate mt-0.5" title={facilityName}>{facilityName}</p>
           </div>
         )}
 

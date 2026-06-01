@@ -122,9 +122,9 @@ type TabId = typeof TABS[number]["id"];
 // ─── Field Row ────────────────────────────────────────────────────────────
 function FieldRow({ label, value }: { label: string; value?: string | null }) {
   return (
-    <div className="flex justify-between py-2 border-b border-slate-700/30 text-sm">
-      <span className="text-slate-400 font-medium w-40 shrink-0">{label}</span>
-      <span className="text-slate-200 text-right flex-1">{value || <span className="text-slate-600 italic">Not recorded</span>}</span>
+    <div className="flex justify-between py-2 border-b border-neutral-700/30 text-sm">
+      <span className="text-neutral-400 font-medium w-40 shrink-0">{label}</span>
+      <span className="text-neutral-200 text-right flex-1">{value || <span className="text-neutral-600 italic">Not recorded</span>}</span>
     </div>
   );
 }
@@ -269,13 +269,13 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
   const triageColor =
     patient.triageStatus === "RED" ? "bg-red-500" :
     patient.triageStatus === "YELLOW" ? "bg-amber-400" :
-    patient.triageStatus === "GREEN" ? "bg-green-500" : "bg-slate-500";
+    patient.triageStatus === "GREEN" ? "bg-green-500" : "bg-neutral-500";
 
   return (
-    <div className="min-h-screen bg-[#0f1117] text-slate-100 flex flex-col">
+    <div className="min-h-screen bg-[#0a0a0a] text-neutral-100 flex flex-col">
 
       {/* ── Top Banner ── */}
-      <div className="bg-[#161b27] border-b border-slate-700/50">
+      <div className="bg-[#171717] border-b border-neutral-700/50">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-4">
@@ -283,11 +283,11 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                 variant="ghost"
                 size="sm"
                 onClick={() => router.back()}
-                className="text-slate-400 hover:text-slate-200 hover:bg-slate-700"
+                className="text-neutral-400 hover:text-neutral-200 hover:bg-neutral-700"
               >
                 <ArrowLeft className="w-4 h-4 mr-2" /> Back
               </Button>
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-slate-600 to-slate-700 border-2 border-slate-500 flex items-center justify-center text-lg font-bold text-white">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-neutral-600 to-neutral-700 border-2 border-neutral-500 flex items-center justify-center text-lg font-bold text-white">
                 {patient.fullName?.charAt(0) || "?"}
               </div>
               <div>
@@ -295,12 +295,12 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                 <div className="flex flex-wrap items-center gap-2 mt-1">
                   <span className="font-mono text-blue-400 text-sm">{patient.healthId}</span>
                   {patient.nationalId && (
-                    <span className="text-xs text-slate-500 font-mono">NID: {patient.nationalId}</span>
+                    <span className="text-xs text-neutral-500 font-mono">NID: {patient.nationalId}</span>
                   )}
-                  <span className="text-slate-500">•</span>
-                  <span className="text-sm text-slate-400">{patient.age} yrs • {patient.sex}</span>
-                  <span className="text-slate-500">•</span>
-                  <span className="text-sm text-slate-400">{patient.ward?.replace(/_/g," ")}</span>
+                  <span className="text-neutral-500">•</span>
+                  <span className="text-sm text-neutral-400">{patient.age} yrs • {patient.sex}</span>
+                  <span className="text-neutral-500">•</span>
+                  <span className="text-sm text-neutral-400">{patient.ward?.replace(/_/g," ")}</span>
                   <span className={`w-2.5 h-2.5 rounded-full ${triageColor}`} title={patient.triageStatus} />
                 </div>
                 {patient.allergyInformation && (
@@ -322,7 +322,7 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
       </div>
 
       {/* ── Tab Bar ── */}
-      <div className="bg-[#161b27] border-b border-slate-700/50">
+      <div className="bg-[#171717] border-b border-neutral-700/50">
         <div className="max-w-7xl mx-auto px-6">
           <div className="flex overflow-x-auto">
             {TABS.map(tab => (
@@ -332,7 +332,7 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                 className={`flex items-center gap-2 px-5 py-4 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
                   activeTab === tab.id
                     ? "border-blue-500 text-blue-400"
-                    : "border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600"
+                    : "border-transparent text-neutral-400 hover:text-neutral-200 hover:border-neutral-600"
                 }`}
               >
                 <tab.icon className="w-4 h-4" />
@@ -351,8 +351,8 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* Patient Identity Card */}
-            <div className="bg-[#161b27] border border-slate-700/50 rounded-2xl p-6 space-y-1">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6 space-y-1">
+              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                 <User className="w-4 h-4 text-blue-400" /> Patient Identification
               </h2>
               <FieldRow label="Full Name"         value={patient.fullName} />
@@ -379,8 +379,8 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
             {/* Triage Info + Vitals */}
             <div className="space-y-6">
               {/* Triage & Chief Complaint */}
-              <div className="bg-[#161b27] border border-slate-700/50 rounded-2xl p-6">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <ClipboardList className="w-4 h-4 text-amber-400" /> Triage & Chief Complaint
                 </h2>
                 <FieldRow label="Triage Status"   value={patient.triageStatus?.replace(/_/g," ")} />
@@ -394,11 +394,11 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
               </div>
 
               {/* Vitals */}
-              <div className="bg-[#161b27] border border-slate-700/50 rounded-2xl p-6">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <HeartPulse className="w-4 h-4 text-rose-400" /> Latest Vital Signs
                   {latestVital && (
-                    <span className="text-xs text-slate-500 font-normal ml-auto">
+                    <span className="text-xs text-neutral-500 font-normal ml-auto">
                       <Clock className="w-3 h-3 inline mr-1" />
                       {new Date(latestVital.createdAt).toLocaleString()}
                     </span>
@@ -425,7 +425,7 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                     )}
                   </div>
                 ) : (
-                  <div className="text-center py-8 text-slate-500 italic">
+                  <div className="text-center py-8 text-neutral-500 italic">
                     <HeartPulse className="w-10 h-10 mx-auto mb-2 opacity-30" />
                     No vitals recorded yet
                   </div>
@@ -434,15 +434,15 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                 {/* All vitals history */}
                 {patient.vitals && patient.vitals.length > 1 && (
                   <details className="mt-4">
-                    <summary className="text-xs text-slate-500 cursor-pointer hover:text-slate-300">
+                    <summary className="text-xs text-neutral-500 cursor-pointer hover:text-neutral-300">
                       View all {patient.vitals.length} vital recordings
                     </summary>
                     <div className="mt-3 space-y-2">
                       {patient.vitals.map((v: any, idx: number) => (
-                        <div key={v.id} className="text-xs bg-slate-800/50 rounded-lg px-3 py-2 flex justify-between items-center">
-                          <span className="text-slate-500">#{idx + 1}</span>
-                          <span className="text-slate-300 font-mono">BP: {v.bp} | P: {v.pulse} | T: {v.temp}°C | SpO2: {v.spO2}%</span>
-                          <span className="text-slate-600">{new Date(v.createdAt).toLocaleString()}</span>
+                        <div key={v.id} className="text-xs bg-neutral-800/50 rounded-lg px-3 py-2 flex justify-between items-center">
+                          <span className="text-neutral-500">#{idx + 1}</span>
+                          <span className="text-neutral-300 font-mono">BP: {v.bp} | P: {v.pulse} | T: {v.temp}°C | SpO2: {v.spO2}%</span>
+                          <span className="text-neutral-600">{new Date(v.createdAt).toLocaleString()}</span>
                         </div>
                       ))}
                     </div>
@@ -457,8 +457,8 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
         {activeTab === "history" && (
           <div className="space-y-6">
             {/* Medical History */}
-            <div className="bg-[#161b27] border border-slate-700/50 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
                 <FileText className="w-4 h-4 text-amber-400" /> Past Medical History
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -468,13 +468,13 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                   { key: "familyHistory",          label: "Family History",       placeholder: "Inherited conditions, family illnesses, genetic concerns..." },
                 ].map(({ key, label, placeholder }) => (
                   <div key={key} className="space-y-2">
-                    <Label className="text-slate-300 font-semibold">{label}</Label>
+                    <Label className="text-neutral-300 font-semibold">{label}</Label>
                     <textarea
                       value={(historyData as any)[key]}
                       onChange={e => setHistoryData(prev => ({ ...prev, [key]: e.target.value }))}
                       placeholder={placeholder}
                       rows={5}
-                      className="w-full rounded-lg bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                 ))}
@@ -482,8 +482,8 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
             </div>
 
             {/* Physical Examination */}
-            <div className="bg-[#161b27] border border-slate-700/50 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
                 <Stethoscope className="w-4 h-4 text-purple-400" /> Physical Examination — Systems Review
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -500,26 +500,26 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                   { key: "neurological",      label: "Neurological",        placeholder: "GCS, cranial nerves, motor, sensory, reflexes..." },
                 ].map(({ key, label, placeholder }) => (
                   <div key={key} className="space-y-1.5">
-                    <Label className="text-slate-300 text-xs font-bold uppercase tracking-wider">{label}</Label>
+                    <Label className="text-neutral-300 text-xs font-bold uppercase tracking-wider">{label}</Label>
                     <textarea
                       value={(historyData as any)[key]}
                       onChange={e => setHistoryData(prev => ({ ...prev, [key]: e.target.value }))}
                       placeholder={placeholder}
                       rows={3}
-                      className="w-full rounded-lg bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                     />
                   </div>
                 ))}
               </div>
 
               <div className="mt-4">
-                <Label className="text-slate-300 font-semibold">Clinical Summary / Final Impressions</Label>
+                <Label className="text-neutral-300 font-semibold">Clinical Summary / Final Impressions</Label>
                 <textarea
                   value={historyData.clinicalNotes}
                   onChange={e => setHistoryData(prev => ({ ...prev, clinicalNotes: e.target.value }))}
                   placeholder="Overall clinical summary, key findings, and preliminary impressions..."
                   rows={4}
-                  className="w-full mt-2 rounded-lg bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                  className="w-full mt-2 rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                 />
               </div>
 
@@ -545,60 +545,60 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
         {/* ══ TAB 3: Doctor Assessment ══ */}
         {activeTab === "assessment" && (
           <div className="max-w-4xl space-y-6">
-            <div className="bg-[#161b27] border border-slate-700/50 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-6 flex items-center gap-2">
+            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                 <Brain className="w-4 h-4 text-blue-400" /> Doctor's Clinical Assessment
               </h2>
               <div className="space-y-5">
                 {/* Chief Assessment */}
                 <div className="space-y-2">
-                  <Label className="text-slate-200 font-semibold text-base">Chief Assessment</Label>
-                  <p className="text-xs text-slate-500">The doctor's primary clinical summary of the patient's condition</p>
+                  <Label className="text-neutral-200 font-semibold text-base">Chief Assessment</Label>
+                  <p className="text-xs text-neutral-500">The doctor's primary clinical summary of the patient's condition</p>
                   <textarea
                     value={assessmentData.chiefAssessment}
                     onChange={e => setAssessmentData(prev => ({ ...prev, chiefAssessment: e.target.value }))}
                     placeholder="e.g. 45-year-old male presenting with 3-day history of productive cough, fever, and pleuritic chest pain..."
                     rows={4}
-                    className="w-full rounded-lg bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Working Diagnosis */}
                 <div className="space-y-2">
-                  <Label className="text-slate-200 font-semibold text-base">Working Diagnosis (Main Diagnosis)</Label>
-                  <p className="text-xs text-slate-500">The most likely diagnosis based on current clinical picture</p>
+                  <Label className="text-neutral-200 font-semibold text-base">Working Diagnosis (Main Diagnosis)</Label>
+                  <p className="text-xs text-neutral-500">The most likely diagnosis based on current clinical picture</p>
                   <input
                     type="text"
                     value={assessmentData.workingDiagnosis}
                     onChange={e => setAssessmentData(prev => ({ ...prev, workingDiagnosis: e.target.value }))}
                     placeholder="e.g. Community-acquired pneumonia"
-                    className="w-full rounded-lg bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 p-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Differential Diagnoses */}
                 <div className="space-y-2">
-                  <Label className="text-slate-200 font-semibold text-base">Differential Diagnoses</Label>
-                  <p className="text-xs text-slate-500">Other diagnoses being considered — list them in order of likelihood</p>
+                  <Label className="text-neutral-200 font-semibold text-base">Differential Diagnoses</Label>
+                  <p className="text-xs text-neutral-500">Other diagnoses being considered — list them in order of likelihood</p>
                   <textarea
                     value={assessmentData.differentialDiagnosis}
                     onChange={e => setAssessmentData(prev => ({ ...prev, differentialDiagnosis: e.target.value }))}
                     placeholder="1. Pulmonary tuberculosis&#10;2. Pleural effusion&#10;3. Bronchitis&#10;4. Lung malignancy"
                     rows={5}
-                    className="w-full rounded-lg bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
                 {/* Progress Notes */}
                 <div className="space-y-2">
-                  <Label className="text-slate-200 font-semibold text-base">Progress Notes & Plan</Label>
-                  <p className="text-xs text-slate-500">Ongoing clinical observations, management plan, follow-up instructions</p>
+                  <Label className="text-neutral-200 font-semibold text-base">Progress Notes & Plan</Label>
+                  <p className="text-xs text-neutral-500">Ongoing clinical observations, management plan, follow-up instructions</p>
                   <textarea
                     value={assessmentData.progressNotes}
                     onChange={e => setAssessmentData(prev => ({ ...prev, progressNotes: e.target.value }))}
                     placeholder="Plan:&#10;1. Start empirical antibiotics (Amoxicillin 500mg TID × 7 days)&#10;2. Order CXR and CBC&#10;3. Monitor temperature and oxygen saturation&#10;4. Review results in 48hrs&#10;5. Counsel patient on infection control..."
                     rows={6}
-                    className="w-full rounded-lg bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
@@ -622,16 +622,16 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
 
             {/* Existing Results Summary */}
             {(patient.investigations?.length > 0 || patient.prescriptions?.length > 0) && (
-              <div className="bg-[#161b27] border border-slate-700/50 rounded-2xl p-6">
-                <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
                   <FlaskConical className="w-4 h-4 text-indigo-400" /> Current Investigation Results
                 </h2>
                 <div className="space-y-3">
                   {patient.investigations?.map((inv: any) => (
-                    <div key={inv.id} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-slate-800/50 border border-slate-700/30">
+                    <div key={inv.id} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/30">
                       <div>
-                        <p className="text-sm font-semibold text-slate-200">{inv.testName}</p>
-                        <p className="text-xs text-slate-500 mt-0.5">{inv.category}</p>
+                        <p className="text-sm font-semibold text-neutral-200">{inv.testName}</p>
+                        <p className="text-xs text-neutral-500 mt-0.5">{inv.category}</p>
                         {inv.status === "COMPLETED" && (
                           <p className="text-xs text-green-400 mt-1 font-mono">{inv.result}</p>
                         )}
@@ -654,7 +654,7 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
               <div className="flex flex-col items-center justify-center py-24 text-center">
                 <CheckCircle2 className="w-20 h-20 text-green-500 mb-4" />
                 <h2 className="text-2xl font-bold text-green-400">Orders Submitted!</h2>
-                <p className="text-slate-400 mt-2">Investigation requests have been sent to the relevant departments.</p>
+                <p className="text-neutral-400 mt-2">Investigation requests have been sent to the relevant departments.</p>
               </div>
             ) : (
               <>
@@ -682,14 +682,14 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                 )}
 
                 {/* Clinical Note */}
-                <div className="bg-[#161b27] border border-slate-700/50 rounded-xl p-4">
-                  <Label className="text-slate-300 font-semibold text-sm mb-2 block">Clinical Indication / Reason for Tests</Label>
+                <div className="bg-[#171717] border border-neutral-700/50 rounded-xl p-4">
+                  <Label className="text-neutral-300 font-semibold text-sm mb-2 block">Clinical Indication / Reason for Tests</Label>
                   <textarea
                     value={orderNote}
                     onChange={e => setOrderNote(e.target.value)}
                     placeholder="Clinical justification for the ordered tests (e.g. 'Rule out pneumonia — CXR + CBC requested', 'Monitor diabetes — HbA1c + Fasting glucose')..."
                     rows={3}
-                    className="w-full rounded-lg bg-slate-800 border border-slate-600 text-slate-200 placeholder-slate-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
 
@@ -697,7 +697,7 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
                   {Object.entries(INVESTIGATION_CATALOG).map(([category, tests]) => {
                     const Icon = CATEGORY_ICONS[category] || FlaskConical;
-                    const colorClass = CATEGORY_COLORS[category] || "text-slate-400 bg-slate-800/30 border-slate-700/30";
+                    const colorClass = CATEGORY_COLORS[category] || "text-neutral-400 bg-neutral-800/30 border-neutral-700/30";
                     const selected = selectedOrders[category] || [];
                     return (
                       <div key={category} className={`rounded-xl border p-4 ${colorClass}`}>
@@ -717,7 +717,7 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                                 type="checkbox"
                                 checked={selected.includes(test)}
                                 onChange={() => toggleOrder(category, test)}
-                                className="mt-0.5 h-4 w-4 rounded border-slate-500 bg-slate-700 accent-blue-500 cursor-pointer shrink-0"
+                                className="mt-0.5 h-4 w-4 rounded border-neutral-500 bg-neutral-700 accent-blue-500 cursor-pointer shrink-0"
                               />
                               <span className="text-sm leading-snug select-none">{test}</span>
                             </label>
@@ -746,19 +746,19 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
 
                 {/* Past Orders Reference */}
                 {patient.investigations?.length > 0 && (
-                  <div className="bg-[#161b27] border border-slate-700/50 rounded-2xl p-5">
-                    <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                      <Clock className="w-4 h-4 text-slate-500" /> Previously Ordered Investigations
+                  <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-5">
+                    <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-neutral-500" /> Previously Ordered Investigations
                     </h2>
                     <div className="space-y-2">
                       {patient.investigations.map((inv: any) => (
-                        <div key={inv.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-slate-800/40 border border-slate-700/20 text-sm">
+                        <div key={inv.id} className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg bg-neutral-800/40 border border-neutral-700/20 text-sm">
                           <div>
-                            <span className="font-semibold text-slate-200">{inv.testName}</span>
-                            <span className="text-slate-500 ml-2 text-xs">[{inv.category || "General"}]</span>
+                            <span className="font-semibold text-neutral-200">{inv.testName}</span>
+                            <span className="text-neutral-500 ml-2 text-xs">[{inv.category || "General"}]</span>
                           </div>
                           <div className="flex items-center gap-3">
-                            <span className="text-xs text-slate-600">{new Date(inv.createdAt).toLocaleDateString()}</span>
+                            <span className="text-xs text-neutral-600">{new Date(inv.createdAt).toLocaleDateString()}</span>
                             <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${inv.status === "COMPLETED" ? "bg-green-900/40 text-green-400" : "bg-amber-900/40 text-amber-400"}`}>
                               {inv.status}
                             </span>

@@ -161,20 +161,20 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
   /* ─── Type picker ─── */
   if (!screeningType) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 p-6">
+      <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-100 p-6">
         <div className="max-w-3xl mx-auto space-y-6">
           <header className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs uppercase tracking-widest text-cyan-400 font-semibold">MyHealthID Triage</p>
               <h1 className="text-2xl font-bold text-white mt-1">{t("Clinical screening", "ክሊኒካዊ ምርመራ")}</h1>
-              <p className="text-slate-400 text-sm mt-1">
+              <p className="text-neutral-400 text-sm mt-1">
                 {fullName} · <span className="font-mono text-cyan-300/90">{patientHealthId}</span>
               </p>
             </div>
             <Button
               type="button"
               variant="outline"
-              className="border-slate-600 bg-slate-900 text-slate-200"
+              className="border-neutral-600 bg-neutral-900 text-neutral-200"
               onClick={() => setLang((l) => (l === "en" ? "am" : "en"))}
             >
               <Languages className="w-4 h-4 mr-2" />
@@ -182,7 +182,7 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
             </Button>
           </header>
 
-          <p className="text-slate-400 text-sm">{t("Select a screening pathway.", "የምርመራ መንገድ ይምረጡ።")}</p>
+          <p className="text-neutral-400 text-sm">{t("Select a screening pathway.", "የምርመራ መንገድ ይምረጡ።")}</p>
 
           <div className="grid sm:grid-cols-2 gap-3">
             {programs.map((p) => (
@@ -196,7 +196,7 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
                   setHardStop(false);
                   setDone(null);
                 }}
-                className="text-left rounded-2xl border border-slate-800 bg-slate-900/60 hover:border-cyan-500/40 hover:bg-slate-800/80 p-5 transition-all"
+                className="text-left rounded-2xl border border-neutral-800 bg-neutral-900/60 hover:border-cyan-500/40 hover:bg-neutral-800/80 p-5 transition-all"
               >
                 <div className="text-xs font-mono text-cyan-500/80 mb-1">{p.type}</div>
                 <div className="font-semibold text-white">{titleOf(p, lang)}</div>
@@ -211,23 +211,23 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
   /* ─── Result ─── */
   if (done && program) {
     const color =
-      done.triageResult === "RED" ? "from-rose-600/30 to-slate-950" : done.triageResult === "YELLOW" ? "from-amber-600/25 to-slate-950" : "from-emerald-600/20 to-slate-950";
+      done.triageResult === "RED" ? "from-rose-600/30 to-neutral-950" : done.triageResult === "YELLOW" ? "from-amber-600/25 to-neutral-950" : "from-emerald-600/20 to-neutral-950";
     const g = done.guidance;
     const text = lang === "am" ? g.am : g.en;
     return (
-      <div className={`min-h-screen bg-gradient-to-b ${color} text-slate-100 p-6`}>
+      <div className={`min-h-screen bg-gradient-to-b ${color} text-neutral-100 p-6`}>
         <div className="max-w-xl mx-auto space-y-6">
-          <Button variant="outline" className="border-slate-600" onClick={() => setLang((l) => (l === "en" ? "am" : "en"))}>
+          <Button variant="outline" className="border-neutral-600" onClick={() => setLang((l) => (l === "en" ? "am" : "en"))}>
             <Languages className="w-4 h-4 mr-2" />
             {lang === "en" ? "አማርኛ" : "English"}
           </Button>
-          <Card className="bg-slate-900/90 border-slate-700">
+          <Card className="bg-neutral-900/90 border-neutral-700">
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Activity className="w-5 h-5 text-cyan-400" />
                 {t("Screening complete", "ምርመራ ተጠናቋል")}
               </CardTitle>
-              <CardDescription className="text-slate-400">{titleOf(program, lang)}</CardDescription>
+              <CardDescription className="text-neutral-400">{titleOf(program, lang)}</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div
@@ -247,9 +247,9 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
                   {t("Emergency pathway triggered.", "የአስቸኳይ መንገድ ተነሳ።")}
                 </div>
               )}
-              <p className="text-slate-200 leading-relaxed text-sm">{text}</p>
+              <p className="text-neutral-200 leading-relaxed text-sm">{text}</p>
               {done.bmi != null && (
-                <p className="text-xs text-slate-400">
+                <p className="text-xs text-neutral-400">
                   BMI: <span className="text-white font-mono">{done.bmi}</span>
                   {done.bmiClass && (
                     <span className="ml-2">{lang === "am" ? done.bmiClass.am : done.bmiClass.en}</span>
@@ -261,16 +261,16 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
                   className={`text-xs rounded-md px-2 py-1.5 ${
                     done.bpCrisis
                       ? "bg-red-950/60 text-red-200 border border-red-500/40 font-semibold"
-                      : "text-slate-400"
+                      : "text-neutral-400"
                   }`}
                 >
                   BP: {lang === "am" ? done.bpStage.am : done.bpStage.en}
                 </p>
               )}
               {done.diabetesNote && (
-                <p className="text-xs text-slate-400">{lang === "am" ? done.diabetesNote.am : done.diabetesNote.en}</p>
+                <p className="text-xs text-neutral-400">{lang === "am" ? done.diabetesNote.am : done.diabetesNote.en}</p>
               )}
-              <p className="text-xs text-slate-500">
+              <p className="text-xs text-neutral-500">
                 {t("Risk score", "የአደጋ ነጥብ")}: {done.riskScore}
               </p>
             </CardContent>
@@ -283,7 +283,7 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
   /* ─── Emergency full interrupt ─── */
   if (hardStop && program) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-rose-950 via-slate-950 to-black text-white p-6 flex flex-col items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-b from-rose-950 via-neutral-950 to-black text-white p-6 flex flex-col items-center justify-center">
         <div className="max-w-lg w-full text-center space-y-6">
           <AlertTriangle className="w-16 h-16 text-rose-400 mx-auto animate-pulse" />
           <h1 className="text-3xl font-black">{t("Emergency referral", "አስቸኳይ ማስላለፍ")}</h1>
@@ -294,7 +294,7 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
             )}
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Button variant="outline" className="border-slate-500" onClick={() => setLang((l) => (l === "en" ? "am" : "en"))}>
+            <Button variant="outline" className="border-neutral-500" onClick={() => setLang((l) => (l === "en" ? "am" : "en"))}>
               <Languages className="w-4 h-4 mr-2" />
               {lang === "en" ? "አማርኛ" : "English"}
             </Button>
@@ -314,53 +314,53 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
 
   if (!section) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-200 flex items-center justify-center p-6">
+      <div className="min-h-screen bg-neutral-950 text-neutral-200 flex items-center justify-center p-6">
         <p>{t("No screening sections available for this patient age.", "ለዚህ ዕድሜ የምርመራ ክፍል የለም።")}</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 p-6 pb-24">
+    <div className="min-h-screen bg-gradient-to-b from-neutral-950 via-neutral-900 to-neutral-950 text-neutral-100 p-6 pb-24">
       <div className="max-w-2xl mx-auto space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <p className="text-xs uppercase tracking-widest text-cyan-400 font-semibold">{patientHealthId}</p>
             <h1 className="text-xl font-bold text-white">{titleOf(program!, lang)}</h1>
-            <p className="text-slate-500 text-sm">{fullName}</p>
+            <p className="text-neutral-500 text-sm">{fullName}</p>
           </div>
-          <Button type="button" variant="outline" className="border-slate-600 bg-slate-900" onClick={() => setLang((l) => (l === "en" ? "am" : "en"))}>
+          <Button type="button" variant="outline" className="border-neutral-600 bg-neutral-900" onClick={() => setLang((l) => (l === "en" ? "am" : "en"))}>
             <Languages className="w-4 h-4 mr-2" />
             {lang === "en" ? "አማርኛ" : "English"}
           </Button>
         </header>
 
-        <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+        <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
           <div className="h-full bg-cyan-500 transition-all" style={{ width: `${progress}%` }} />
         </div>
 
-        <Card className="bg-slate-900/80 border-slate-800">
+        <Card className="bg-neutral-900/80 border-neutral-800">
           <CardHeader>
             <CardTitle className="text-lg text-white">
               {sectionTitle(section, lang)}
             </CardTitle>
-            <CardDescription className="text-slate-500">
+            <CardDescription className="text-neutral-500">
               {t("Section", "ክፍል")} {step + 1} / {activeSections.length}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             {section.questions.map((q) => (
               <div key={q.id} className="space-y-2">
-                <label className="text-sm font-medium text-slate-200 block">{labelOf(q, lang)}</label>
+                <label className="text-sm font-medium text-neutral-200 block">{labelOf(q, lang)}</label>
                 {q.hint && (
-                  <p className="text-xs text-slate-500 -mt-1 mb-1">{lang === "am" ? q.hint.am : q.hint.en}</p>
+                  <p className="text-xs text-neutral-500 -mt-1 mb-1">{lang === "am" ? q.hint.am : q.hint.en}</p>
                 )}
                 {q.input === "yesno" ? (
                   <div className="flex gap-2">
                     <Button
                       type="button"
                       variant={answers[q.id] === true ? "default" : "outline"}
-                      className={answers[q.id] === true ? "bg-emerald-600 hover:bg-emerald-500 flex-1" : "border-slate-600 flex-1 text-slate-200"}
+                      className={answers[q.id] === true ? "bg-emerald-600 hover:bg-emerald-500 flex-1" : "border-neutral-600 flex-1 text-neutral-200"}
                       onClick={() => onYesNo(q, true)}
                     >
                       {lang === "en" ? "Yes" : "አዎ"}
@@ -368,7 +368,7 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
                     <Button
                       type="button"
                       variant={answers[q.id] === false ? "default" : "outline"}
-                      className={answers[q.id] === false ? "bg-slate-600 flex-1" : "border-slate-600 flex-1 text-slate-200"}
+                      className={answers[q.id] === false ? "bg-neutral-600 flex-1" : "border-neutral-600 flex-1 text-neutral-200"}
                       onClick={() => onYesNo(q, false)}
                     >
                       {lang === "en" ? "No" : "አይ"}
@@ -385,7 +385,7 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
                       const v = e.target.value;
                       setAnswer(q.id, v === "" ? "" : Number(v));
                     }}
-                    className="bg-slate-950 border-slate-700 text-white h-11"
+                    className="bg-neutral-950 border-neutral-700 text-white h-11"
                   />
                 )}
               </div>
@@ -396,7 +396,7 @@ export default function ScreeningWizard({ patientId, patientHealthId, fullName, 
         {error && <p className="text-rose-400 text-sm text-center">{error}</p>}
 
         <div className="flex justify-between gap-4">
-          <Button type="button" variant="ghost" className="text-slate-400" disabled={step === 0} onClick={handleBack}>
+          <Button type="button" variant="ghost" className="text-neutral-400" disabled={step === 0} onClick={handleBack}>
             <ArrowLeft className="w-4 h-4 mr-1" />
             {t("Back", "ተመለስ")}
           </Button>

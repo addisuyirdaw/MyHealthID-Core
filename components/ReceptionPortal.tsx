@@ -339,7 +339,7 @@ export function ReceptionPortal() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col relative overflow-hidden">
+    <div className="min-h-screen bg-neutral-900 text-neutral-100 flex flex-col relative overflow-hidden">
       
       {/* Toast Notifications */}
       <div className="fixed top-6 right-6 space-y-3 z-50 max-w-sm">
@@ -359,7 +359,7 @@ export function ReceptionPortal() {
             {t.type === "info" && <BadgeInfo className="w-5 h-5 text-blue-400 flex-shrink-0" />}
             <div>
               <p className="font-bold text-sm text-white">{t.title}</p>
-              <p className="text-xs mt-1 text-slate-300">{t.message}</p>
+              <p className="text-xs mt-1 text-neutral-300">{t.message}</p>
             </div>
           </div>
         ))}
@@ -369,7 +369,7 @@ export function ReceptionPortal() {
       <div className="flex-1 p-6 md:p-8 space-y-6 max-w-7xl mx-auto w-full relative z-10">
         
         {/* 1. TOP HEADER (SYSTEM BAR) */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-800 pb-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-neutral-800 pb-6">
           <div className="flex items-center gap-3">
             <div className="w-12 h-12 bg-pink-500/10 rounded-xl flex items-center justify-center border border-pink-500/30">
               <Hospital className="w-6 h-6 text-pink-400" />
@@ -378,22 +378,22 @@ export function ReceptionPortal() {
               <h1 className="text-2xl font-black tracking-tight text-white flex items-center gap-2">
                 Reception Desk Portal
               </h1>
-              <p className="text-slate-400 text-xs mt-0.5">
-                Active Facility: <span className="font-semibold text-slate-300">MyHealthID Medical Center</span>
+              <p className="text-neutral-400 text-xs mt-0.5">
+                Active Facility: <span className="font-semibold text-neutral-300">MyHealthID Medical Center</span>
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-4 flex-wrap">
             {/* Clock Widget */}
-            <div className="bg-slate-850 px-4 py-2 rounded-xl border border-slate-800 flex items-center gap-2 text-xs font-mono">
+            <div className="bg-neutral-850 px-4 py-2 rounded-xl border border-neutral-800 flex items-center gap-2 text-xs font-mono">
               <Clock className="w-4 h-4 text-pink-400 animate-pulse" />
-              <span className="text-slate-200 font-bold">{currentTime || "Loading..."}</span>
+              <span className="text-neutral-200 font-bold">{currentTime || "Loading..."}</span>
             </div>
 
             {/* Shift Widget */}
-            <div className="bg-slate-850 px-4 py-2 rounded-xl border border-slate-800 text-xs">
-              <span className="text-slate-400">Duty Clerk: </span>
+            <div className="bg-neutral-850 px-4 py-2 rounded-xl border border-neutral-800 text-xs">
+              <span className="text-neutral-400">Duty Clerk: </span>
               <span className="text-pink-400 font-semibold">Shift A | Terminal 1</span>
             </div>
 
@@ -409,7 +409,7 @@ export function ReceptionPortal() {
               </DialogTrigger>
               
               {/* STUNNING PATENT REGISTRATION MODAL FORM */}
-              <DialogContent className="max-w-2xl bg-slate-900 border-slate-800 text-slate-100 p-0 overflow-hidden shadow-2xl rounded-2xl">
+              <DialogContent className="max-w-2xl bg-neutral-900 border-neutral-800 text-neutral-100 p-0 overflow-hidden shadow-2xl rounded-2xl">
                 <div className="bg-gradient-to-r from-pink-600 to-rose-600 p-6 text-white">
                   <DialogTitle className="text-xl font-black flex items-center gap-2">
                     <UserPlus className="w-5 h-5 text-white animate-bounce-subtle" /> Patient Registration intake
@@ -422,55 +422,55 @@ export function ReceptionPortal() {
                 <form onSubmit={handleRegisterSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
                   
                   {/* SECTION 1: IDENTIFICATION DETAILS (COLLAPSIBLE) */}
-                  <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
+                  <div className="border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950/40">
                     <button
                       type="button"
                       onClick={() => setExpandedSection(expandedSection === "id" ? "" as any : "id")}
-                      className="w-full flex items-center justify-between p-4 bg-slate-950/80 hover:bg-slate-950 text-left border-b border-slate-800 transition-colors"
+                      className="w-full flex items-center justify-between p-4 bg-neutral-950/80 hover:bg-neutral-950 text-left border-b border-neutral-800 transition-colors"
                     >
                       <span className="font-bold text-sm flex items-center gap-2 text-pink-400">
                         <User className="w-4 h-4" /> 1. Identification Details
                       </span>
-                      <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${expandedSection === "id" ? "rotate-90" : ""}`} />
+                      <ChevronRight className={`w-4 h-4 text-neutral-400 transition-transform ${expandedSection === "id" ? "rotate-90" : ""}`} />
                     </button>
                     
                     {expandedSection === "id" && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4 duration-350">
                         <div>
-                          <Label className="text-slate-300 text-xs">First Name *</Label>
+                          <Label className="text-neutral-300 text-xs">First Name *</Label>
                           <Input 
                             value={firstName} 
                             onChange={(e) => setFirstName(e.target.value)} 
                             placeholder="e.g. Abebe"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5 focus:border-pink-500" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5 focus:border-pink-500" 
                           />
                         </div>
                         <div>
-                          <Label className="text-slate-300 text-xs">Middle Name</Label>
+                          <Label className="text-neutral-300 text-xs">Middle Name</Label>
                           <Input 
                             value={middleName} 
                             onChange={(e) => setMiddleName(e.target.value)} 
                             placeholder="e.g. Kebede"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5 focus:border-pink-500" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5 focus:border-pink-500" 
                           />
                         </div>
                         <div>
-                          <Label className="text-slate-300 text-xs">Last Name *</Label>
+                          <Label className="text-neutral-300 text-xs">Last Name *</Label>
                           <Input 
                             value={lastName} 
                             onChange={(e) => setLastName(e.target.value)} 
                             placeholder="e.g. Balcha"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5 focus:border-pink-500" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5 focus:border-pink-500" 
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Sex *</Label>
+                          <Label className="text-neutral-300 text-xs">Sex *</Label>
                           <Select value={formData.sex} onValueChange={(val) => handleFormChange("sex", val)}>
-                            <SelectTrigger className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5">
+                            <SelectTrigger className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
                               <SelectItem value="Male">Male</SelectItem>
                               <SelectItem value="Female">Female</SelectItem>
                               <SelectItem value="Other">Other</SelectItem>
@@ -479,12 +479,12 @@ export function ReceptionPortal() {
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Date of Birth *</Label>
+                          <Label className="text-neutral-300 text-xs">Date of Birth *</Label>
                           <Input 
                             type="date"
                             value={formData.dateOfBirth} 
                             onChange={(e) => handleFormChange("dateOfBirth", e.target.value)} 
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
@@ -495,19 +495,19 @@ export function ReceptionPortal() {
                               <span className="font-mono text-sm font-bold bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-400/30">{age} yrs</span>
                             </div>
                           ) : (
-                            <div className="w-full bg-slate-900 border border-slate-850 px-3 py-2 rounded-xl text-xs text-slate-500 italic">
+                            <div className="w-full bg-neutral-900 border border-neutral-850 px-3 py-2 rounded-xl text-xs text-neutral-500 italic">
                               Age calculated on DOB entry
                             </div>
                           )}
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Marital Status</Label>
+                          <Label className="text-neutral-300 text-xs">Marital Status</Label>
                           <Select value={formData.maritalStatus} onValueChange={(val) => handleFormChange("maritalStatus", val)}>
-                            <SelectTrigger className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5">
+                            <SelectTrigger className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
                               <SelectItem value="Single">Single</SelectItem>
                               <SelectItem value="Married">Married</SelectItem>
                               <SelectItem value="Divorced">Divorced</SelectItem>
@@ -517,12 +517,12 @@ export function ReceptionPortal() {
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Occupation</Label>
+                          <Label className="text-neutral-300 text-xs">Occupation</Label>
                           <Select value={formData.occupation} onValueChange={(val) => handleFormChange("occupation", val)}>
-                            <SelectTrigger className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5">
+                            <SelectTrigger className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
                               <SelectItem value="Student">Student</SelectItem>
                               <SelectItem value="Farmer">Farmer</SelectItem>
                               <SelectItem value="Civil Servant">Civil Servant</SelectItem>
@@ -536,18 +536,18 @@ export function ReceptionPortal() {
                               value={formData.customOccupation}
                               onChange={(e) => handleFormChange("customOccupation", e.target.value)}
                               placeholder="Describe occupation"
-                              className="bg-slate-900 border-slate-800 text-white h-9 mt-2"
+                              className="bg-neutral-900 border-neutral-800 text-white h-9 mt-2"
                             />
                           )}
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Religion</Label>
+                          <Label className="text-neutral-300 text-xs">Religion</Label>
                           <Select value={formData.religion} onValueChange={(val) => handleFormChange("religion", val)}>
-                            <SelectTrigger className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5">
+                            <SelectTrigger className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
                               <SelectItem value="Orthodox">Orthodox</SelectItem>
                               <SelectItem value="Muslim">Muslim</SelectItem>
                               <SelectItem value="Protestant">Protestant</SelectItem>
@@ -562,37 +562,37 @@ export function ReceptionPortal() {
                   </div>
 
                   {/* SECTION 2: ADDRESS DETAILS (COLLAPSIBLE) */}
-                  <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
+                  <div className="border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950/40">
                     <button
                       type="button"
                       onClick={() => setExpandedSection(expandedSection === "address" ? "" as any : "address")}
-                      className="w-full flex items-center justify-between p-4 bg-slate-950/80 hover:bg-slate-950 text-left border-b border-slate-800 transition-colors"
+                      className="w-full flex items-center justify-between p-4 bg-neutral-950/80 hover:bg-neutral-950 text-left border-b border-neutral-800 transition-colors"
                     >
                       <span className="font-bold text-sm flex items-center gap-2 text-pink-400">
                         <MapPin className="w-4 h-4" /> 2. Address Details
                       </span>
-                      <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${expandedSection === "address" ? "rotate-90" : ""}`} />
+                      <ChevronRight className={`w-4 h-4 text-neutral-400 transition-transform ${expandedSection === "address" ? "rotate-90" : ""}`} />
                     </button>
                     
                     {expandedSection === "address" && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4 duration-350">
                         <div>
-                          <Label className="text-slate-300 text-xs">Country</Label>
+                          <Label className="text-neutral-300 text-xs">Country</Label>
                           <Input 
                             value={formData.country} 
                             onChange={(e) => handleFormChange("country", e.target.value)} 
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                             disabled
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Region</Label>
+                          <Label className="text-neutral-300 text-xs">Region</Label>
                           <Select value={formData.region} onValueChange={(val) => handleFormChange("region", val)}>
-                            <SelectTrigger className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5">
+                            <SelectTrigger className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
                               <SelectItem value="Addis Ababa">Addis Ababa</SelectItem>
                               <SelectItem value="Amhara">Amhara</SelectItem>
                               <SelectItem value="Oromia">Oromia</SelectItem>
@@ -608,48 +608,48 @@ export function ReceptionPortal() {
                               value={formData.customRegion}
                               onChange={(e) => handleFormChange("customRegion", e.target.value)}
                               placeholder="Specify region"
-                              className="bg-slate-900 border-slate-800 text-white h-9 mt-2"
+                              className="bg-neutral-900 border-neutral-800 text-white h-9 mt-2"
                             />
                           )}
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Zone / Sub-city</Label>
+                          <Label className="text-neutral-300 text-xs">Zone / Sub-city</Label>
                           <Input 
                             value={formData.zone} 
                             onChange={(e) => handleFormChange("zone", e.target.value)} 
                             placeholder="e.g. North Shewa or Kirkos"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Woreda / District</Label>
+                          <Label className="text-neutral-300 text-xs">Woreda / District</Label>
                           <Input 
                             value={formData.woreda} 
                             onChange={(e) => handleFormChange("woreda", e.target.value)} 
                             placeholder="e.g. Debre Berhan Woreda"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Kebele / Village</Label>
+                          <Label className="text-neutral-300 text-xs">Kebele / Village</Label>
                           <Input 
                             value={formData.kebele} 
                             onChange={(e) => handleFormChange("kebele", e.target.value)} 
                             placeholder="e.g. Kebele 04"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">House Number (Optional)</Label>
+                          <Label className="text-neutral-300 text-xs">House Number (Optional)</Label>
                           <Input 
                             value={formData.houseNumber} 
                             onChange={(e) => handleFormChange("houseNumber", e.target.value)} 
                             placeholder="e.g. 512"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
                       </div>
@@ -657,82 +657,82 @@ export function ReceptionPortal() {
                   </div>
 
                   {/* SECTION 3: CONTACT & EMERGENCY DETAILS (COLLAPSIBLE) */}
-                  <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
+                  <div className="border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950/40">
                     <button
                       type="button"
                       onClick={() => setExpandedSection(expandedSection === "contact" ? "" as any : "contact")}
-                      className="w-full flex items-center justify-between p-4 bg-slate-950/80 hover:bg-slate-950 text-left border-b border-slate-800 transition-colors"
+                      className="w-full flex items-center justify-between p-4 bg-neutral-950/80 hover:bg-neutral-950 text-left border-b border-neutral-800 transition-colors"
                     >
                       <span className="font-bold text-sm flex items-center gap-2 text-pink-400">
                         <Phone className="w-4 h-4" /> 3. Contact &amp; Emergency Details
                       </span>
-                      <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${expandedSection === "contact" ? "rotate-90" : ""}`} />
+                      <ChevronRight className={`w-4 h-4 text-neutral-400 transition-transform ${expandedSection === "contact" ? "rotate-90" : ""}`} />
                     </button>
                     
                     {expandedSection === "contact" && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4 duration-350">
                         <div>
-                          <Label className="text-slate-300 text-xs">Primary Phone *</Label>
+                          <Label className="text-neutral-300 text-xs">Primary Phone *</Label>
                           <Input 
                             value={formData.phoneNumber} 
                             onChange={(e) => handleFormChange("phoneNumber", e.target.value)} 
                             placeholder="e.g. 0911000000"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Alternative Phone</Label>
+                          <Label className="text-neutral-300 text-xs">Alternative Phone</Label>
                           <Input 
                             value={formData.alternativePhone} 
                             onChange={(e) => handleFormChange("alternativePhone", e.target.value)} 
                             placeholder="e.g. 0912000000"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Email Address (Optional)</Label>
+                          <Label className="text-neutral-300 text-xs">Email Address (Optional)</Label>
                           <Input 
                             type="email"
                             value={formData.email} 
                             onChange={(e) => handleFormChange("email", e.target.value)} 
                             placeholder="e.g. user@gmail.com"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
-                        <div className="md:col-span-3 border-t border-slate-800/60 pt-4 mt-2">
-                          <h4 className="text-xs font-semibold text-slate-400 uppercase tracking-wide mb-3">Emergency Contact Info</h4>
+                        <div className="md:col-span-3 border-t border-neutral-800/60 pt-4 mt-2">
+                          <h4 className="text-xs font-semibold text-neutral-400 uppercase tracking-wide mb-3">Emergency Contact Info</h4>
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Emergency Name</Label>
+                          <Label className="text-neutral-300 text-xs">Emergency Name</Label>
                           <Input 
                             value={formData.emergencyName} 
                             onChange={(e) => handleFormChange("emergencyName", e.target.value)} 
                             placeholder="e.g. Martha Kebede"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Emergency Phone</Label>
+                          <Label className="text-neutral-300 text-xs">Emergency Phone</Label>
                           <Input 
                             value={formData.emergencyPhone} 
                             onChange={(e) => handleFormChange("emergencyPhone", e.target.value)} 
                             placeholder="e.g. 0922000000"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5" 
                           />
                         </div>
 
                         <div>
-                          <Label className="text-slate-300 text-xs">Relationship</Label>
+                          <Label className="text-neutral-300 text-xs">Relationship</Label>
                           <Select value={formData.emergencyRelationship} onValueChange={(val) => handleFormChange("emergencyRelationship", val)}>
-                            <SelectTrigger className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5">
+                            <SelectTrigger className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
                               <SelectItem value="Spouse">Spouse</SelectItem>
                               <SelectItem value="Father">Father</SelectItem>
                               <SelectItem value="Mother">Mother</SelectItem>
@@ -748,27 +748,27 @@ export function ReceptionPortal() {
                   </div>
 
                   {/* SECTION 4: MEDICAL DETAILS (COLLAPSIBLE) */}
-                  <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950/40">
+                  <div className="border border-neutral-800 rounded-xl overflow-hidden bg-neutral-950/40">
                     <button
                       type="button"
                       onClick={() => setExpandedSection(expandedSection === "medical" ? "" as any : "medical")}
-                      className="w-full flex items-center justify-between p-4 bg-slate-950/80 hover:bg-slate-950 text-left border-b border-slate-800 transition-colors"
+                      className="w-full flex items-center justify-between p-4 bg-neutral-950/80 hover:bg-neutral-950 text-left border-b border-neutral-800 transition-colors"
                     >
                       <span className="font-bold text-sm flex items-center gap-2 text-pink-400">
                         <Heart className="w-4 h-4" /> 4. Medical Background
                       </span>
-                      <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform ${expandedSection === "medical" ? "rotate-90" : ""}`} />
+                      <ChevronRight className={`w-4 h-4 text-neutral-400 transition-transform ${expandedSection === "medical" ? "rotate-90" : ""}`} />
                     </button>
                     
                     {expandedSection === "medical" && (
                       <div className="p-4 grid grid-cols-1 md:grid-cols-3 gap-4 animate-in fade-in slide-in-from-top-4 duration-350">
                         <div>
-                          <Label className="text-slate-300 text-xs">Blood Group</Label>
+                          <Label className="text-neutral-300 text-xs">Blood Group</Label>
                           <Select value={formData.bloodGroup} onValueChange={(val) => handleFormChange("bloodGroup", val)}>
-                            <SelectTrigger className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5">
+                            <SelectTrigger className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5">
                               <SelectValue placeholder="Select..." />
                             </SelectTrigger>
-                            <SelectContent className="bg-slate-900 border-slate-800 text-white">
+                            <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
                               <SelectItem value="A+">A+</SelectItem>
                               <SelectItem value="A-">A-</SelectItem>
                               <SelectItem value="B+">B+</SelectItem>
@@ -783,12 +783,12 @@ export function ReceptionPortal() {
                         </div>
 
                         <div className="md:col-span-2">
-                          <Label className="text-slate-300 text-xs">Reason for Visit / Chief Complaint</Label>
+                          <Label className="text-neutral-300 text-xs">Reason for Visit / Chief Complaint</Label>
                           <Input 
                             value={formData.reason} 
                             onChange={(e) => handleFormChange("reason", e.target.value)} 
                             placeholder="e.g. Chest pain, Fever, Routine Assessment"
-                            className="bg-slate-900 border-slate-800 text-white h-9 mt-1.5 focus:border-pink-500" 
+                            className="bg-neutral-900 border-neutral-800 text-white h-9 mt-1.5 focus:border-pink-500" 
                           />
                         </div>
                       </div>
@@ -796,11 +796,11 @@ export function ReceptionPortal() {
                   </div>
 
                   {/* Submission and Close buttons */}
-                  <div className="flex justify-end gap-3 pt-6 border-t border-slate-800">
+                  <div className="flex justify-end gap-3 pt-6 border-t border-neutral-800">
                     <Button 
                       type="button" 
                       onClick={() => setIsModalOpen(false)}
-                      className="bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-800 h-10 px-5 rounded-xl cursor-pointer"
+                      className="bg-neutral-850 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 h-10 px-5 rounded-xl cursor-pointer"
                     >
                       Cancel
                     </Button>
@@ -842,7 +842,7 @@ export function ReceptionPortal() {
             </div>
             <Button
               size="sm"
-              className="bg-yellow-400 hover:bg-yellow-500 text-slate-950 font-bold px-3 py-1.5 h-8 rounded-lg text-xs"
+              className="bg-yellow-400 hover:bg-yellow-500 text-neutral-950 font-bold px-3 py-1.5 h-8 rounded-lg text-xs"
               onClick={() => showToast("info", "Action Taken", "Triage Nurse alerted to expedite emergencies.")}
             >
               Alert Triage Nurse
@@ -854,7 +854,7 @@ export function ReceptionPortal() {
         <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
           
           {/* TODAY REGISTERED CARD */}
-          <Card className="bg-gradient-to-br from-pink-950/60 to-slate-900/90 border-pink-900/40 shadow-xl overflow-hidden relative group">
+          <Card className="bg-gradient-to-br from-pink-950/60 to-neutral-900/90 border-pink-900/40 shadow-xl overflow-hidden relative group">
             <div className="absolute top-0 right-0 w-16 h-16 bg-pink-500/5 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-pink-300 text-xs font-semibold uppercase tracking-wider flex items-center justify-between">
@@ -863,12 +863,12 @@ export function ReceptionPortal() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <span className="text-3xl font-black text-white">{metrics.totalToday}</span>
-              <p className="text-[10px] text-slate-400 mt-1">registered today</p>
+              <p className="text-[10px] text-neutral-400 mt-1">registered today</p>
             </CardContent>
           </Card>
 
           {/* WAITING TRIAGE CARD */}
-          <Card className="bg-gradient-to-br from-cyan-950/60 to-slate-900/90 border-cyan-900/40 shadow-xl overflow-hidden relative group">
+          <Card className="bg-gradient-to-br from-cyan-950/60 to-neutral-900/90 border-cyan-900/40 shadow-xl overflow-hidden relative group">
             <div className="absolute top-0 right-0 w-16 h-16 bg-cyan-500/5 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-cyan-300 text-xs font-semibold uppercase tracking-wider flex items-center justify-between">
@@ -877,12 +877,12 @@ export function ReceptionPortal() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <span className="text-3xl font-black text-white">{metrics.waitingTriage}</span>
-              <p className="text-[10px] text-slate-400 mt-1">patients in lobby</p>
+              <p className="text-[10px] text-neutral-400 mt-1">patients in lobby</p>
             </CardContent>
           </Card>
 
           {/* ACTIVE IN WARDS */}
-          <Card className="bg-gradient-to-br from-purple-950/60 to-slate-900/90 border-purple-900/40 shadow-xl overflow-hidden relative group">
+          <Card className="bg-gradient-to-br from-purple-950/60 to-neutral-900/90 border-purple-900/40 shadow-xl overflow-hidden relative group">
             <div className="absolute top-0 right-0 w-16 h-16 bg-purple-500/5 rounded-full blur-xl group-hover:scale-150 transition-transform"></div>
             <CardHeader className="p-4 pb-2">
               <CardDescription className="text-purple-300 text-xs font-semibold uppercase tracking-wider flex items-center justify-between">
@@ -891,54 +891,54 @@ export function ReceptionPortal() {
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <span className="text-3xl font-black text-white">{metrics.activeInWards}</span>
-              <p className="text-[10px] text-slate-400 mt-1">currently being seen</p>
+              <p className="text-[10px] text-neutral-400 mt-1">currently being seen</p>
             </CardContent>
           </Card>
 
           {/* EMERGENCY ALERTS */}
           <Card className={`overflow-hidden relative group shadow-xl ${
             metrics.emergencyCases > 0 
-              ? "bg-gradient-to-br from-red-950/80 to-slate-900/90 border-red-800 animate-pulse-subtle" 
-              : "bg-gradient-to-br from-slate-900 to-slate-900/90 border-slate-800"
+              ? "bg-gradient-to-br from-red-950/80 to-neutral-900/90 border-red-800 animate-pulse-subtle" 
+              : "bg-gradient-to-br from-neutral-900 to-neutral-900/90 border-neutral-800"
           }`}>
             <CardHeader className="p-4 pb-2">
               <CardDescription className={`text-xs font-semibold uppercase tracking-wider flex items-center justify-between ${
-                metrics.emergencyCases > 0 ? "text-red-300" : "text-slate-400"
+                metrics.emergencyCases > 0 ? "text-red-300" : "text-neutral-400"
               }`}>
-                Emergency Cases <AlertTriangle className={`w-4 h-4 ${metrics.emergencyCases > 0 ? "text-red-400 animate-bounce" : "text-slate-500"}`} />
+                Emergency Cases <AlertTriangle className={`w-4 h-4 ${metrics.emergencyCases > 0 ? "text-red-400 animate-bounce" : "text-neutral-500"}`} />
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <span className={`text-3xl font-black ${metrics.emergencyCases > 0 ? "text-red-400 font-extrabold" : "text-white"}`}>
                 {metrics.emergencyCases}
               </span>
-              <p className="text-[10px] text-slate-400 mt-1">requires immediate care</p>
+              <p className="text-[10px] text-neutral-400 mt-1">requires immediate care</p>
             </CardContent>
           </Card>
 
           {/* CLERK EFFICIENCY */}
-          <Card className="bg-gradient-to-br from-slate-900 to-slate-900/90 border-slate-800 shadow-xl overflow-hidden relative">
+          <Card className="bg-gradient-to-br from-neutral-900 to-neutral-900/90 border-neutral-800 shadow-xl overflow-hidden relative">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <CardDescription className="text-neutral-400 text-xs font-semibold uppercase tracking-wider">
                 Clerk Efficiency
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <span className="text-3xl font-black text-white">{metrics.averageIntakeMinutes}m</span>
-              <p className="text-[10px] text-slate-400 mt-1">average intake time</p>
+              <p className="text-[10px] text-neutral-400 mt-1">average intake time</p>
             </CardContent>
           </Card>
 
           {/* BED OCCUPANCY */}
-          <Card className="bg-gradient-to-br from-slate-900 to-slate-900/90 border-slate-800 shadow-xl overflow-hidden relative">
+          <Card className="bg-gradient-to-br from-neutral-900 to-neutral-900/90 border-neutral-800 shadow-xl overflow-hidden relative">
             <CardHeader className="p-4 pb-2">
-              <CardDescription className="text-slate-400 text-xs font-semibold uppercase tracking-wider">
+              <CardDescription className="text-neutral-400 text-xs font-semibold uppercase tracking-wider">
                 Bed Occupancy
               </CardDescription>
             </CardHeader>
             <CardContent className="p-4 pt-0">
               <span className="text-3xl font-black text-white">{metrics.bedOccupancyRate}%</span>
-              <p className="text-[10px] text-slate-400 mt-1">ER/OPD wards occupied</p>
+              <p className="text-[10px] text-neutral-400 mt-1">ER/OPD wards occupied</p>
             </CardContent>
           </Card>
         </div>
@@ -946,18 +946,18 @@ export function ReceptionPortal() {
         {/* 4. ACTIVE PATIENT QUEUE (HORIZONTAL scrolling cards STRIP) */}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-neutral-400 flex items-center gap-2">
               <Activity className="w-4 h-4 text-pink-400" /> Active Patient Queue (Live Strip)
             </h3>
-            <span className="text-xs text-slate-500">Showing {activeQueue.length} patient(s) waiting triage</span>
+            <span className="text-xs text-neutral-500">Showing {activeQueue.length} patient(s) waiting triage</span>
           </div>
 
           {activeQueue.length === 0 ? (
-            <div className="p-6 bg-slate-950/40 border border-slate-800/80 rounded-2xl text-center text-slate-500 text-xs italic">
+            <div className="p-6 bg-neutral-950/40 border border-neutral-800/80 rounded-2xl text-center text-neutral-500 text-xs italic">
               No patients waiting in queue. Click "+ Add New Patient" to register and initialize the live queue.
             </div>
           ) : (
-            <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent">
+            <div className="flex gap-4 overflow-x-auto pb-3 pt-1 scrollbar-thin scrollbar-thumb-neutral-800 scrollbar-track-transparent">
               {activeQueue.map((patient, index) => {
                 const isEmergency = patient.priorityLevel === "EMERGENCY";
                 const isUrgent = patient.priorityLevel === "URGENT";
@@ -968,10 +968,10 @@ export function ReceptionPortal() {
                     key={patient.id} 
                     className={`w-64 flex-shrink-0 relative overflow-hidden transition-all duration-300 hover:scale-[1.02] hover:shadow-xl border-l-4 border ${
                       isEmergency 
-                        ? "bg-gradient-to-r from-red-950/80 to-slate-900 border-red-500 border-l-red-500 shadow-lg shadow-red-950/10" 
+                        ? "bg-gradient-to-r from-red-950/80 to-neutral-900 border-red-500 border-l-red-500 shadow-lg shadow-red-950/10" 
                         : isUrgent 
-                          ? "bg-slate-900 border-slate-800 border-l-amber-500" 
-                          : "bg-slate-900 border-slate-800 border-l-pink-500"
+                          ? "bg-neutral-900 border-neutral-800 border-l-amber-500" 
+                          : "bg-neutral-900 border-neutral-800 border-l-pink-500"
                     }`}
                   >
                     <CardContent className="p-4 flex gap-3 items-center">
@@ -988,23 +988,23 @@ export function ReceptionPortal() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <p className="font-bold text-sm text-white truncate" title={patient.fullName}>{patient.fullName}</p>
-                          <span className="font-mono text-[10px] text-slate-500 font-bold shrink-0">#{index + 1}</span>
+                          <span className="font-mono text-[10px] text-neutral-500 font-bold shrink-0">#{index + 1}</span>
                         </div>
                         <div className="flex items-center gap-1.5 mt-0.5">
-                          <span className="text-[10px] text-slate-400 font-mono">{patient.healthId}</span>
-                          <span className="text-[10px] text-slate-500">|</span>
-                          <span className="text-[10px] text-slate-400 font-mono">Card: {patient.hospitalId || "—"}</span>
+                          <span className="text-[10px] text-neutral-400 font-mono">{patient.healthId}</span>
+                          <span className="text-[10px] text-neutral-500">|</span>
+                          <span className="text-[10px] text-neutral-400 font-mono">Card: {patient.hospitalId || "—"}</span>
                         </div>
 
                         {/* Status Badges */}
-                        <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-slate-800/80">
-                          <span className="text-[10px] text-slate-400 truncate">{patient.sex}, {patient.age} yrs</span>
+                        <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-neutral-800/80">
+                          <span className="text-[10px] text-neutral-400 truncate">{patient.sex}, {patient.age} yrs</span>
                           {isEmergency ? (
                             <span className="bg-red-500/20 text-red-400 border border-red-500/30 px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-wider animate-pulse flex items-center gap-1">
                               <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-ping"></span> Emergency
                             </span>
                           ) : (
-                            <span className="bg-slate-800 text-slate-300 border border-slate-700 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider">
+                            <span className="bg-neutral-800 text-neutral-300 border border-neutral-700 px-1.5 py-0.5 rounded text-[9px] font-semibold uppercase tracking-wider">
                               Waiting Triage
                             </span>
                           )}
@@ -1025,14 +1025,14 @@ export function ReceptionPortal() {
           <div className="lg:col-span-2 space-y-4">
             
             {/* Horizontal Tabs: Registered Patients vs. Upcoming Appointments */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+            <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
               <div className="flex gap-2">
                 <button
                   onClick={() => setActiveTab("patients")}
                   className={`px-4 py-2 text-sm font-bold transition-all border-b-2 rounded-t-lg ${
                     activeTab === "patients" 
                       ? "text-pink-400 border-pink-500 bg-pink-500/5" 
-                      : "text-slate-400 border-transparent hover:text-white"
+                      : "text-neutral-400 border-transparent hover:text-white"
                   }`}
                 >
                   Today's Intakes ({filteredPatients.length})
@@ -1042,7 +1042,7 @@ export function ReceptionPortal() {
                   className={`px-4 py-2 text-sm font-bold transition-all border-b-2 rounded-t-lg ${
                     activeTab === "appointments" 
                       ? "text-pink-400 border-pink-500 bg-pink-500/5" 
-                      : "text-slate-400 border-transparent hover:text-white"
+                      : "text-neutral-400 border-transparent hover:text-white"
                   }`}
                 >
                   Today's Appointments ({filteredAppointments.length})
@@ -1052,11 +1052,11 @@ export function ReceptionPortal() {
 
             {/* TAB CONTENT: TODAY INTAKES LIST */}
             {activeTab === "patients" && (
-              <Card className="bg-slate-900 border-slate-800 shadow-2xl overflow-hidden">
+              <Card className="bg-neutral-900 border-neutral-800 shadow-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+                      <tr className="bg-neutral-950/80 border-b border-neutral-800 text-neutral-400 font-bold uppercase tracking-wider">
                         <th className="p-4">Card No</th>
                         <th className="p-4">Patient ID</th>
                         <th className="p-4">Full Name</th>
@@ -1066,17 +1066,17 @@ export function ReceptionPortal() {
                         <th className="p-4">Triage Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/80">
+                    <tbody className="divide-y divide-neutral-800/80">
                       {dataLoading ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                          <td colSpan={7} className="p-8 text-center text-neutral-400">
                             <Loader2 className="w-6 h-6 animate-spin text-pink-500 mx-auto" />
                             <p className="mt-2 text-xs">Loading registered patients database...</p>
                           </td>
                         </tr>
                       ) : filteredPatients.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-500 italic">
+                          <td colSpan={7} className="p-8 text-center text-neutral-500 italic">
                             No registered intakes matching the filter criteria.
                           </td>
                         </tr>
@@ -1086,13 +1086,13 @@ export function ReceptionPortal() {
                           const isUrgent = patient.priorityLevel === "URGENT";
                           
                           return (
-                            <tr key={patient.id} className="hover:bg-slate-850/60 transition-colors group">
-                              <td className="p-4 font-mono font-bold text-slate-300">{patient.hospitalId || "—"}</td>
-                              <td className="p-4 font-mono text-slate-400 group-hover:text-pink-400 transition-colors">{patient.healthId}</td>
+                            <tr key={patient.id} className="hover:bg-neutral-850/60 transition-colors group">
+                              <td className="p-4 font-mono font-bold text-neutral-300">{patient.hospitalId || "—"}</td>
+                              <td className="p-4 font-mono text-neutral-400 group-hover:text-pink-400 transition-colors">{patient.healthId}</td>
                               <td className="p-4 font-bold text-white text-sm">{patient.fullName}</td>
-                              <td className="p-4 text-slate-300">{patient.age} / {patient.sex}</td>
-                              <td className="p-4 font-mono text-slate-400">{patient.phoneNumber || "—"}</td>
-                              <td className="p-4 text-slate-400 truncate max-w-[140px]" title={patient.address?.region}>
+                              <td className="p-4 text-neutral-300">{patient.age} / {patient.sex}</td>
+                              <td className="p-4 font-mono text-neutral-400">{patient.phoneNumber || "—"}</td>
+                              <td className="p-4 text-neutral-400 truncate max-w-[140px]" title={patient.address?.region}>
                                 {patient.address?.region || "Amhara"}, {patient.address?.zone || "—"}
                               </td>
                               <td className="p-4">
@@ -1122,11 +1122,11 @@ export function ReceptionPortal() {
 
             {/* TAB CONTENT: APPOINTMENTS LIST */}
             {activeTab === "appointments" && (
-              <Card className="bg-slate-900 border-slate-800 shadow-2xl overflow-hidden">
+              <Card className="bg-neutral-900 border-neutral-800 shadow-2xl overflow-hidden">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
-                      <tr className="bg-slate-950/80 border-b border-slate-800 text-slate-400 font-bold uppercase tracking-wider">
+                      <tr className="bg-neutral-950/80 border-b border-neutral-800 text-neutral-400 font-bold uppercase tracking-wider">
                         <th className="p-4">Time Slot</th>
                         <th className="p-4">Patient Name</th>
                         <th className="p-4">Health ID</th>
@@ -1136,31 +1136,31 @@ export function ReceptionPortal() {
                         <th className="p-4">Status</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-800/80">
+                    <tbody className="divide-y divide-neutral-800/80">
                       {dataLoading ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-400">
+                          <td colSpan={7} className="p-8 text-center text-neutral-400">
                             <Loader2 className="w-6 h-6 animate-spin text-pink-500 mx-auto" />
                             <p className="mt-2 text-xs">Loading appointments database...</p>
                           </td>
                         </tr>
                       ) : filteredAppointments.length === 0 ? (
                         <tr>
-                          <td colSpan={7} className="p-8 text-center text-slate-500 italic">
+                          <td colSpan={7} className="p-8 text-center text-neutral-500 italic">
                             No appointments scheduled for today.
                           </td>
                         </tr>
                       ) : (
                         filteredAppointments.map((app) => (
-                          <tr key={app.id} className="hover:bg-slate-850/60 transition-colors">
+                          <tr key={app.id} className="hover:bg-neutral-850/60 transition-colors">
                             <td className="p-4 font-mono font-bold text-pink-400 text-sm flex items-center gap-1.5">
                               <Clock className="w-3.5 h-3.5" /> {app.appointmentTime}
                             </td>
                             <td className="p-4 font-bold text-white">{app.patient.fullName}</td>
-                            <td className="p-4 font-mono text-slate-400">{app.patient.healthId}</td>
-                            <td className="p-4 text-slate-300">{app.patient.age} / {app.patient.sex}</td>
-                            <td className="p-4 font-medium text-slate-200">{app.requestedService}</td>
-                            <td className="p-4 font-mono text-slate-400">{app.patient.phoneNumber || "—"}</td>
+                            <td className="p-4 font-mono text-neutral-400">{app.patient.healthId}</td>
+                            <td className="p-4 text-neutral-300">{app.patient.age} / {app.patient.sex}</td>
+                            <td className="p-4 font-medium text-neutral-200">{app.requestedService}</td>
+                            <td className="p-4 font-mono text-neutral-400">{app.patient.phoneNumber || "—"}</td>
                             <td className="p-4">
                               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider text-[9px]">
                                 {app.status}
@@ -1180,23 +1180,23 @@ export function ReceptionPortal() {
           <div className="space-y-6">
             
             {/* Patient Search & Global Filter Panel */}
-            <Card className="bg-slate-900 border-slate-800 shadow-2xl relative overflow-hidden group">
+            <Card className="bg-neutral-900 border-neutral-800 shadow-2xl relative overflow-hidden group">
               <CardHeader className="p-5 pb-3">
                 <CardTitle className="text-white text-sm font-bold uppercase tracking-wider flex items-center gap-2">
                   <Search className="w-4 h-4 text-pink-400" /> Patient Search &amp; Global Filter
                 </CardTitle>
-                <CardDescription className="text-slate-400 text-xs">
+                <CardDescription className="text-neutral-400 text-xs">
                   Lookup patients in real-time by Name, ID, Card No, or Contact.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-5 pt-0 space-y-4">
                 <div className="relative">
-                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-slate-500" />
+                  <Search className="absolute left-3 top-2.5 w-4 h-4 text-neutral-500" />
                   <Input
                     placeholder="Search by Name, PT-XXXXX, Card..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="bg-slate-950 border-slate-800 text-white h-9 pl-9 focus:border-pink-500 text-xs"
+                    className="bg-neutral-950 border-neutral-800 text-white h-9 pl-9 focus:border-pink-500 text-xs"
                   />
                 </div>
                 {searchQuery && (
@@ -1209,7 +1209,7 @@ export function ReceptionPortal() {
             </Card>
 
             {/* Bed & Resource Occupancy Status Widget */}
-            <Card className="bg-slate-900 border-slate-800 shadow-2xl">
+            <Card className="bg-neutral-900 border-neutral-800 shadow-2xl">
               <CardHeader className="p-5 pb-3">
                 <CardTitle className="text-white text-sm font-bold uppercase tracking-wider flex items-center gap-2">
                   <Activity className="w-4 h-4 text-pink-400" /> Bed &amp; Resource Capacity
@@ -1220,10 +1220,10 @@ export function ReceptionPortal() {
                 {/* Emergency Room Beds */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-300">Emergency Room (ER)</span>
+                    <span className="text-neutral-300">Emergency Room (ER)</span>
                     <span className="text-red-400">5 / 8 Beds</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
+                  <div className="h-2 w-full bg-neutral-950 rounded-full overflow-hidden border border-neutral-800/80">
                     <div className="h-full bg-gradient-to-r from-red-600 to-rose-600 rounded-full" style={{ width: "62.5%" }}></div>
                   </div>
                 </div>
@@ -1231,10 +1231,10 @@ export function ReceptionPortal() {
                 {/* OPD Wards */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-300">OPD Consultation Clinics</span>
+                    <span className="text-neutral-300">OPD Consultation Clinics</span>
                     <span className="text-pink-400">12 / 20 Wards</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
+                  <div className="h-2 w-full bg-neutral-950 rounded-full overflow-hidden border border-neutral-800/80">
                     <div className="h-full bg-gradient-to-r from-pink-600 to-rose-600 rounded-full" style={{ width: "60%" }}></div>
                   </div>
                 </div>
@@ -1242,10 +1242,10 @@ export function ReceptionPortal() {
                 {/* Card Room Clerk Load */}
                 <div className="space-y-2">
                   <div className="flex justify-between text-xs font-semibold">
-                    <span className="text-slate-300">Card Room Clerk Load</span>
+                    <span className="text-neutral-300">Card Room Clerk Load</span>
                     <span className="text-emerald-400">Normal (Normal Load)</span>
                   </div>
-                  <div className="h-2 w-full bg-slate-950 rounded-full overflow-hidden border border-slate-800/80">
+                  <div className="h-2 w-full bg-neutral-950 rounded-full overflow-hidden border border-neutral-800/80">
                     <div className="h-full bg-gradient-to-r from-emerald-600 to-teal-600 rounded-full" style={{ width: "35%" }}></div>
                   </div>
                 </div>
@@ -1253,7 +1253,7 @@ export function ReceptionPortal() {
             </Card>
 
             {/* Incomplete Registration Alerts Widget */}
-            <Card className="bg-slate-900 border-slate-800 shadow-2xl">
+            <Card className="bg-neutral-900 border-neutral-800 shadow-2xl">
               <CardHeader className="p-5 pb-3">
                 <CardTitle className="text-white text-sm font-bold uppercase tracking-wider flex items-center gap-2">
                   <ShieldAlert className="w-4 h-4 text-pink-400" /> Incomplete Registration Alerts
@@ -1262,11 +1262,11 @@ export function ReceptionPortal() {
               <CardContent className="p-5 pt-0 space-y-3">
                 {filteredPatients.some(p => !p.phoneNumber || !p.emergencyContactName) ? (
                   filteredPatients.filter(p => !p.phoneNumber || !p.emergencyContactName).slice(0, 2).map(p => (
-                    <div key={p.id} className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl flex items-start gap-2.5 text-xs">
+                    <div key={p.id} className="p-3 bg-neutral-950/80 border border-neutral-800 rounded-xl flex items-start gap-2.5 text-xs">
                       <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 animate-pulse" />
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-white truncate">{p.fullName}</p>
-                        <p className="text-[10px] text-slate-500 mt-0.5">Missing emergency details or contact</p>
+                        <p className="text-[10px] text-neutral-500 mt-0.5">Missing emergency details or contact</p>
                       </div>
                       <Button
                         size="sm"
@@ -1279,7 +1279,7 @@ export function ReceptionPortal() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-xs text-slate-500 italic text-center py-4">No incomplete registration alerts detected.</p>
+                  <p className="text-xs text-neutral-500 italic text-center py-4">No incomplete registration alerts detected.</p>
                 )}
               </CardContent>
             </Card>
