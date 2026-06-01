@@ -35,7 +35,23 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
 
     // Validate required fields
-    const { fullName, sex, dateOfBirth, phoneNumber, region, zone, woreda, kebele, reason } = body;
+    const {
+      fullName,
+      sex,
+      dateOfBirth,
+      phoneNumber,
+      region,
+      zone,
+      woreda,
+      kebele,
+      reason,
+      religion,
+      occupation,
+      maritalStatus,
+      bloodGroup,
+      emergencyContactName,
+      emergencyContactPhone,
+    } = body;
 
     if (!fullName || !fullName.trim()) {
       return NextResponse.json({ error: "Full name is required" }, { status: 400 });
@@ -98,6 +114,12 @@ export async function POST(req: NextRequest) {
         chiefComplaint: reason || "General consultation",
         ward: Ward.OPD_OUTPATIENT,
         triageStatus: TriageStatus.WAITING_FOR_TRIAGE,
+        religion: religion || null,
+        occupation: occupation || null,
+        maritalStatus: maritalStatus || null,
+        bloodGroup: bloodGroup || null,
+        emergencyContactName: emergencyContactName || null,
+        emergencyContactPhone: emergencyContactPhone || null,
       },
     });
 

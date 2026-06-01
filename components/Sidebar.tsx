@@ -159,6 +159,13 @@ export async function Sidebar() {
           <>
             <p className="text-xs font-bold text-pink-500/80 uppercase tracking-widest px-3 py-2 mt-2">Reception</p>
             <Link
+              href="/reception"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
+            >
+              <ClipboardList className="w-5 h-5 text-pink-400" />
+              <span className="font-semibold text-pink-100">Reception Desk</span>
+            </Link>
+            <Link
               href="/register"
               className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-slate-800 hover:text-white transition-colors"
             >
