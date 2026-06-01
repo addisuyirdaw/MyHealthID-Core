@@ -226,7 +226,7 @@ function RegisterStaffForm() {
               </Label>
               <Select onValueChange={(val: any) => setRole(val)} value={role || undefined} required>
                 <SelectTrigger id="role" className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-11">
-                  <SelectValue placeholder={language === "am" ? "የስራ ሚናዎን ይምረጡ..." : "Select your System Role..."} />
+                  <SelectValue placeholder={language === "AM" ? "የስራ ሚናዎን ይምረጡ..." : "Select your System Role..."} />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-900 border-slate-800 text-white rounded-xl">
                   {HEALTHCARE_ROLE_KEYS.map((roleKey) => (

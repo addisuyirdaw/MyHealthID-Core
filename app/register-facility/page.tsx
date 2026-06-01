@@ -217,7 +217,7 @@ export default function RegisterFacilityPage() {
                 </Label>
                 <Select onValueChange={setFacilityType} value={facilityType || undefined} required>
                   <SelectTrigger id="facilityType" className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-12">
-                    <SelectValue placeholder={language === "am" ? "የእንክብካቤ አይነት ይምረጡ..." : "Select Facility Type..."} />
+                    <SelectValue placeholder={language === "AM" ? "የእንክብካቤ አይነት ይምረጡ..." : "Select Facility Type..."} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-800 text-white rounded-xl">
                     {FACILITY_SERVICE_TYPE_KEYS.map((key) => (

@@ -272,7 +272,7 @@ export default function StaffManagementClient({ initialStaff, isAdmin = false }:
                   </Label>
                   <Select onValueChange={(val: any) => setRole(val)} value={role || undefined} required>
                     <SelectTrigger id="role" className="rounded-xl h-11 border-slate-300 focus:ring-blue-500/30">
-                      <SelectValue placeholder={language === "am" ? "የስራ ሚናዎን ይምረጡ..." : "Select Professional Role..."} />
+                      <SelectValue placeholder={language === "AM" ? "የስራ ሚናዎን ይምረጡ..." : "Select Professional Role..."} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-slate-200">
                       {HEALTHCARE_ROLE_KEYS.map((roleKey) => (
