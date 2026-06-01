@@ -139,7 +139,7 @@ export default function RegisterPage() {
     if (lowerText.includes("cough") && (lowerText.includes("sweat") || lowerText.includes("weight"))) {
       suspect = "High Suspect: TB (Tuberculosis)";
     } else if (lowerText.includes("fever") && lowerText.includes("pain") && lowerText.includes("vomit")) {
-      suspect = "High Suspect: Appendicitis / Severe Infection";
+      suspect = "High Suspect: Severe Infection";
     } else if (lowerText.includes("fever") && lowerText.includes("chill") && lowerText.includes("headache")) {
       suspect = "High Suspect: Malaria";
     } else if (lowerText.includes("heartburn") || (lowerText.includes("stomach") && lowerText.includes("pain")) || lowerText.includes("ulcer")) {
@@ -182,16 +182,12 @@ export default function RegisterPage() {
     else analyzeSymptoms(val);
   };
 
-  // No countdown needed — email OTP removed
-
   const handleNationalIdChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Only allow numbers
     const val = e.target.value.replace(/\D/g, '');
     let formatted = val.substring(0, 12);
     if (formatted.length > 4) formatted = formatted.substring(0, 4) + ' ' + formatted.substring(4);
     if (formatted.length > 9) formatted = formatted.substring(0, 9) + ' ' + formatted.substring(9);
     setNationalId(formatted);
-    // Reset states if user types again
     setIsVerified(false);
     setNidExistsError("");
     setFcn("");
@@ -284,7 +280,6 @@ export default function RegisterPage() {
     });
   }, []);
 
-  /** Auto-submit: called after OCR step resolves (verified or staff-bypassed). */
   const triggerAutoSubmit = useCallback(async (patientFullName: string, patientFin: string, patientFcn: string, patientSex: string, patientDob: string) => {
     if (isAutoSubmitting.current) return;
     isAutoSubmitting.current = true;
@@ -312,7 +307,6 @@ export default function RegisterPage() {
         isAutoSubmitting.current = false;
         return;
       }
-      // Auto-enqueue
       await checkInToQueue(result.id);
       router.push(`/queue?token=${result.queuePosition ?? 1}&name=${encodeURIComponent(patientFullName)}`);
     } catch (err: any) {
@@ -327,11 +321,9 @@ export default function RegisterPage() {
     await runOcrThenAutoSubmit(nationalId.replace(/\s/g, ""), fcn, fullName, sex, dateOfBirth);
   };
 
-  /** Run OCR cross-check then auto-submit if match (or skipped). */
   const runOcrThenAutoSubmit = useCallback(async (fin: string, fcn: string, name: string, sex: string, dob: string) => {
     const file = lastUploadedFile.current;
     if (!file) {
-      // No uploaded file (camera scan) — skip OCR, go straight to auto-submit
       setOcrStatus("skipped");
       await triggerAutoSubmit(name, fin, fcn, sex, dob);
       return;
@@ -386,7 +378,6 @@ export default function RegisterPage() {
     }
   };
 
-
   const submitEmergencyDesk = async () => {
     const name = emergencyDeskName.trim();
     if (name.length < 2) {
@@ -436,7 +427,6 @@ export default function RegisterPage() {
 
     const nationalIdVal = nationalId.replace(/\s/g, '');
 
-    // Frontend validation check before calling the server
     if (identityMode === "FAYDA") {
       if (nationalIdVal && nationalIdVal.length !== 12) {
         alert("Invalid FIN length. Please scan the Fayda QR and verify your FIN (12 digits).");
@@ -446,7 +436,6 @@ export default function RegisterPage() {
       }
     }
 
-    // For Fayda path: require verification. For No-ID and Manual paths: skip.
     if (identityMode === "FAYDA" && !isVerified) {
       alert("Please scan and verify the Fayda ID before submitting.");
       setLoading(false);
@@ -490,7 +479,6 @@ export default function RegisterPage() {
         alert(result.error);
         return;
       }
-      // Auto-enqueue and redirect to live queue
       try { await checkInToQueue(result.id); } catch { /* queue already exists */ }
       router.push(`/queue?token=${result.queuePosition ?? 1}&name=${encodeURIComponent((formData.get("fullName") as string) || fullName)}`);
     } catch (err: any) {
@@ -502,9 +490,6 @@ export default function RegisterPage() {
     }
   }
 
-
-
-  // Only block logged-in users with the wrong role; citizens (role = "") can self-register
   if (authChecked && role && !REGISTRATION_ROLES.includes(role as any) && !ADMIN_ROLES.includes(role as any)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
@@ -538,23 +523,26 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 relative overflow-hidden flex items-center justify-center p-4">
-      <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] rounded-full bg-primary/20 blur-3xl" />
-      <Card className="w-full max-w-2xl border-white/40 bg-white/60 backdrop-blur-2xl shadow-xl relative z-10">
+    <div className="min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden flex items-center justify-center p-4">
+      {/* Glow circles */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/5 blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-indigo-500/5 blur-3xl pointer-events-none" />
+
+      <Card className="w-full max-w-2xl border-slate-800/80 bg-slate-900/40 backdrop-blur-2xl shadow-2xl relative z-10 text-slate-100">
         <form onSubmit={handleSubmit}>
-          <CardHeader className="space-y-1 text-center pb-8 border-b border-white/20">
-            <div className="mx-auto bg-primary/10 w-16 h-16 rounded-2xl flex items-center justify-center mb-4">
-              <HeartPulse className="h-8 w-8 text-primary" />
+          <CardHeader className="space-y-1 text-center pb-8 border-b border-slate-800/60">
+            <div className="mx-auto bg-blue-500/10 border border-blue-500/20 w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-lg shadow-blue-900/20">
+              <HeartPulse className="h-8 w-8 text-blue-400" />
             </div>
-            <CardTitle className="text-3xl font-bold tracking-tight">{t.registration.title}</CardTitle>
-            <CardDescription>{t.registration.subtitle}</CardDescription>
+            <CardTitle className="text-3xl font-black tracking-tight text-white">{t.registration.title}</CardTitle>
+            <CardDescription className="text-slate-400 text-sm">{t.registration.subtitle}</CardDescription>
 
             {accessError && (
-              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-xl flex items-center shadow-sm animate-in fade-in zoom-in duration-300 mx-auto max-w-lg w-full">
-                <svg className="w-6 h-6 text-red-600 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center shadow-md animate-in fade-in zoom-in duration-300 mx-auto max-w-lg w-full">
+                <svg className="w-6 h-6 text-red-400 mr-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
                 </svg>
-                <div className="text-left text-red-800 text-sm">
+                <div className="text-left text-red-200 text-sm">
                    <p className="font-bold uppercase tracking-wider mb-0.5">Authorization Error</p>
                    <p className="font-medium">{accessError}</p>
                 </div>
@@ -564,16 +552,16 @@ export default function RegisterPage() {
 
           <CardContent className="grid gap-6 pt-8 pb-4">
 
-            <div className="rounded-2xl border-4 border-red-600 bg-gradient-to-br from-red-950 via-red-900 to-red-950 p-4 text-white shadow-xl space-y-3">
+            <div className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/40 via-red-900/10 to-red-950/40 p-4 text-white shadow-xl space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-6 h-6 text-red-300 shrink-0" />
-                  <span className="font-black text-lg tracking-tight uppercase">Red emergency</span>
+                  <AlertTriangle className="w-6 h-6 text-red-400 shrink-0" />
+                  <span className="font-black text-lg tracking-tight uppercase text-red-200">Red emergency</span>
                 </div>
-                <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+                <label className="inline-flex items-center gap-2 cursor-pointer select-none text-red-300">
                   <input
                     type="checkbox"
-                    className="h-5 w-5 rounded border-red-300 accent-yellow-400"
+                    className="h-5 w-5 rounded border-red-500/50 bg-slate-900 text-red-500 accent-red-650"
                     checked={emergencyFastPath}
                     onChange={(e) => {
                       setEmergencyFastPath(e.target.checked);
@@ -592,36 +580,36 @@ export default function RegisterPage() {
                 </label>
               </div>
               {emergencyFastPath && (
-                <div className="space-y-3 pt-1 border-t border-red-700/50">
-                  <p className="text-xs text-red-200/90">
+                <div className="space-y-3 pt-3 border-t border-red-900/50">
+                  <p className="text-xs text-red-300/80">
                     For unstable patients only. Creates a <strong>temporary MHID</strong> and queues under emergency — complete full Fayda verification later when safe.
                   </p>
                   <div className="space-y-2">
-                    <Label className="text-red-100">Patient name</Label>
+                    <Label className="text-slate-300">Patient name</Label>
                     <Input
                       value={emergencyDeskName}
                       onChange={(e) => setEmergencyDeskName(e.target.value)}
                       placeholder="e.g. Alemayehu Tadesse"
-                      className="bg-white text-slate-900 border-red-300"
+                      className="bg-slate-950 border-slate-800 text-slate-100 placeholder:text-slate-600 focus:border-red-500 focus:ring-red-500/20"
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-red-100">Phone (optional)</Label>
+                    <Label className="text-slate-300">Phone (optional)</Label>
                     <Input
                       value={emergencyDeskPhone}
                       onChange={(e) => setEmergencyDeskPhone(e.target.value)}
                       placeholder="+251…"
-                      className="bg-white text-slate-900 border-red-300"
+                      className="bg-slate-950 border-slate-800 text-slate-100 placeholder:text-slate-600 focus:border-red-500 focus:ring-red-500/20"
                     />
                   </div>
-                  <Button
+                  <button
                     type="button"
-                    className="w-full h-12 text-lg font-black bg-yellow-400 text-red-950 hover:bg-yellow-300 border-2 border-yellow-200"
+                    className="w-full h-12 text-sm font-black bg-red-600 hover:bg-red-500 text-white rounded-xl shadow-lg border border-red-500/25 transition-all"
                     disabled={loading}
                     onClick={() => void submitEmergencyDesk()}
                   >
                     Register to queue now
-                  </Button>
+                  </button>
                 </div>
               )}
             </div>
@@ -630,41 +618,41 @@ export default function RegisterPage() {
             {!emergencyFastPath && (!identityMode ? (
               <div className="space-y-4">
                 <div className="text-center space-y-1">
-                  <h3 className="text-base font-bold text-slate-800 flex items-center justify-center gap-2">
-                    <Fingerprint className="w-5 h-5 text-blue-600" /> {t.registration.identityVerification}
+                  <h3 className="text-base font-bold text-slate-200 flex items-center justify-center gap-2">
+                    <Fingerprint className="w-5 h-5 text-blue-400" /> {t.registration.identityVerification}
                   </h3>
-                  <p className="text-sm text-slate-500">{t.registration.identitySelectionDesc}</p>
+                  <p className="text-sm text-slate-400">{t.registration.identitySelectionDesc}</p>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
                     type="button"
                     onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode("FAYDA"); }}
-                    className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-blue-200 bg-blue-50 hover:bg-blue-100 hover:border-blue-400 transition-all duration-200 text-left"
+                    className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-blue-900/50 bg-blue-950/20 hover:bg-blue-950/40 hover:border-blue-500 transition-all duration-200 text-left"
                   >
                     <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
                       <IdCard className="w-6 h-6" />
                     </div>
                     <div className="text-center">
-                      <p className="font-bold text-blue-800">{t.registration.faydaIdTitle}</p>
-                      <p className="text-xs text-blue-600 mt-0.5">{t.registration.faydaIdDesc}</p>
+                      <p className="font-bold text-blue-200">{t.registration.faydaIdTitle}</p>
+                      <p className="text-xs text-blue-400 mt-0.5">{t.registration.faydaIdDesc}</p>
                     </div>
                   </button>
                   {allowNoId ? (
                     <button
                       type="button"
                       onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode("NO_ID"); setIsVerified(true); }}
-                      className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-slate-200 bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 transition-all duration-200 text-left"
+                      className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-slate-800 bg-slate-900/20 hover:bg-emerald-950/20 hover:border-emerald-500/50 transition-all duration-200 text-left"
                     >
-                      <div className="w-12 h-12 rounded-full bg-slate-600 text-white flex items-center justify-center shadow-md group-hover:scale-110 group-hover:bg-emerald-600 transition-all">
+                      <div className="w-12 h-12 rounded-full bg-slate-700 text-white flex items-center justify-center shadow-md group-hover:scale-110 group-hover:bg-emerald-600 transition-all">
                         <User className="w-6 h-6" />
                       </div>
                       <div className="text-center">
-                        <p className="font-bold text-slate-700 group-hover:text-emerald-800">{t.registration.noIdTitle}</p>
-                        <p className="text-xs text-slate-500 group-hover:text-emerald-600 mt-0.5">{t.registration.noIdDesc}</p>
+                        <p className="font-bold text-slate-300 group-hover:text-emerald-300">{t.registration.noIdTitle}</p>
+                        <p className="text-xs text-slate-400 group-hover:text-emerald-400 mt-0.5">{t.registration.noIdDesc}</p>
                       </div>
                     </button>
                   ) : (
-                    <div className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-slate-200 bg-slate-50 text-center text-xs text-slate-500">
+                    <div className="flex flex-col items-center justify-center gap-2 p-6 rounded-xl border-2 border-dashed border-slate-800 bg-slate-900/10 text-center text-xs text-slate-500">
                       <p>No-ID registration is disabled for this deployment.</p>
                     </div>
                   )}
@@ -673,49 +661,49 @@ export default function RegisterPage() {
                 <button
                   type="button"
                   onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode("MANUAL"); setIsVerified(true); }}
-                  className="group w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-amber-200 bg-amber-50 hover:bg-amber-100 hover:border-amber-400 transition-all duration-200"
+                  className="group w-full flex items-center justify-center gap-3 p-4 rounded-xl border-2 border-amber-900/50 bg-amber-950/20 hover:bg-amber-950/40 hover:border-amber-500/50 transition-all duration-200"
                 >
-                  <div className="w-10 h-10 rounded-full bg-amber-500 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform shrink-0">
-                    <ScanSearch className="w-5 h-5" />
+                  <div className="w-10 h-10 rounded-full bg-amber-550 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform shrink-0">
+                     <ScanSearch className="w-5 h-5" />
                   </div>
-                  <div className="text-center">
-                    <p className="font-bold text-amber-800">Manual Entry (No Scan Required)</p>
-                    <p className="text-xs text-amber-700 mt-0.5">Type your name, National ID, and details directly — no camera or QR needed.</p>
+                  <div className="text-left">
+                    <p className="font-bold text-amber-200">Manual Entry (No Scan Required)</p>
+                    <p className="text-xs text-amber-400 mt-0.5">Type your name, National ID, and details directly — no camera or QR needed.</p>
                   </div>
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-100 border border-slate-200">
+              <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-slate-900/60 border border-slate-800/80">
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                  identityMode === "FAYDA" ? "bg-blue-600" : identityMode === "MANUAL" ? "bg-amber-500" : "bg-emerald-600"
+                  identityMode === "FAYDA" ? "bg-blue-650" : identityMode === "MANUAL" ? "bg-amber-600" : "bg-emerald-650"
                 }`}>
                   {identityMode === "FAYDA" ? <IdCard className="w-4 h-4 text-white" /> : identityMode === "MANUAL" ? <ScanSearch className="w-4 h-4 text-white" /> : <User className="w-4 h-4 text-white" />}
                 </div>
                 <div className="flex-1">
-                  <p className="text-sm font-semibold text-slate-800">
+                  <p className="text-sm font-semibold text-slate-200">
                     {identityMode === "FAYDA" ? t.registration.faydaPathTitle : identityMode === "MANUAL" ? "Manual Entry" : t.registration.noIdPathTitle}
                   </p>
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-slate-400">
                     {identityMode === "FAYDA" ? t.registration.faydaPathDesc : identityMode === "MANUAL" ? "Fill in your details manually — no scan required." : t.registration.noIdPathDesc}
                   </p>
                 </div>
                 <button
                   type="button"
                   onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode(null); }}
-                  className="text-xs text-slate-400 hover:text-slate-700 underline"
+                  className="text-xs text-slate-400 hover:text-slate-200 underline"
                 >
                   {t.registration.change}
                 </button>
               </div>
             ))}
 
-            {/* === DEMOGRAPHICS (shown after identity selection) === */}
+            {/* === DEMOGRAPHICS === */}
             {!emergencyFastPath && identityMode && (<>
               <div className="space-y-4">
-                <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">{t.registration.demographicsTitle}</h3>
-              <div className="grid grid-cols-2 gap-4">
+                <h3 className="text-lg font-bold text-slate-200 border-b border-slate-800 pb-2">{t.registration.demographicsTitle}</h3>
+              <div className="grid grid-cols-1 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="fullName">Full Name</Label>
+                  <Label htmlFor="fullName" className="text-slate-300">Full Name</Label>
                   <Input
                     id="fullName"
                     name="fullName"
@@ -724,80 +712,83 @@ export default function RegisterPage() {
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
                     disabled={identityMode === "FAYDA" && isVerified}
+                    className="bg-slate-950 border-slate-800 text-slate-100 focus:border-blue-500 focus:ring-blue-500/20"
                   />
                 </div>
               </div>
 
               {/* === MANUAL ENTRY PANEL === */}
               {identityMode === "MANUAL" && (
-                <div className="mt-4 p-5 rounded-xl border-2 border-amber-200 bg-amber-50/60 space-y-4 animate-in fade-in duration-300">
-                  <div className="flex items-center gap-2 text-amber-900 font-bold text-sm">
-                    <ScanSearch className="w-4 h-4" />
+                <div className="mt-4 p-5 rounded-xl border-2 border-amber-900/50 bg-amber-950/20 space-y-4 animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2 text-amber-200 font-bold text-sm">
+                    <ScanSearch className="w-4 h-4 text-amber-450" />
                     Manual Registration — Enter Details Below
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <Label htmlFor="manual-nid">National ID (FIN) — Optional</Label>
+                      <Label htmlFor="manual-nid" className="text-slate-300">National ID (FIN) — Optional</Label>
                       <Input
                         id="manual-nid"
                         placeholder="e.g. 1234 5678 9012"
                         value={nationalId}
                         onChange={handleNationalIdChange}
                         onBlur={handleNidBlur}
-                        className={nidExistsError ? "border-red-400 bg-red-50" : ""}
+                        className={nidExistsError ? "border-red-500 bg-red-950/20 text-red-200" : "bg-slate-950 border-slate-800 text-slate-100"}
                       />
-                      {nidExistsError && <p className="text-xs text-red-600">{nidExistsError}</p>}
+                      {nidExistsError && <p className="text-xs text-red-400 mt-1">{nidExistsError}</p>}
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="manual-sex">Sex</Label>
+                      <Label htmlFor="manual-sex" className="text-slate-300">Sex</Label>
                       <Select name="sex" value={sex} onValueChange={setSex}>
-                        <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                        <SelectContent>
+                        <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-100"><SelectValue placeholder="Select..." /></SelectTrigger>
+                        <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
                           <SelectItem value="Male">Male</SelectItem>
                           <SelectItem value="Female">Female</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="manual-dob">Date of Birth</Label>
+                      <Label htmlFor="manual-dob" className="text-slate-300">Date of Birth</Label>
                       <Input
                         id="manual-dob"
                         type="date"
                         name="dateOfBirth"
                         value={dateOfBirth}
                         onChange={(e) => setDateOfBirth(e.target.value)}
+                        className="bg-slate-950 border-slate-800 text-slate-100"
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label htmlFor="manual-phone">Phone Number</Label>
+                      <Label htmlFor="manual-phone" className="text-slate-300">Phone Number</Label>
                       <Input
                         id="manual-phone"
                         name="phoneNumber"
                         placeholder="+251 9XX XXX XXX"
                         type="tel"
+                        className="bg-slate-950 border-slate-800 text-slate-100"
                       />
                     </div>
                   </div>
-                  <div className="p-3 rounded-lg bg-amber-100 border border-amber-300 text-xs text-amber-900">
+                  <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-800/50 text-xs text-amber-300">
                     ⚠️ <strong>Staff Note:</strong> Manual registration bypasses QR verification. A staff member should visually confirm the ID document before approving.
                   </div>
                 </div>
               )}
               </div>
-              {/* MANUAL mode: auto-verified, no email needed */}
+
               {/* Fayda ID input — only shown in FAYDA mode */}
               {identityMode === "FAYDA" && (
               <div className="grid grid-cols-1 gap-4 mt-4">
                 <div className="space-y-2">
                   <div className="flex flex-wrap items-end justify-between gap-2">
-                    <Label htmlFor="nationalId">{t.registration.faydaIdTitle}</Label>
+                    <Label htmlFor="nationalId" className="text-slate-300">{t.registration.faydaIdTitle}</Label>
                     {finFormatOk && !isVerified && (
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-450 bg-emerald-950/30 border border-emerald-900/50 px-2 py-0.5 rounded-full shrink-0">
                         Fayda format verified (12-digit FIN)
                       </span>
                     )}
                   </div>
-                  <p className="text-[10px] text-slate-400 -mt-1">Length check only — not proof the ID was issued by Fayda.</p>
+                  <p className="text-[10px] text-slate-500 -mt-1">Length check only — not proof the ID was issued by Fayda.</p>
                   <div className="flex gap-2">
                     <Input
                       id="nationalId"
@@ -807,7 +798,7 @@ export default function RegisterPage() {
                       onChange={handleNationalIdChange}
                       onBlur={handleNidBlur}
                       disabled={isVerified}
-                      className={isVerified ? "bg-green-50 border-green-200" : (nidExistsError ? "border-red-500 bg-red-50" : "")}
+                      className={isVerified ? "bg-emerald-950/30 border-emerald-800/50 text-emerald-350" : (nidExistsError ? "border-red-500 bg-red-950/20 text-red-200" : "bg-slate-950 border-slate-800 text-slate-100")}
                       required
                     />
                       <Button
@@ -817,7 +808,7 @@ export default function RegisterPage() {
                           setScanStep("scan_back");
                         }}
                       disabled={isVerified || isVerifying}
-                      className="bg-blue-600 hover:bg-blue-700 whitespace-nowrap"
+                      className="bg-blue-600 hover:bg-blue-500 text-white font-semibold whitespace-nowrap"
                     >
                       {isVerifying ? "Verifying..." : "Scan card"}
                     </Button>
@@ -825,7 +816,7 @@ export default function RegisterPage() {
 
                   {identityMode === "FAYDA" && !isVerified && (
                     <div className="flex flex-wrap gap-2 mt-2">
-                      <Button type="button" variant="outline" size="sm" onClick={verifyManualFayda} disabled={isVerifying}>
+                      <Button type="button" variant="outline" size="sm" onClick={verifyManualFayda} disabled={isVerifying} className="border-slate-800 hover:bg-slate-900 text-slate-200">
                         Verify FIN + FCN
                       </Button>
                       <span className="text-xs text-slate-500 self-center">
@@ -838,10 +829,10 @@ export default function RegisterPage() {
                     <div
                       className={`mt-3 rounded-lg border p-3 text-sm ${
                         scanFeedback.variant === "success"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                          ? "border-emerald-800/50 bg-emerald-950/20 text-emerald-200"
                           : scanFeedback.variant === "error"
-                            ? "border-red-200 bg-red-50 text-red-900"
-                            : "border-blue-200 bg-blue-50 text-blue-900"
+                            ? "border-red-800/50 bg-red-950/20 text-red-200"
+                            : "border-blue-800/50 bg-blue-950/20 text-blue-200"
                       }`}
                     >
                       <p className="font-semibold">{scanFeedback.title}</p>
@@ -852,7 +843,7 @@ export default function RegisterPage() {
                         <Button
                           type="button"
                           variant="outline"
-                          className="mt-3 w-full border-red-300 text-red-900 hover:bg-red-50"
+                          className="mt-3 w-full border-red-800/50 text-red-300 hover:bg-red-950/30"
                           onClick={handleManualScanBypass}
                         >
                           Manual bypass — close scanner &amp; type FIN + FCN
@@ -862,16 +853,16 @@ export default function RegisterPage() {
                   )}
 
                   {scanStep !== "idle" && (
-                    <div className="mt-3 p-4 rounded-xl border border-slate-200 bg-white shadow-lg relative z-20">
+                    <div className="mt-3 p-4 rounded-xl border border-slate-800 bg-slate-900/80 backdrop-blur-md shadow-2xl relative z-20">
                       <div className="flex items-center justify-between mb-3">
-                        <div className="text-sm font-semibold text-slate-800 flex items-center gap-2">
-                          <ShieldCheck className="w-4 h-4 text-blue-600" />
+                        <div className="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                          <ShieldCheck className="w-4 h-4 text-blue-400" />
                           Secure Fayda Verification
                         </div>
                         <button
                           type="button"
                           onClick={() => setScanStep("idle")}
-                          className="text-xs text-slate-500 hover:text-slate-800 underline"
+                          className="text-xs text-slate-400 hover:text-slate-200 underline"
                         >
                           Close
                         </button>
@@ -880,10 +871,10 @@ export default function RegisterPage() {
                         <div
                           className={`mb-3 rounded-lg border p-3 text-sm ${
                             scanFeedback.variant === "success"
-                              ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                              ? "border-emerald-800/50 bg-emerald-950/20 text-emerald-250"
                               : scanFeedback.variant === "error"
-                                ? "border-red-200 bg-red-50 text-red-900"
-                                : "border-blue-200 bg-blue-50 text-blue-900"
+                                ? "border-red-800/50 bg-red-950/20 text-red-250"
+                                : "border-blue-800/50 bg-blue-950/20 text-blue-250"
                           }`}
                         >
                           <p className="font-semibold">{scanFeedback.title}</p>
@@ -895,7 +886,7 @@ export default function RegisterPage() {
 
                       {scanStep === "scan_back" && (
                         <div className="animate-in fade-in duration-300">
-                          <p className="font-bold mb-2 text-slate-800">Step 1: Scan Back (QR)</p>
+                          <p className="font-bold mb-2 text-slate-200">Step 1: Scan Back (QR)</p>
                           <FaydaQrScanner
                             onCodeRead={() =>
                               setScanFeedback({
@@ -925,28 +916,27 @@ export default function RegisterPage() {
                       {scanStep === "transition" && (
                         <div className="flex flex-col items-center justify-center p-8 space-y-4 animate-in fade-in zoom-in duration-300">
                           <LogoIcon className="w-20 h-20 animate-pulse" />
-                          <p className="text-blue-600 font-semibold text-lg animate-pulse text-center">Back verified.<br/>Transitioning to Front...</p>
+                          <p className="text-blue-400 font-semibold text-lg animate-pulse text-center">Back verified.<br/>Transitioning to Front...</p>
                         </div>
                       )}
 
                       {scanStep === "scan_front" && (
                         <div className="animate-in slide-in-from-right-4 duration-500">
-                          <p className="font-bold mb-2 text-blue-800">Step 2: Scan Front (Photo)</p>
+                          <p className="font-bold mb-2 text-blue-300">Step 2: Scan Front (Photo)</p>
                           <FrontIdCapture onCapture={handleFrontCapture} />
-                          {/* OCR Status Panel */}
                           {ocrStatus === "scanning" && (
-                            <div className="mt-3 flex items-center gap-2 text-xs text-purple-800 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
-                              <ScanSearch className="w-4 h-4 animate-pulse shrink-0" />
+                            <div className="mt-3 flex items-center gap-2 text-xs text-purple-300 bg-purple-950/20 border border-purple-800/50 rounded-lg px-3 py-2">
+                              <ScanSearch className="w-4 h-4 animate-pulse shrink-0 text-purple-400" />
                               Cross-checking printed Name &amp; FIN via OCR…
                             </div>
                           )}
                           {(ocrStatus === "mismatch" || ocrStatus === "failed") && (
-                            <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
-                              <div className="flex items-start gap-2 text-amber-900">
-                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
+                            <div className="mt-3 rounded-lg border border-amber-800/50 bg-amber-950/20 p-3 text-sm">
+                              <div className="flex items-start gap-2 text-amber-200">
+                                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-amber-400" />
                                 <div>
                                   <p className="font-semibold">Visual Mismatch Detected</p>
-                                  <p className="text-xs mt-0.5 opacity-80">{ocrReason}</p>
+                                  <p className="text-xs mt-0.5 opacity-85">{ocrReason}</p>
                                 </div>
                               </div>
                               <button
@@ -955,15 +945,15 @@ export default function RegisterPage() {
                                   setOcrStatus("skipped");
                                   void triggerAutoSubmit(fullName, nationalId.replace(/\s/g, ""), fcn, sex, dateOfBirth);
                                 }}
-                                className="mt-2 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-700"
+                                className="mt-2.5 w-full text-xs font-semibold px-3 py-1.5 rounded-lg bg-amber-600 text-white hover:bg-amber-500 transition-colors"
                               >
                                 Staff Bypass — Register Anyway
                               </button>
                             </div>
                           )}
                           {ocrStatus === "verified" && (
-                            <div className="mt-3 flex items-center gap-2 text-xs text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
-                              <CheckCircle2 className="w-4 h-4 shrink-0" />
+                            <div className="mt-3 flex items-center gap-2 text-xs text-emerald-300 bg-emerald-950/20 border border-emerald-900/50 rounded-lg px-3 py-2">
+                              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-450" />
                               OCR verified — {ocrReason}
                             </div>
                           )}
@@ -971,23 +961,23 @@ export default function RegisterPage() {
                       )}
 
                       {scanStep === "confirmation" && (
-                        <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-emerald-500 rounded-2xl bg-emerald-50 shadow-lg mt-4 animate-in zoom-in duration-500">
+                        <div className="flex flex-col items-center justify-center text-center p-6 border-2 border-emerald-500/50 rounded-2xl bg-emerald-950/20 shadow-2xl mt-4 animate-in zoom-in duration-500">
                           <LogoIcon className="w-16 h-16 mb-4" />
-                          <h3 className="text-xl font-black text-emerald-900 tracking-tight">Identity Passport</h3>
-                          <div className="mt-4 bg-white p-4 rounded-xl border border-emerald-200 w-full text-left space-y-2 shadow-inner">
+                          <h3 className="text-xl font-black text-emerald-300 tracking-tight">Identity Passport</h3>
+                          <div className="mt-4 bg-slate-950/60 p-4 rounded-xl border border-emerald-900/40 w-full text-left space-y-2 shadow-inner">
                             <div>
-                              <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">Name</p>
-                              <p className="text-lg font-semibold text-slate-800">{fullName}</p>
+                              <p className="text-xs text-slate-400 uppercase tracking-widest font-bold">Name</p>
+                              <p className="text-lg font-semibold text-slate-200">{fullName}</p>
                             </div>
                             <div>
-                              <p className="text-xs text-slate-500 uppercase tracking-widest font-bold mt-2">FIN</p>
-                              <p className="text-lg font-mono text-slate-800">{nationalId}</p>
+                              <p className="text-xs text-slate-400 uppercase tracking-widest font-bold mt-2">FIN</p>
+                              <p className="text-lg font-mono text-slate-200">{nationalId}</p>
                             </div>
                           </div>
                           <Button 
                             type="button"
                             onClick={() => triggerAutoSubmit(fullName, nationalId.replace(/\s/g, ""), fcn, sex, dateOfBirth)}
-                            className="w-full mt-6 bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl h-12 text-lg font-bold transition-all hover:scale-[1.02]"
+                            className="w-full mt-6 bg-emerald-600 hover:bg-emerald-500 text-white shadow-xl h-12 text-lg font-bold transition-all hover:scale-[1.02]"
                           >
                             Confirm Identity
                           </Button>
@@ -997,18 +987,18 @@ export default function RegisterPage() {
                   )}
 
                   {nidExistsError && !isVerified && (
-                    <div className="text-sm text-red-600 mt-1 font-medium">
+                    <div className="text-sm text-red-400 mt-1 font-medium">
                       {nidExistsError}
                     </div>
                   )}
 
                   {isVerified && nationalId && (
-                    <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50/80 p-3 text-sm text-emerald-900">
-                      <div className="flex items-center font-semibold text-emerald-800">
-                        <CheckCircle2 className="w-4 h-4 mr-2 shrink-0" />
+                    <div className="mt-2 rounded-lg border border-emerald-800/50 bg-emerald-950/20 p-3 text-sm text-emerald-250">
+                      <div className="flex items-center font-semibold text-emerald-300">
+                        <CheckCircle2 className="w-4 h-4 mr-2 shrink-0 text-emerald-450" />
                         Verification successful
                       </div>
-                      <p className="mt-1 pl-6 text-xs text-emerald-800/90">
+                      <p className="mt-1 pl-6 text-xs text-emerald-450/80">
                         Your Fayda FIN matched the Verified Registry. Name, date of birth, and sex were filled in automatically.
                       </p>
                     </div>
@@ -1019,34 +1009,33 @@ export default function RegisterPage() {
 
               {/* No-ID manual demographics (only shown in NO_ID mode) */}
               {identityMode === "NO_ID" && (
-                <div className="mt-4 p-4 rounded-xl border border-emerald-200 bg-emerald-50/40 space-y-3">
-                  <div className="text-sm font-semibold text-emerald-900">
+                <div className="mt-4 p-4 rounded-xl border border-emerald-800/50 bg-emerald-950/10 space-y-3">
+                  <div className="text-sm font-semibold text-emerald-300">
                     Manual Registration (No National ID)
                   </div>
-                  <div className="text-xs text-emerald-800">
-                    A unique <strong>MyHealth ID</strong> (<code className="text-emerald-900">MHID-XXXXXX</code>) will be created securely on the server when you submit.
+                  <div className="text-xs text-emerald-400">
+                    A unique <strong>MyHealth ID</strong> (<code className="text-emerald-300">MHID-XXXXXX</code>) will be created securely on the server when you submit.
                   </div>
                 </div>
               )}
 
-              {/* No-ID path confirmation badge */}
               {identityMode === "NO_ID" && (
-                <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-sm">
-                  <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                  <span className="text-emerald-800 font-medium">{t.registration.noIdBadgeText}</span>
+                <div className="flex items-center gap-3 p-3 rounded-lg bg-emerald-950/20 border border-emerald-800/50 text-sm">
+                  <CheckCircle2 className="w-5 h-5 text-emerald-450 shrink-0" />
+                  <span className="text-emerald-300 font-medium">{t.registration.noIdBadgeText}</span>
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="age">Age</Label>
-                  <Input id="age" name="age" type="number" min="0" placeholder="Age" required />
+                  <Label htmlFor="age" className="text-slate-300">Age</Label>
+                  <Input id="age" name="age" type="number" min="0" placeholder="Age" required className="bg-slate-950 border-slate-800 text-slate-100" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="sex">Sex</Label>
+                  <Label htmlFor="sex" className="text-slate-300">Sex</Label>
                   <Select name="sex" required value={sex} onValueChange={setSex}>
-                    <SelectTrigger><SelectValue placeholder="Select..." /></SelectTrigger>
-                    <SelectContent>
+                    <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-100"><SelectValue placeholder="Select..." /></SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
                       <SelectItem value="Male">Male</SelectItem>
                       <SelectItem value="Female">Female</SelectItem>
                     </SelectContent>
@@ -1054,9 +1043,9 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className={identityMode === "FAYDA" ? "grid grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}>
+              <div className={identityMode === "FAYDA" ? "grid grid-cols-1 sm:grid-cols-2 gap-4" : "grid grid-cols-1 gap-4"}>
                 <div className="space-y-2">
-                  <Label htmlFor="dateOfBirth">Date of Birth</Label>
+                  <Label htmlFor="dateOfBirth" className="text-slate-300">Date of Birth</Label>
                   <Input
                     id="dateOfBirth"
                     name="dateOfBirth"
@@ -1065,19 +1054,20 @@ export default function RegisterPage() {
                     onChange={(e) => setDateOfBirth(e.target.value)}
                     disabled={identityMode === "FAYDA" && isVerified}
                     required
+                    className="bg-slate-950 border-slate-800 text-slate-100"
                   />
                 </div>
                 {identityMode === "FAYDA" && (
                   <div className="space-y-2">
                     <div className="flex flex-wrap items-end justify-between gap-2">
-                      <Label htmlFor="fcn">FCN (scan or type)</Label>
+                      <Label htmlFor="fcn" className="text-slate-300">FCN (scan or type)</Label>
                       {fcnFormatOk && !isVerified && (
-                        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-800 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full shrink-0">
+                        <span className="text-[10px] font-semibold uppercase tracking-wide text-emerald-400 bg-emerald-950/30 border border-emerald-900/50 px-2 py-0.5 rounded-full shrink-0">
                           Fayda format verified (16-digit FCN)
                         </span>
                       )}
                     </div>
-                    <p className="text-[10px] text-slate-400 -mt-1">Length check only — not proof the ID was issued by Fayda.</p>
+                    <p className="text-[10px] text-slate-500 -mt-1">Length check only — not proof the ID was issued by Fayda.</p>
                     <Input
                       id="fcn"
                       name="fcn"
@@ -1085,15 +1075,15 @@ export default function RegisterPage() {
                       disabled={isVerified}
                       onChange={(e) => setFcn(e.target.value.replace(/\D/g, "").slice(0, 16))}
                       placeholder="16-digit FCN (front barcode)"
-                      className={isVerified ? "bg-slate-50" : ""}
+                      className={isVerified ? "bg-slate-950 border-slate-800 text-slate-100" : "bg-slate-950 border-slate-800 text-slate-100"}
                     />
                   </div>
                 )}
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                  <Label htmlFor="phoneNumber" className="text-slate-300">Phone Number</Label>
                   <Input 
                     id="phoneNumber" 
                     name="phoneNumber" 
@@ -1103,13 +1093,14 @@ export default function RegisterPage() {
                     onChange={(e) => setPhone(e.target.value.replace(/\s+/g, ''))}
                     pattern="^(09|07)\d{8}$" 
                     title="Phone number must be 10 digits starting with 09 or 07" 
+                    className="bg-slate-950 border-slate-800 text-slate-100"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="maritalStatus">Marital Status</Label>
+                  <Label htmlFor="maritalStatus" className="text-slate-300">Marital Status</Label>
                   <Select name="maritalStatus">
-                    <SelectTrigger><SelectValue placeholder="Select Status..." /></SelectTrigger>
-                    <SelectContent>
+                    <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-100"><SelectValue placeholder="Select Status..." /></SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
                       <SelectItem value="Single">Single</SelectItem>
                       <SelectItem value="Married">Married</SelectItem>
                       <SelectItem value="Divorced">Divorced</SelectItem>
@@ -1118,10 +1109,10 @@ export default function RegisterPage() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="educationalStatus">Educational Status</Label>
+                  <Label htmlFor="educationalStatus" className="text-slate-300">Educational Status</Label>
                   <Select name="educationalStatus">
-                    <SelectTrigger><SelectValue placeholder="Select Level..." /></SelectTrigger>
-                    <SelectContent>
+                    <SelectTrigger className="bg-slate-950 border-slate-800 text-slate-100"><SelectValue placeholder="Select Level..." /></SelectTrigger>
+                    <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
                       <SelectItem value="None">None</SelectItem>
                       <SelectItem value="Primary">Primary</SelectItem>
                       <SelectItem value="Secondary">Secondary</SelectItem>
@@ -1131,59 +1122,59 @@ export default function RegisterPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="occupation">Occupation</Label>
-                  <Input id="occupation" name="occupation" placeholder="Occupation" />
+                  <Label htmlFor="occupation" className="text-slate-300">Occupation</Label>
+                  <Input id="occupation" name="occupation" placeholder="Occupation" className="bg-slate-950 border-slate-800 text-slate-100" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="religion">Religion</Label>
-                  <Input id="religion" name="religion" placeholder="Religion (Optional)" />
+                  <Label htmlFor="religion" className="text-slate-300">Religion</Label>
+                  <Input id="religion" name="religion" placeholder="Religion (Optional)" className="bg-slate-950 border-slate-800 text-slate-100" />
                 </div>
               </div>
 
             {/* Lock overlay — shown when Fayda path but not yet verified */}
             {identityMode === "FAYDA" && !isVerified ? (
-              <div className="py-12 bg-slate-50 border border-slate-200 border-dashed rounded-xl flex flex-col items-center justify-center text-center opacity-70">
-                <div className="w-16 h-16 bg-slate-200 rounded-full flex items-center justify-center mb-4">
+              <div className="py-12 bg-slate-900/20 border border-slate-800 border-dashed rounded-xl flex flex-col items-center justify-center text-center opacity-75">
+                <div className="w-16 h-16 bg-slate-850 rounded-full flex items-center justify-center mb-4 border border-slate-800">
                   <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
                 </div>
-                <h3 className="text-lg font-semibold text-slate-700">{t.registration.faydaVerificationRequired}</h3>
-                <p className="text-slate-500 max-w-sm mt-1">{t.registration.faydaUnlockText}</p>
+                <h3 className="text-lg font-bold text-slate-300">{t.registration.faydaVerificationRequired}</h3>
+                <p className="text-slate-500 max-w-sm mt-1 text-xs">{t.registration.faydaUnlockText}</p>
               </div>
             ) : isVerified ? (
               <div className="animate-in fade-in slide-in-from-top-4 duration-500 space-y-8">
                 {/* 2. Address & Contact */}
                 <div className="space-y-4 pt-2">
-              <h3 className="text-lg font-semibold text-slate-800 border-b pb-2">{t.registration.addressTitle}</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <h3 className="text-lg font-bold text-slate-200 border-b border-slate-800 pb-2">{t.registration.addressTitle}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="addressRegion">Region</Label>
-                  <Input id="addressRegion" name="addressRegion" placeholder="Region (Kilil) e.g. Amhara" required />
+                  <Label htmlFor="addressRegion" className="text-slate-300">Region</Label>
+                  <Input id="addressRegion" name="addressRegion" placeholder="Region (Kilil) e.g. Amhara" required className="bg-slate-950 border-slate-800 text-slate-100" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="addressZone">Zone</Label>
-                  <Input id="addressZone" name="addressZone" placeholder="Zone / Sub-city" required />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="addressWoreda">Woreda</Label>
-                  <Input id="addressWoreda" name="addressWoreda" placeholder="Woreda" required />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="addressKebele">Kebele</Label>
-                  <Input id="addressKebele" name="addressKebele" placeholder="Kebele" required />
+                  <Label htmlFor="addressZone" className="text-slate-300">Zone</Label>
+                  <Input id="addressZone" name="addressZone" placeholder="Zone / Sub-city" required className="bg-slate-950 border-slate-800 text-slate-100" />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="emergencyContactName">Emergency Contact Name</Label>
-                  <Input id="emergencyContactName" name="emergencyContactName" placeholder="Full Name" />
+                  <Label htmlFor="addressWoreda" className="text-slate-300">Woreda</Label>
+                  <Input id="addressWoreda" name="addressWoreda" placeholder="Woreda" required className="bg-slate-950 border-slate-800 text-slate-100" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="emergencyContactPhone">Emergency Contact Phone</Label>
-                  <Input id="emergencyContactPhone" name="emergencyContactPhone" placeholder="Phone Number" />
+                  <Label htmlFor="addressKebele" className="text-slate-300">Kebele</Label>
+                  <Input id="addressKebele" name="addressKebele" placeholder="Kebele" required className="bg-slate-950 border-slate-800 text-slate-100" />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactName" className="text-slate-300">Emergency Contact Name</Label>
+                  <Input id="emergencyContactName" name="emergencyContactName" placeholder="Full Name" className="bg-slate-950 border-slate-800 text-slate-100" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContactPhone" className="text-slate-300">Emergency Contact Phone</Label>
+                  <Input id="emergencyContactPhone" name="emergencyContactPhone" placeholder="Phone Number" className="bg-slate-950 border-slate-800 text-slate-100" />
                 </div>
               </div>
             </div>
@@ -1196,9 +1187,13 @@ export default function RegisterPage() {
 
           {!emergencyFastPath && (
           <CardFooter>
-            <Button className="w-full" size="lg" disabled={loading || !isVerified || !identityMode} type="submit">
+            <button 
+              className="w-full h-12 flex items-center justify-center gap-2 text-base font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg border border-blue-500/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none" 
+              disabled={loading || !isVerified || !identityMode} 
+              type="submit"
+            >
               {loading ? t.registration.registering : t.registration.completeRegistration}
-            </Button>
+            </button>
           </CardFooter>
           )}
         </form>
