@@ -8,7 +8,6 @@ import { Badge } from "@/components/ui/badge";
 import { Pill, CheckCircle2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GlobalPatientLookup from "@/components/GlobalPatientLookup";
-import { ADMIN_ROLES } from "@/lib/locales/enums";
 import { ADMIN_ROLES, PHARMACY_ROLES } from "@/lib/locales/enums";
 
 const MEDICATION_MASTER_LIST = [
