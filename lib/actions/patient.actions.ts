@@ -198,12 +198,16 @@ export async function registerPatient(data: {
     if (idValue !== null) {
       const existing = await prisma.patient.findFirst({
         where: {
+          // CROSS_FACILITY: global duplicate-check during registration — must
+          // search all facilities so we never create a second record for the
+          // same National ID at a different hospital.
+          ...CROSS_FACILITY,
           OR: [
             { nationalId: idValue },
             { faydaId: idValue },
             { hospitalId: idValue },
-          ]
-        }
+          ],
+        } as any
       });
       if (existing) {
         if (existing.fullName !== "Pending Registration" && !existing.healthId.startsWith("TMP-")) {
@@ -1098,5 +1102,62 @@ export async function searchPatientMasterRecord(query: string) {
   } catch (error: any) {
     console.error("❌ DATABASE ERROR [searchPatientMasterRecord]:", error.message);
     return [];
+  }
+}
+
+/**
+ * getPatientByNationalId()
+ *
+ * Global identity lookup — resolves a patient record across ALL facilities
+ * (Estonia e-Health cross-facility model) using the CROSS_FACILITY bypass token.
+ *
+ * Searches every known identity surface:
+ *   • nationalId  — Fayda National ID digits (12 or 16 chars)
+ *   • faydaId     — Fayda FIN stored on the patient record
+ *   • hospitalId  — legacy / MHID-XXXXXX card number
+ *   • healthId    — system-generated MyHealth public ID
+ *   • internalId  — internal MongoDB-derived identifier
+ *   • id          — raw MongoDB ObjectId (used by internal tooling)
+ *
+ * The CROSS_FACILITY spread injects `__bypassTenantFilter: true` which is
+ * intercepted by the Prisma extension in lib/prisma.ts.  The flag is stripped
+ * before the query reaches the driver — no org isolation is applied for this
+ * read-only identity lookup.
+ *
+ * All write / transactional operations remain strictly scoped to the
+ * session's organizationId — this function only resolves identity.
+ */
+export async function getPatientByNationalId(searchQuery: string) {
+  try {
+    const q = searchQuery?.trim();
+    if (!q) return null;
+
+    // CROSS_FACILITY: global identity resolution — no org boundary applied.
+    // The Prisma extension strips __bypassTenantFilter before hitting the DB.
+    const patient = await prisma.patient.findFirst({
+      where: {
+        ...CROSS_FACILITY,
+        OR: [
+          { nationalId: q },
+          { faydaId:    q },
+          { hospitalId: q },
+          { healthId:   q },
+          { internalId: q },
+          { id:         q },
+        ],
+      } as any,
+      // Include core clinical context so callers don't need a second query
+      include: {
+        vitals:        { orderBy: { createdAt: "desc" }, take: 1 },
+        clinicalExam:  true,
+        investigations:{ orderBy: { createdAt: "desc" }, take: 3 },
+        prescriptions: { orderBy: { createdAt: "desc" }, take: 3 },
+      },
+    });
+
+    return patient ? JSON.parse(JSON.stringify(patient)) : null;
+  } catch (error: any) {
+    console.error("❌ DATABASE ERROR [getPatientByNationalId]:", error.message);
+    throw new Error(error.message || "Failed to retrieve patient by National ID.");
   }
 }

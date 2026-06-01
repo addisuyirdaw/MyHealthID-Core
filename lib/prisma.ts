@@ -100,7 +100,8 @@ function extractBypass(where: Record<string, unknown> | undefined): {
 async function applyStandardOrgFilter(
   operation: string,
   args: any,
-  query: (a: any) => Promise<unknown>
+  query: (a: any) => Promise<unknown>,
+  modelName: string = "patient"
 ): Promise<unknown> {
   const ctx = await getTenantContextOrNull();
 
@@ -122,6 +123,14 @@ async function applyStandardOrgFilter(
       return query({ ...args, data: { organizationId, ...existingData } });
     }
     return query(args);
+  }
+
+  // ── Scoped unique reads fallback: convert to findFirst/findFirstOrThrow ───
+  if (operation === "findUnique") {
+    return (prisma as any)[modelName].findFirst({ ...args, where: { ...cleanWhere, organizationId } });
+  }
+  if (operation === "findUniqueOrThrow") {
+    return (prisma as any)[modelName].findFirstOrThrow({ ...args, where: { ...cleanWhere, organizationId } });
   }
 
   // ── Reads & scoped writes: inject organizationId into where ───────────────
@@ -184,6 +193,8 @@ function buildExtension(base: PrismaClient) {
         findMany:          async ({ args, query }) => applyStandardOrgFilter("findMany",         args, query),
         findFirst:         async ({ args, query }) => applyStandardOrgFilter("findFirst",        args, query),
         findFirstOrThrow:  async ({ args, query }) => applyStandardOrgFilter("findFirstOrThrow", args, query),
+        findUnique:        async ({ args, query }) => applyStandardOrgFilter("findUnique",        args, query, "patient"),
+        findUniqueOrThrow: async ({ args, query }) => applyStandardOrgFilter("findUniqueOrThrow", args, query, "patient"),
         count:             async ({ args, query }) => applyStandardOrgFilter("count",            args, query),
         create:            async ({ args, query }) => applyStandardOrgFilter("create",           args, query),
         update:            async ({ args, query }) => applyStandardOrgFilter("update",           args, query),

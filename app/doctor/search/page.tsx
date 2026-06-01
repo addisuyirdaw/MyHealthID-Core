@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Search, AlertCircle } from "lucide-react";
 import prisma from "@/lib/prisma";
+import { CROSS_FACILITY } from "@/lib/utils/tenantContext";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ClinicActivityChart } from "@/components/ClinicActivityChart";
@@ -15,13 +16,21 @@ export default async function DoctorSearchPage({ searchParams }: { searchParams:
 
   if (query) {
     searched = true;
+    // CROSS_FACILITY: the Patient Lookup Portal is a cross-facility identity
+    // search — a doctor may scan a patient registered at another facility.
+    // The CROSS_FACILITY spread injects __bypassTenantFilter: true which is
+    // intercepted and stripped by the Prisma extension before hitting the DB.
     patient = await prisma.patient.findFirst({
       where: {
+        ...CROSS_FACILITY,
         OR: [
-          { healthId: query },
-          { nationalId: query }
-        ]
-      }
+          { healthId:   query },
+          { nationalId: query },
+          { faydaId:    query },
+          { hospitalId: query },
+          { internalId: query },
+        ],
+      } as any
     });
 
     // Auto-Redirect directly to the doctor's view if a match is successfully found

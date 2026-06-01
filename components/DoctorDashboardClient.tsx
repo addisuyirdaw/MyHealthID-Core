@@ -10,9 +10,16 @@ import {
   HeartPulse, AlertTriangle, Search, Stethoscope, Users, Zap, Clock, Activity,
   Calendar, ChevronRight, RefreshCw, Building2, User, FlaskConical, Pill,
   DatabaseZap, Loader2, ArrowUpRight, Globe, X, CheckCircle2,
-  ShieldCheck, TrendingUp, ClipboardList, Send,
+  ShieldCheck, TrendingUp, ClipboardList, Send, MapPin, FileText, Fingerprint,
 } from "lucide-react";
 import { getActivePatientsForFacility, searchPatientMasterRecord } from "@/lib/actions/patient.actions";
+
+/** Returns true when the query looks like a National ID / Health ID (not a name). */
+function isIdLike(q: string): boolean {
+  const trimmed = q.trim();
+  // Numeric IDs (Fayda FIN: 12/16 digits) or alphanumeric IDs (MHID-XXXXXX)
+  return /^[0-9A-Za-z\-]{6,}$/.test(trimmed) && !/\s/.test(trimmed);
+}
 
 type Patient = any;
 
@@ -126,6 +133,20 @@ export default function DoctorDashboardClient({
   const [showGlobal, setShowGlobal] = useState(false);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
+  /**
+   * Estonia model: pressing Enter in the search box triggers an immediate
+   * cross-facility patient lookup via /doctor/search which auto-redirects
+   * to the patient chart if a national match is found.
+   */
+  const handleSearchKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && search.trim().length >= 2) {
+      e.preventDefault();
+      // Navigate to the dedicated search page which performs a global DB lookup
+      // and auto-redirects to the patient chart on a single national match.
+      router.push(`/doctor/search?query=${encodeURIComponent(search.trim())}`);
+    }
+  }, [search, router]);
+
   // Live clock
   useEffect(() => {
     const t = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -169,11 +190,16 @@ export default function DoctorDashboardClient({
     });
   }, [patients, search, filter]);
 
-  // Global fallback search
+  // ── Estonia cross-facility global search ──────────────────────────────────
+  // Fires as soon as the local queue has no match.
+  // ID-like queries (National ID, Health ID) use a 0 ms delay for instant
+  // lookup; name-based queries debounce at 250 ms.
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!search || search.trim().length < 2) { setShowGlobal(false); setGlobalResults([]); return; }
     if (filteredPatients.length > 0) { setShowGlobal(false); setGlobalResults([]); return; }
+
+    const delay = isIdLike(search) ? 0 : 250;
 
     debounceRef.current = setTimeout(async () => {
       setIsSearching(true);
@@ -187,7 +213,7 @@ export default function DoctorDashboardClient({
       } finally {
         setIsSearching(false);
       }
-    }, 600);
+    }, delay);
 
     return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
   }, [search, filteredPatients.length]);
@@ -235,28 +261,40 @@ export default function DoctorDashboardClient({
 
         <div className="w-px h-7 bg-neutral-800" />
 
-        {/* Search */}
-        <div className="flex-1 relative max-w-sm">
-          {isSearching ? (
-            <Loader2 className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />
-          ) : (
-            <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
-          )}
-          <input
-            id="doctor-search-input"
-            type="text"
-            placeholder="Search by name, Health ID, NID..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-neutral-800 border border-neutral-700 text-sm text-white rounded-lg pl-9 pr-8 py-2 outline-none focus:border-blue-500/50 transition-all placeholder:text-neutral-600"
-          />
-          {search && (
-            <button
-              onClick={() => { setSearch(""); setShowGlobal(false); setGlobalResults([]); }}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
+        {/* ── Estonia National ID Search ── */}
+        <div className="flex-1 max-w-sm">
+          <div className="relative">
+            {isSearching ? (
+              <Loader2 className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-blue-400 animate-spin" />
+            ) : (
+              <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-neutral-500" />
+            )}
+            <input
+              id="doctor-search-input"
+              type="text"
+              placeholder="Search name, Health ID, National ID…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              className="w-full bg-neutral-800 border border-neutral-700 text-sm text-white rounded-lg pl-9 pr-8 py-2 outline-none focus:border-blue-500/60 transition-all placeholder:text-neutral-600"
+            />
+            {search && (
+              <button
+                onClick={() => { setSearch(""); setShowGlobal(false); setGlobalResults([]); }}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-neutral-300"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          {/* Estonia hint: appears when no local results — guides doctor to press Enter */}
+          {search.trim().length >= 2 && filteredPatients.length === 0 && (
+            <div className="mt-1 flex items-center gap-1.5">
+              <Globe className="w-3 h-3 text-blue-400" />
+              <span className="text-[10px] text-blue-400">
+                {isSearching ? "Searching national registry…" : "Press ↵ Enter to open national health record"}
+              </span>
+            </div>
           )}
         </div>
 
@@ -339,35 +377,142 @@ export default function DoctorDashboardClient({
 
         {/* LEFT: Patient Table */}
         <div className="flex-1 overflow-auto">
-          {/* Global search fallback */}
+          {/* ── Estonia: National Patient Registry Panel ───────────────────────
+               Renders as a prominent full-width banner whenever local results
+               are empty and a cross-facility lookup has run. The doctor sees
+               the patient's national record immediately without navigating away.
+          ─────────────────────────────────────────────────────────────────── */}
           {search.trim().length >= 2 && filteredPatients.length === 0 && (
-            <div className="px-6 py-4 border-b border-neutral-800 space-y-3">
+            <div className="px-6 pt-4 pb-2">
+
+              {/* Loading state */}
               {isSearching && (
-                <div className="flex items-center gap-2 text-xs text-blue-400">
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" /> Searching entire patient database…
+                <div className="flex items-center gap-3 rounded-xl border border-blue-500/30 bg-blue-950/20 px-4 py-3">
+                  <Loader2 className="w-4 h-4 text-blue-400 animate-spin shrink-0" />
+                  <div>
+                    <p className="text-xs font-semibold text-blue-300">Searching National Health Registry…</p>
+                    <p className="text-[10px] text-neutral-500 mt-0.5">Querying all facilities across the country</p>
+                  </div>
                 </div>
               )}
+
+              {/* Results */}
               {!isSearching && showGlobal && (
                 <div className="space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Globe className="w-3.5 h-3.5 text-blue-400" />
-                    <span className="text-xs text-blue-400 font-semibold">
-                      {globalResults.length > 0
-                        ? `${globalResults.length} patient${globalResults.length > 1 ? "s" : ""} found (not in today's queue)`
-                        : "No patient found in system."}
-                    </span>
+                  {/* Header banner */}
+                  <div className="flex items-center justify-between rounded-xl border border-blue-500/30 bg-gradient-to-r from-blue-950/40 to-indigo-950/30 px-4 py-2.5">
+                    <div className="flex items-center gap-2">
+                      <Globe className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs font-bold text-blue-300 uppercase tracking-wider">National Patient Registry</span>
+                      {globalResults.length > 0 && (
+                        <span className="bg-blue-500/20 border border-blue-500/40 text-blue-300 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          {globalResults.length} match{globalResults.length > 1 ? "es" : ""} found
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      onClick={() => router.push(`/doctor/search?query=${encodeURIComponent(search.trim())}`)}
+                      className="flex items-center gap-1 text-[10px] text-blue-400 hover:text-blue-200 transition-colors"
+                    >
+                      Advanced lookup <ArrowUpRight className="w-3 h-3" />
+                    </button>
                   </div>
-                  {globalResults.map((p) => (
-                    <GlobalSearchResult
-                      key={p.id}
-                      patient={p}
-                      onOpen={() => router.push(`/doctor/patient/${p.id}`)}
-                      onDismiss={() => {
-                        setGlobalResults((prev) => prev.filter((r) => r.id !== p.id));
-                        if (globalResults.length <= 1) setShowGlobal(false);
-                      }}
-                    />
-                  ))}
+
+                  {/* No match */}
+                  {globalResults.length === 0 && (
+                    <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 px-4 py-5 text-center">
+                      <Fingerprint className="w-8 h-8 text-neutral-700 mx-auto mb-2" />
+                      <p className="text-sm font-semibold text-neutral-400">No patient found in national database</p>
+                      <p className="text-xs text-neutral-600 mt-1">The ID or name does not match any registered patient across all facilities.</p>
+                      <button
+                        onClick={() => router.push(`/doctor/search?query=${encodeURIComponent(search.trim())}`)}
+                        className="mt-3 inline-flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 border border-blue-500/30 rounded-lg px-3 py-1.5 transition-all hover:bg-blue-950/30"
+                      >
+                        <Search className="w-3 h-3" /> Try full search
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Match cards */}
+                  {globalResults.map((p) => {
+                    const latestVital = p.vitals?.[0];
+                    return (
+                      <div
+                        key={p.id}
+                        className="rounded-xl border border-blue-500/30 bg-gradient-to-br from-blue-950/30 to-neutral-900 overflow-hidden"
+                      >
+                        {/* Card header */}
+                        <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-600/20 border border-blue-500/40 flex items-center justify-center shrink-0 mt-0.5">
+                              <User className="w-5 h-5 text-blue-400" />
+                            </div>
+                            <div>
+                              <p className="font-bold text-white text-sm">{p.fullName}</p>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 mt-1">
+                                <span className="text-[10px] font-mono text-blue-300">{p.healthId}</span>
+                                <span className="text-[10px] text-neutral-500">{p.sex} · {p.age} yrs</span>
+                                {p.ward && <span className="text-[10px] text-neutral-500">{p.ward.replace(/_/g, " ")}</span>}
+                              </div>
+                              {p.chiefComplaint && (
+                                <p className="text-[10px] text-neutral-400 mt-0.5">
+                                  Chief complaint: <span className="text-neutral-300">{p.chiefComplaint}</span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex flex-col items-end gap-1.5 shrink-0">
+                            <TriageBadge status={p.triageStatus} />
+                            <span className={`text-[9px] px-1.5 py-0.5 rounded font-medium ${
+                              p.status === "ACTIVE" ? "bg-emerald-900/40 text-emerald-400" : "bg-neutral-800 text-neutral-500"
+                            }`}>{p.status || "UNKNOWN"}</span>
+                          </div>
+                        </div>
+
+                        {/* Clinical snapshot */}
+                        <div className="grid grid-cols-3 gap-px bg-neutral-800/50 border-t border-blue-500/20">
+                          <div className="bg-neutral-900/60 px-3 py-2">
+                            <p className="text-[9px] uppercase tracking-wider text-neutral-600 font-semibold mb-0.5">Vitals</p>
+                            <p className="text-[10px] text-neutral-300 font-mono">
+                              {latestVital ? `BP ${latestVital.bp} · SpO₂ ${latestVital.spO2 ?? "—"}%` : "Not recorded"}
+                            </p>
+                          </div>
+                          <div className="bg-neutral-900/60 px-3 py-2">
+                            <p className="text-[9px] uppercase tracking-wider text-neutral-600 font-semibold mb-0.5">Facility</p>
+                            <p className="text-[10px] text-neutral-300 truncate">
+                              {p.facilityName || p.organizationId || "Unknown"}
+                            </p>
+                          </div>
+                          <div className="bg-neutral-900/60 px-3 py-2">
+                            <p className="text-[9px] uppercase tracking-wider text-neutral-600 font-semibold mb-0.5">National ID</p>
+                            <p className="text-[10px] font-mono text-neutral-300">
+                              {p.nationalId || p.faydaId || "—"}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* CTA */}
+                        <div className="flex items-center gap-2 px-4 py-3 border-t border-blue-500/20 bg-blue-950/20">
+                          <button
+                            onClick={() => router.push(`/doctor/patient/${p.id}`)}
+                            className="flex-1 flex items-center justify-center gap-2 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all"
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            Open National Health Record
+                          </button>
+                          <button
+                            onClick={() => {
+                              setGlobalResults((prev) => prev.filter((r) => r.id !== p.id));
+                              if (globalResults.length <= 1) setShowGlobal(false);
+                            }}
+                            className="p-2 text-neutral-600 hover:text-neutral-400 rounded-lg hover:bg-neutral-800 transition-all"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>
