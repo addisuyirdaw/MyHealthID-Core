@@ -358,10 +358,10 @@ export async function POST(req: Request) {
     await prisma.accessLog.create({
       data: {
         patientId: patient.id,
+        organizationId: organizationId || undefined,
         accessedByName: `Legacy API Bridge (${providerName})`,
-        facility: providerName,
-        role: "SYSTEM",
-        action: "RESTRICT" // mark as secure interop update
+        // No specific role for system bridges
+        action: "VIEW"
       }
     });
 

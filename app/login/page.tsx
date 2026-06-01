@@ -191,7 +191,7 @@ function LoginForm() {
           </div>
 
           {/* Role hidden field default */}
-          <input type="hidden" name="role" value="ADMIN" />
+          <input type="hidden" name="role" value="HOSPITAL_CEO" />
 
           <Button
             type="submit"

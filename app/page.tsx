@@ -3,6 +3,7 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import { Button } from "@/components/ui/button";
 import { HeartPulse, ShieldCheck, Activity, Users, Stethoscope, User } from "lucide-react";
+import { ADMIN_ROLES, CLINICAL_ROLES } from "@/lib/locales/enums";
 import { LocalizedText } from "@/components/LocalizedText";
 import { LogoIcon } from "@/components/LogoIcon";
 import { CitizenPassportLookup } from "@/components/CitizenPassportLookup";
@@ -16,6 +17,7 @@ export default async function Home() {
   }
   const cookieStore = cookies();
   const userRole = cookieStore.get('userRole')?.value;
+  const canAccessDoctorPortal = !!userRole && (CLINICAL_ROLES.includes(userRole as any) || ADMIN_ROLES.includes(userRole as any));
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col justify-center relative overflow-hidden">
@@ -71,7 +73,7 @@ export default async function Home() {
                 <User className="w-5 h-5 mr-2" /> <LocalizedText tKey="nav.citizenSignIn" />
               </Button>
             </Link>
-            {(userRole === 'DOCTOR' || userRole === 'ADMIN') ? (
+            {canAccessDoctorPortal ? (
                 <Link href="/doctor/search" className="w-full">
                   <Button size="lg" variant="outline" className="w-full border-blue-200 text-blue-700 hover:bg-blue-50 text-lg h-14 bg-white">
                     <Stethoscope className="w-5 h-5 mr-2" /> Doctor Portal

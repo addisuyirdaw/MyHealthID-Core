@@ -19,6 +19,11 @@ async function main() {
       data: {
         id: testOrgId,
         name: "SmartCare Legacy EMR Clinic - Addis Ababa",
+        nameLng: { en: "SmartCare Legacy EMR Clinic - Addis Ababa", am: "ስማርትኬር እባክል ኤምአር ክሊኒክ - አዲስ አበባ" },
+        code: testOrgId,
+        registrationId: testOrgId,
+        ownershipType: "PRIVATE",
+        serviceType: "HEALTH_CENTER",
         region: "Addis Ababa",
         zone: "Zone 1",
         woreda: "Woreda 03",

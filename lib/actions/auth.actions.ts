@@ -2,6 +2,16 @@
 
 import crypto from "crypto";
 import prisma from "@/lib/prisma";
+import {
+  normalizeFacilityServiceType,
+  normalizeHealthcareRole,
+  ADMIN_ROLES,
+  CLINICAL_ROLES,
+  TRIAGE_ROLES,
+  LAB_ROLES,
+  PHARMACY_ROLES,
+  REGISTRATION_ROLES,
+} from "@/lib/locales/enums";
 
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -13,7 +23,14 @@ export async function ensureDefaultOrganization(): Promise<string> {
   });
   if (!org) {
     org = await prisma.organization.create({
-      data: { name: orgName }
+      data: {
+        name: orgName,
+        nameLng: { en: orgName, am: orgName },
+        code: "DBRH",
+        registrationId: `REG-${Date.now()}`,
+        ownershipType: "PUBLIC",
+        serviceType: "REFERRAL_HOSPITAL",
+      },
     });
     console.log(`[TENANCY] Auto-created default organization: ${orgName}`);
   }
@@ -44,12 +61,18 @@ export async function registerOrganization(data: {
     const hex = Math.floor(4096 + Math.random() * 61439).toString(16).toUpperCase(); // 4-char hex
 
     const orgId = `MH-${reg}-${wor}-${coreWord}-${hex}`;
-    const serializedName = `${data.officialName} (${data.facilityType})`;
+    const normalizedFacilityType = normalizeFacilityServiceType(data.facilityType);
+    const serializedName = `${data.officialName} (${normalizedFacilityType})`;
     
     const org = await prisma.organization.create({
       data: {
         id: orgId,
-        name: `${serializedName} - ${data.kilil}, ${data.zone}, ${data.woreda}, ${data.kebele}`
+        name: `${serializedName} - ${data.kilil}, ${data.zone}, ${data.woreda}, ${data.kebele}`,
+        nameLng: { en: data.officialName, am: data.officialName },
+        code: orgId,
+        registrationId: orgId,
+        ownershipType: "PUBLIC",
+        serviceType: normalizedFacilityType as any,
       }
     });
 
@@ -113,12 +136,13 @@ export async function onboardHealthcareProfessional(data: {
 
     const nationalId = `onb-nid-${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Math.random().toString(36).substring(2, 6)}`;
 
+    const normalizedRole = normalizeHealthcareRole(data.role);
     const newUser = await prisma.user.create({
       data: {
         email,
         emailOrUsername,
         passwordHash: hashPassword(data.pin),
-        role: data.role as any,
+        role: normalizedRole as any,
         firstName,
         lastName,
         professionalLicenseNumber: data.licenseNumber,
@@ -187,12 +211,13 @@ export async function registerHealthcareProfessional(data: {
 
     const nationalId = `self-nid-${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Math.random().toString(36).substring(2, 6)}`;
 
+    const normalizedRole = normalizeHealthcareRole(data.role);
     const newUser = await prisma.user.create({
       data: {
         email,
         emailOrUsername,
         passwordHash: hashPassword(data.pin),
-        role: data.role as any,
+        role: normalizedRole as any,
         firstName,
         lastName,
         professionalLicenseNumber: data.licenseNumber,
@@ -252,7 +277,7 @@ export async function loginUser(formData: FormData) {
           email: cleanEmail,
           emailOrUsername: cleanEmail,
           passwordHash: hashPassword("demo-password-hash"),
-          role: "DOCTOR",
+          role: "GENERAL_PRACTITIONER",
           firstName: "Dawit",
           lastName: "Tadesse",
           professionalLicenseNumber: "MD-2026-ETH",
@@ -279,8 +304,8 @@ export async function loginUser(formData: FormData) {
     }
 
     if (!dbUser) {
-      // First login for a new facility → create as ADMIN so they can manage the hospital
-      const formRole = (formData.get("role") as string) || "ADMIN";
+      // First login for a new facility → create as a facility executive role
+      const formRole = normalizeHealthcareRole((formData.get("role") as string) || "HOSPITAL_CEO");
       const [firstName, ...lastNameParts] = cleanIdentifier.split("@")[0].split(".");
       dbUser = await prisma.user.create({
         data: {
@@ -289,7 +314,7 @@ export async function loginUser(formData: FormData) {
           passwordHash: hashPassword(password || "password"),
           role: formRole as any,
           firstName: firstName || "Facility",
-          lastName: lastNameParts.join(" ") || "Administrator",
+          lastName: lastNameParts.join(" ") || "Executive",
           hospitalId: org.id,
           hospitalName: org.name,
           organizationId: org.id,
@@ -326,15 +351,15 @@ export async function loginUser(formData: FormData) {
     path: "/",
   });
 
-  const roleStr = role as string;
-  if (roleStr === "ADMIN") redirect("/admin/dashboard");
-  if (roleStr === "DOCTOR") redirect("/doctor/dashboard");
-  if (roleStr === "NURSE") redirect("/queue");
-  if (roleStr === "RECEPTIONIST") redirect("/register");
-  if (roleStr === "LAB_TECH") redirect("/lab");
-  if (roleStr === "PHARMACIST") redirect("/pharmacy");
+  const roleStr = normalizeHealthcareRole(role as string);
+  if (ADMIN_ROLES.includes(roleStr as any)) redirect("/admin/dashboard");
+  if (CLINICAL_ROLES.includes(roleStr as any)) redirect("/doctor/dashboard");
+  if (TRIAGE_ROLES.includes(roleStr as any)) redirect("/triage");
+  if (LAB_ROLES.includes(roleStr as any)) redirect("/lab");
+  if (PHARMACY_ROLES.includes(roleStr as any)) redirect("/pharmacy");
+  if (REGISTRATION_ROLES.includes(roleStr as any)) redirect("/register");
   // Fallback
-  redirect("/admin/dashboard");
+  redirect("/login");
 }
 
 export async function logoutUser() {

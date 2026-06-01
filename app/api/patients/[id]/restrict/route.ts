@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { cookies } from "next/headers";
 
 // PATCH /api/patients/[id]/restrict — toggle isRestricted
 export async function PATCH(
@@ -11,18 +12,29 @@ export async function PATCH(
     const patient = await prisma.patient.update({
       where: { id: params.id },
       data: { isRestricted: Boolean(isRestricted) },
-      select: { id: true, isRestricted: true },
+      select: { id: true, isRestricted: true, organizationId: true },
     });
 
-    // Log the action
+    // Get facility type from organization
+    let facilityServiceType = undefined;
+    if (patient.organizationId) {
+      const org = await prisma.organization.findUnique({
+        where: { id: patient.organizationId },
+        select: { serviceType: true },
+      });
+      facilityServiceType = org?.serviceType || undefined;
+    }
+
+    // Log the action (patient self-restriction, no professional role)
     const action = isRestricted ? "RESTRICT" : "UNRESTRICT";
     await prisma.accessLog.create({
       data: {
         patientId: params.id,
+        organizationId: patient.organizationId || undefined,
         accessedByName: "Patient (Self)",
-        facility: "Citizen Portal",
-        role: "CITIZEN",
+        facilityServiceType: facilityServiceType,
         action: action as any,
+        // role omitted for patient self-service actions
       },
     });
 

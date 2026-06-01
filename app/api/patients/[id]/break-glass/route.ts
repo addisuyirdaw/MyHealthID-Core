@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
+import { normalizeHealthcareRole } from "@/lib/locales/enums";
+import { Role } from "@prisma/client";
+import { cookies } from "next/headers";
 
 // POST /api/patients/[id]/break-glass — emergency override
 // Logs the event immutably in AccessLog and returns full patient data
@@ -9,14 +12,35 @@ export async function POST(
 ) {
   try {
     const body = await req.json();
+    const cookieStore = cookies();
+
+    // Extract user context from cookies
+    const userId = cookieStore.get("userId")?.value || "";
+    const userRole = cookieStore.get("userRole")?.value || "GENERAL_PRACTITIONER";
+    const organizationId = cookieStore.get("organizationId")?.value || "";
+
+    // Normalize the role to canonical enum value
+    const normalizedRole = normalizeHealthcareRole(userRole) as Role;
+
+    // Query organization to get facility service type
+    let facilityServiceType = undefined;
+    if (organizationId) {
+      const org = await prisma.organization.findUnique({
+        where: { id: organizationId },
+        select: { serviceType: true },
+      });
+      facilityServiceType = org?.serviceType || undefined;
+    }
 
     // 1. Write the immutable BREAK_GLASS audit log entry
     await prisma.accessLog.create({
       data: {
         patientId: params.id,
+        userId: userId || undefined,
+        organizationId: organizationId || undefined,
         accessedByName: body.accessedByName || "Unknown Doctor",
-        facility: body.facility || "Debre Berhan Hospital",
-        role: body.role || "DOCTOR",
+        role: normalizedRole,
+        facilityServiceType: facilityServiceType,
         action: "BREAK_GLASS",
       },
     });

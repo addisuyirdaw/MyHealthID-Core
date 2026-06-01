@@ -3,6 +3,7 @@ import TriageDashboardClient from "@/components/TriageDashboardClient";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { ADMIN_ROLES, TRIAGE_ROLES } from "@/lib/locales/enums";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +15,8 @@ export default async function TriagePage() {
   if (!userRole) {
     redirect("/login");
   }
-  if (userRole !== "NURSE") {
-    redirect("/unauthorized?reason=Nurse+role+required+for+the+triage+queue.");
+  if (!TRIAGE_ROLES.includes(userRole as any) && !ADMIN_ROLES.includes(userRole as any)) {
+    redirect("/unauthorized?reason=Triage+role+required+for+the+triage+queue.");
   }
 
   const activeOrgId = cookieStore.get("organizationId")?.value;

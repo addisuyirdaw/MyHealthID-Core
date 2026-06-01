@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, Plus, ShieldCheck, Key, UserPlus, X, Trash2, Calendar, User, Eye, EyeOff, Lock } from "lucide-react";
+import { useLanguage } from "@/components/LanguageProvider";
+import { HEALTHCARE_ROLE_KEYS, getHealthcareRoleTranslation } from "@/lib/locales/enums";
 
 interface StaffMember {
   id: string;
@@ -25,6 +27,7 @@ export default function StaffManagementClient({ initialStaff, isAdmin = false }:
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showPin, setShowPin] = useState(false);
+  const { language } = useLanguage();
 
   // Early return if not admin (defense-in-depth)
   if (!isAdmin) {
@@ -46,7 +49,7 @@ export default function StaffManagementClient({ initialStaff, isAdmin = false }:
   // Form Fields
   const [fullName, setFullName] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
-  const [role, setRole] = useState<"DOCTOR" | "NURSE" | "PHARMACIST" | "RECEPTIONIST" | "ADMIN" | "LAB_TECH" | "">("");
+  const [role, setRole] = useState<string>("");
   const [pin, setPin] = useState("");
 
   const handleOnboard = async (e: React.FormEvent) => {
@@ -98,17 +101,25 @@ export default function StaffManagementClient({ initialStaff, isAdmin = false }:
 
   const getRoleBadgeStyle = (role: string) => {
     switch (role) {
-      case "ADMIN":
+      case "HOSPITAL_CEO":
+      case "IT_HIS_ADMIN":
         return "bg-purple-100 text-purple-700 border-purple-200";
-      case "DOCTOR":
+      case "GENERAL_PRACTITIONER":
+      case "MEDICAL_SPECIALIST":
+      case "SUB_SPECIALIST":
+      case "HEALTH_OFFICER":
         return "bg-blue-100 text-blue-700 border-blue-200";
-      case "NURSE":
+      case "CLINICAL_NURSE":
+      case "SPECIALIZED_NURSE":
+      case "MIDWIFE":
         return "bg-teal-100 text-teal-700 border-teal-200";
       case "PHARMACIST":
         return "bg-amber-100 text-amber-700 border-amber-200";
       case "RECEPTIONIST":
+      case "CARD_ROOM_CLERK":
         return "bg-indigo-100 text-indigo-700 border-indigo-200";
-      case "LAB_TECH":
+      case "LABORATORY_TECHNICIAN":
+      case "LABORATORY_TECHNOLOGIST":
         return "bg-cyan-100 text-cyan-700 border-cyan-200";
       default:
         return "bg-slate-100 text-slate-700 border-slate-200";
@@ -259,17 +270,16 @@ export default function StaffManagementClient({ initialStaff, isAdmin = false }:
                   <Label htmlFor="role" className="text-xs font-bold uppercase tracking-wider text-slate-500">
                     System Role
                   </Label>
-                  <Select onValueChange={(val: any) => setRole(val)} required>
+                  <Select onValueChange={(val: any) => setRole(val)} value={role || undefined} required>
                     <SelectTrigger id="role" className="rounded-xl h-11 border-slate-300 focus:ring-blue-500/30">
-                      <SelectValue placeholder="Select Professional Role..." />
+                      <SelectValue placeholder={language === "am" ? "የስራ ሚናዎን ይምረጡ..." : "Select Professional Role..."} />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-slate-200">
-                      <SelectItem value="DOCTOR" className="cursor-pointer">Attending Doctor</SelectItem>
-                      <SelectItem value="NURSE" className="cursor-pointer">Triage Nurse</SelectItem>
-                      <SelectItem value="PHARMACIST" className="cursor-pointer">Head Pharmacist</SelectItem>
-                      <SelectItem value="RECEPTIONIST" className="cursor-pointer">Receptionist</SelectItem>
-                      <SelectItem value="ADMIN" className="cursor-pointer">Medical Director (Admin)</SelectItem>
-                      <SelectItem value="LAB_TECH" className="cursor-pointer">Laboratory Technician</SelectItem>
+                      {HEALTHCARE_ROLE_KEYS.map((roleKey) => (
+                        <SelectItem key={roleKey} value={roleKey} className="cursor-pointer">
+                          {getHealthcareRoleTranslation(roleKey, language)}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>

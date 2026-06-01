@@ -2,6 +2,7 @@ import React from "react";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
+import { ADMIN_ROLES } from "@/lib/locales/enums";
 import { Users, ShieldAlert, Award, ShieldCheck, Plus, Key, Calendar } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,7 @@ export default async function StaffSettingsPage() {
   const activeOrgId = cookieStore.get("organizationId")?.value;
 
   // Security Access Control
-  if (userRole !== "ADMIN" || !activeOrgId) {
+  if (!ADMIN_ROLES.includes(userRole as any) || !activeOrgId) {
     redirect("/unauthorized");
   }
 
@@ -64,7 +65,7 @@ export default async function StaffSettingsPage() {
       </header>
 
       {/* Main Grid: Staff Roster + Dynamic Onboarding Form */}
-      <StaffManagementClient initialStaff={staffMembers} isAdmin={userRole === "ADMIN"} />
+      <StaffManagementClient initialStaff={staffMembers} isAdmin={ADMIN_ROLES.includes(userRole as any)} />
     </div>
   );
 }

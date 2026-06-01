@@ -8,6 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Pill, CheckCircle2, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import GlobalPatientLookup from "@/components/GlobalPatientLookup";
+import { ADMIN_ROLES } from "@/lib/locales/enums";
+import { ADMIN_ROLES, PHARMACY_ROLES } from "@/lib/locales/enums";
 
 const MEDICATION_MASTER_LIST = [
   { category: "Analgesics", name: "Paracetamol" },
@@ -65,7 +67,7 @@ export default function PharmacyPage() {
     setRole(r);
     setAuthChecked(true);
 
-    if (r === "PHARMACIST" || r === "ADMIN") {
+    if (PHARMACY_ROLES.includes(r as any) || ADMIN_ROLES.includes(r as any)) {
       fetchPending();
     } else {
       setLoading(false);
@@ -122,7 +124,7 @@ export default function PharmacyPage() {
   const cardNumberFromPatient = (patient: any) => patient.patientCard || patient.hospitalId || patient.nationalId || patient.healthId || "—";
 
   // ── Role guard: block non-PHARMACIST ────────────────────────────
-  if (authChecked && role !== "PHARMACIST" && role !== "ADMIN") {
+  if (authChecked && !PHARMACY_ROLES.includes(role as any) && !ADMIN_ROLES.includes(role as any)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-10 shadow-2xl text-center max-w-md w-full">
@@ -260,7 +262,7 @@ export default function PharmacyPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <GlobalPatientLookup
-                  onOpenPatient={role === "ADMIN" ? (patientId) => router.push(`/doctor/patient/${patientId}`) : undefined}
+                  onOpenPatient={ADMIN_ROLES.includes(role as any) ? (patientId) => router.push(`/doctor/patient/${patientId}`) : undefined}
                 />
               </CardContent>
             </Card>

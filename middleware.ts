@@ -1,5 +1,14 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import {
+  ADMIN_ROLES,
+  CLINICAL_ROLES,
+  TRIAGE_ROLES,
+  LAB_ROLES,
+  PHARMACY_ROLES,
+  REGISTRATION_ROLES,
+  normalizeHealthcareRole,
+} from "@/lib/locales/enums";
 
 /** Helper – redirect to /unauthorized with a descriptive message. */
 function deny(request: NextRequest, reason: string) {
@@ -10,15 +19,14 @@ function deny(request: NextRequest, reason: string) {
 
 /** Helper – redirect logged-in user to their home dashboard. */
 function toDashboard(request: NextRequest, role: string) {
-  const map: Record<string, string> = {
-    ADMIN: "/admin/dashboard",
-    DOCTOR: "/doctor/dashboard",
-    NURSE: "/triage",
-    RECEPTIONIST: "/register",
-    LAB_TECH: "/lab",
-    PHARMACIST: "/pharmacy",
-  };
-  return NextResponse.redirect(new URL(map[role] ?? "/login", request.url));
+  const normalizedRole = normalizeHealthcareRole(role);
+  if (ADMIN_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/admin/dashboard", request.url));
+  if (CLINICAL_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/doctor/dashboard", request.url));
+  if (TRIAGE_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/triage", request.url));
+  if (LAB_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/lab", request.url));
+  if (PHARMACY_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/pharmacy", request.url));
+  if (REGISTRATION_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/register", request.url));
+  return NextResponse.redirect(new URL("/login", request.url));
 }
 
 export function middleware(request: NextRequest) {
@@ -45,64 +53,69 @@ export function middleware(request: NextRequest) {
   /* ── Authenticated users: hard role checks ── */
 
   // ── /admin/* → ADMIN only
-  if (path.startsWith("/admin") && userRole !== "ADMIN") {
+  if (path.startsWith("/admin") && !ADMIN_ROLES.includes(userRole as any)) {
     return deny(request, "Admin role required.");
   }
 
   // ── /dashboard/settings/staff → ADMIN only
-  if (path.startsWith("/dashboard/settings") && userRole !== "ADMIN") {
+  if (path.startsWith("/dashboard/settings") && !ADMIN_ROLES.includes(userRole as any)) {
     return deny(request, "Admin role required for staff management.");
   }
 
-  // ── /doctor/* → DOCTOR or ADMIN
+  // ── /doctor/* → clinical roles or ADMIN
   if (
     path.startsWith("/doctor") &&
-    userRole !== "DOCTOR" &&
-    userRole !== "ADMIN"
+    !CLINICAL_ROLES.includes(userRole as any) &&
+    !ADMIN_ROLES.includes(userRole as any)
   ) {
     return deny(request, "Doctor role required.");
   }
 
-  // ── /manage/* → DOCTOR or NURSE (EMR timeline)
+  // ── /manage/* → clinical roles or triage roles
   if (
     path.startsWith("/manage") &&
-    userRole !== "DOCTOR" &&
-    userRole !== "NURSE"
+    !CLINICAL_ROLES.includes(userRole as any) &&
+    !TRIAGE_ROLES.includes(userRole as any) &&
+    !ADMIN_ROLES.includes(userRole as any)
   ) {
-    return deny(request, "Doctor or Nurse role required for the EMR timeline.");
+    return deny(request, "Doctor, nurse, or admin role required for the EMR timeline.");
   }
 
-  // ── /triage → NURSE only
-  if (path.startsWith("/triage") && userRole !== "NURSE") {
-    return deny(request, "Nurse role required for the triage queue.");
+  // ── /triage → triage only
+  if (path.startsWith("/triage") && !TRIAGE_ROLES.includes(userRole as any) && !ADMIN_ROLES.includes(userRole as any)) {
+    return deny(request, "Triage role required for the triage queue.");
   }
 
-  // ── /screening → NURSE only
-  if (path.startsWith("/screening") && userRole !== "NURSE") {
-    return deny(request, "Nurse role required for the screening portal.");
+  // ── /screening → triage only
+  if (path.startsWith("/screening") && !TRIAGE_ROLES.includes(userRole as any) && !ADMIN_ROLES.includes(userRole as any)) {
+    return deny(request, "Triage role required for the screening portal.");
   }
 
   // ── /register is PUBLIC – any citizen or staff member can register a patient
 
-  // ── /scan → RECEPTIONIST
-  if (path.startsWith("/scan") && userRole !== "RECEPTIONIST" && userRole !== "ADMIN") {
-    return deny(request, "Receptionist role required for ID scanning.");
+  // ── /scan → registration roles or ADMIN
+  if (
+    path.startsWith("/scan") &&
+    !REGISTRATION_ROLES.includes(userRole as any) &&
+    !ADMIN_ROLES.includes(userRole as any)
+  ) {
+    return deny(request, "Receptionist or Card Room Clerk role required for ID scanning.");
   }
 
-  // ── /lab → LAB_TECH or ADMIN
+  // ── /lab → laboratory roles or ADMIN
   if (
     path.startsWith("/lab") &&
-    userRole !== "LAB_TECH" &&
-    userRole !== "ADMIN"
+    !LAB_ROLES.includes(userRole as any) &&
+    !ADMIN_ROLES.includes(userRole as any)
   ) {
-    return deny(request, "Lab Technician role required.");
+    return deny(request, "Laboratory role required.");
   }
 
-  // ── /pharmacy → PHARMACIST or ADMIN
+  // ── /pharmacy → pharmacist or ADMIN
   if (
     path.startsWith("/pharmacy") &&
-    userRole !== "PHARMACIST" &&
-    userRole !== "ADMIN"
+    !PHARMACY_ROLES.includes(userRole as any) &&
+    !ADMIN_ROLES.includes(userRole as any)
   ) {
     return deny(request, "Pharmacist role required.");
   }

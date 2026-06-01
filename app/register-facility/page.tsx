@@ -10,9 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Hospital, CheckCircle2, Copy, Check, ArrowRight, Users, LogIn, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useLanguage } from "@/components/LanguageProvider";
+import { FACILITY_SERVICE_TYPE_KEYS, getFacilityServiceTypeTranslation } from "@/lib/locales/enums";
 
 export default function RegisterFacilityPage() {
   const router = useRouter();
+  const { language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [token, setToken] = useState("");
@@ -212,15 +215,20 @@ export default function RegisterFacilityPage() {
                 <Label htmlFor="facilityType" className="text-xs font-bold uppercase tracking-widest text-slate-400">
                   Facility Type
                 </Label>
-                <Select onValueChange={setFacilityType} required>
+                <Select onValueChange={setFacilityType} value={facilityType || undefined} required>
                   <SelectTrigger id="facilityType" className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-12">
-                    <SelectValue placeholder="Select Facility Type..." />
+                    <SelectValue placeholder={language === "am" ? "የእንክብካቤ አይነት ይምረጡ..." : "Select Facility Type..."} />
                   </SelectTrigger>
                   <SelectContent className="bg-slate-900 border-slate-800 text-white rounded-xl">
-                    <SelectItem value="Referral Hospital" className="focus:bg-slate-800 focus:text-white cursor-pointer">Referral Hospital</SelectItem>
-                    <SelectItem value="Regional Clinic" className="focus:bg-slate-800 focus:text-white cursor-pointer">Regional Clinic</SelectItem>
-                    <SelectItem value="Private Lab" className="focus:bg-slate-800 focus:text-white cursor-pointer">Private Lab</SelectItem>
-                    <SelectItem value="Pharmacy" className="focus:bg-slate-800 focus:text-white cursor-pointer">Pharmacy</SelectItem>
+                    {FACILITY_SERVICE_TYPE_KEYS.map((key) => (
+                      <SelectItem
+                        key={key}
+                        value={key}
+                        className="focus:bg-slate-800 focus:text-white cursor-pointer"
+                      >
+                        {getFacilityServiceTypeTranslation(key, language)}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>

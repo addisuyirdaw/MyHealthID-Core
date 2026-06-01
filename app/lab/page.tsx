@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { FlaskConical, CheckCircle2, Clock, ShieldAlert } from "lucide-react";
 import { FulfillOrderModal } from "@/components/FulfillOrderModal";
 import { Button } from "@/components/ui/button";
+import { ADMIN_ROLES, LAB_ROLES } from "@/lib/locales/enums";
 
 function getRoleFromCookie(): string {
   if (typeof document === "undefined") return "";
@@ -25,7 +26,7 @@ export default function LabPage() {
     setRole(r);
     setAuthChecked(true);
 
-    if (r === "LAB_TECH" || r === "ADMIN") {
+    if (LAB_ROLES.includes(r as any) || ADMIN_ROLES.includes(r as any)) {
       fetchPending();
     } else {
       setLoading(false);
@@ -49,7 +50,7 @@ export default function LabPage() {
   };
 
   // ── Role guard: block non-LAB_TECH ──────────────────────────
-  if (authChecked && role !== "LAB_TECH" && role !== "ADMIN") {
+  if (authChecked && !LAB_ROLES.includes(role as any) && !ADMIN_ROLES.includes(role as any)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-10 shadow-2xl text-center max-w-md w-full">

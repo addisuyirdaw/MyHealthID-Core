@@ -3,20 +3,21 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import DoctorDashboardClient from "@/components/DoctorDashboardClient";
 import prisma from "@/lib/prisma";
+import { ADMIN_ROLES, CLINICAL_ROLES } from "@/lib/locales/enums";
 
 export const dynamic = "force-dynamic";
 
 export default async function DoctorDashboardPage() {
   const cookieStore = cookies();
   const userRole = cookieStore.get("userRole")?.value;
-  const role = userRole || "DOCTOR";
+  const role = userRole || "UNKNOWN";
   const orgId = cookieStore.get("organizationId")?.value;
-  const userName = cookieStore.get("userName")?.value || "Doctor";
+  const userName = cookieStore.get("userName")?.value || "Clinician";
 
   if (!userRole) {
     redirect("/login");
   }
-  if (userRole !== "DOCTOR" && userRole !== "ADMIN") {
+  if (!CLINICAL_ROLES.includes(userRole as any) && !ADMIN_ROLES.includes(userRole as any)) {
     redirect("/unauthorized?reason=Doctor+role+required.");
   }
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Languages, ShieldAlert } from "lucide-react";
+import { ADMIN_ROLES, TRIAGE_ROLES } from "@/lib/locales/enums";
 
 function getRoleFromCookie(): string {
   if (typeof document === "undefined") return "";
@@ -55,7 +56,7 @@ export default function ScreeningEntryPage() {
     }
   };
 
-  if (authChecked && role !== "NURSE" && role !== "ADMIN") {
+  if (authChecked && !TRIAGE_ROLES.includes(role as any) && !ADMIN_ROLES.includes(role as any)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-10 shadow-2xl text-center max-w-md w-full">

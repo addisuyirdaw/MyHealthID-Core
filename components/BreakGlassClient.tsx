@@ -23,7 +23,7 @@ export default function BreakGlassClient({ patientId, patientName, doctorName = 
         body: JSON.stringify({
           accessedByName: doctorName,
           facility: "Debre Berhan Hospital",
-          role: "DOCTOR",
+          role: "GENERAL_PRACTITIONER",
         }),
       });
       const data = await res.json();

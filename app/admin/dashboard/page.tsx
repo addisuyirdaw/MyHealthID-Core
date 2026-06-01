@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ADMIN_ROLES } from "@/lib/locales/enums";
 import {
   Users, Activity, Building2, ShieldCheck, Plus,
   ArrowRight, LogOut, Settings, Award, Stethoscope,
@@ -14,21 +15,47 @@ import { logoutUser } from "@/lib/actions/auth.actions";
 export const dynamic = "force-dynamic";
 
 const ROLE_LABELS: Record<string, string> = {
+  HOSPITAL_CEO: "Hospital CEO",
+  IT_HIS_ADMIN: "IT / HIS Administrator",
+  GENERAL_PRACTITIONER: "General Practitioner",
+  MEDICAL_SPECIALIST: "Medical Specialist",
+  SUB_SPECIALIST: "Sub-Specialist",
+  HEALTH_OFFICER: "Health Officer",
+  CLINICAL_NURSE: "Clinical Nurse",
+  SPECIALIZED_NURSE: "Specialized Nurse",
+  MIDWIFE: "Midwife",
+  PHARMACIST: "Pharmacist",
+  LABORATORY_TECHNICIAN: "Laboratory Technician",
+  LABORATORY_TECHNOLOGIST: "Laboratory Technologist",
+  RECEPTIONIST: "Receptionist",
+  CARD_ROOM_CLERK: "Card Room Clerk",
+  // backward compatible legacy labels
   ADMIN: "Administrator",
   DOCTOR: "Doctor",
   NURSE: "Nurse",
-  PHARMACIST: "Pharmacist",
   LAB_TECH: "Lab Technician",
-  RECEPTIONIST: "Receptionist",
 };
 
 const ROLE_COLORS: Record<string, string> = {
+  HOSPITAL_CEO: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  IT_HIS_ADMIN: "bg-purple-500/10 text-purple-400 border-purple-500/20",
+  GENERAL_PRACTITIONER: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  MEDICAL_SPECIALIST: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  SUB_SPECIALIST: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  HEALTH_OFFICER: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  CLINICAL_NURSE: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  SPECIALIZED_NURSE: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  MIDWIFE: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
+  PHARMACIST: "bg-amber-500/10 text-amber-400 border-amber-500/20",
+  LABORATORY_TECHNICIAN: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+  LABORATORY_TECHNOLOGIST: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
+  RECEPTIONIST: "bg-pink-500/10 text-pink-400 border-pink-500/20",
+  CARD_ROOM_CLERK: "bg-pink-500/10 text-pink-400 border-pink-500/20",
+  // backward compatible legacy colors
   ADMIN: "bg-purple-500/10 text-purple-400 border-purple-500/20",
   DOCTOR: "bg-blue-500/10 text-blue-400 border-blue-500/20",
   NURSE: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20",
-  PHARMACIST: "bg-amber-500/10 text-amber-400 border-amber-500/20",
   LAB_TECH: "bg-cyan-500/10 text-cyan-400 border-cyan-500/20",
-  RECEPTIONIST: "bg-pink-500/10 text-pink-400 border-pink-500/20",
 };
 
 export default async function AdminDashboardPage() {
@@ -36,7 +63,7 @@ export default async function AdminDashboardPage() {
   const userRole = cookieStore.get("userRole")?.value;
   const activeOrgId = cookieStore.get("organizationId")?.value;
 
-  if (!activeOrgId || userRole !== "ADMIN") {
+  if (!activeOrgId || !ADMIN_ROLES.includes(userRole as any)) {
     redirect("/login");
   }
 

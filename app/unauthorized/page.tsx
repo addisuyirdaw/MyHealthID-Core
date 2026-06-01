@@ -6,21 +6,47 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense } from "react";
 
 const ROLE_HOME: Record<string, string> = {
+  HOSPITAL_CEO: "/admin/dashboard",
+  IT_HIS_ADMIN: "/admin/dashboard",
+  GENERAL_PRACTITIONER: "/doctor/dashboard",
+  MEDICAL_SPECIALIST: "/doctor/dashboard",
+  SUB_SPECIALIST: "/doctor/dashboard",
+  HEALTH_OFFICER: "/doctor/dashboard",
+  CLINICAL_NURSE: "/triage",
+  SPECIALIZED_NURSE: "/triage",
+  MIDWIFE: "/triage",
+  RECEPTIONIST: "/register",
+  CARD_ROOM_CLERK: "/register",
+  LABORATORY_TECHNICIAN: "/lab",
+  LABORATORY_TECHNOLOGIST: "/lab",
+  PHARMACIST: "/pharmacy",
+  // backward compatible legacy values
   ADMIN: "/admin/dashboard",
   DOCTOR: "/doctor/dashboard",
   NURSE: "/triage",
-  RECEPTIONIST: "/register",
   LAB_TECH: "/lab",
-  PHARMACIST: "/pharmacy",
 };
 
 const ROLE_LABELS: Record<string, string> = {
+  HOSPITAL_CEO: "Hospital CEO",
+  IT_HIS_ADMIN: "IT / HIS Administrator",
+  GENERAL_PRACTITIONER: "General Practitioner",
+  MEDICAL_SPECIALIST: "Medical Specialist",
+  SUB_SPECIALIST: "Sub-Specialist",
+  HEALTH_OFFICER: "Health Officer",
+  CLINICAL_NURSE: "Clinical Nurse",
+  SPECIALIZED_NURSE: "Specialized Nurse",
+  MIDWIFE: "Midwife",
+  RECEPTIONIST: "Receptionist",
+  CARD_ROOM_CLERK: "Card Room Clerk",
+  LABORATORY_TECHNICIAN: "Laboratory Technician",
+  LABORATORY_TECHNOLOGIST: "Laboratory Technologist",
+  PHARMACIST: "Pharmacist",
+  // backward compatible legacy labels
   ADMIN: "Administrator",
   DOCTOR: "Doctor",
   NURSE: "Nurse",
-  RECEPTIONIST: "Receptionist",
   LAB_TECH: "Lab Technician",
-  PHARMACIST: "Pharmacist",
 };
 
 function getRoleFromCookie(): string {

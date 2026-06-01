@@ -1,0 +1,558 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// MyHealthID Platform - Enhanced Prisma Schema
+// Multi-Tenant Healthcare System with Bilingual Support & Facility Classification
+// ─────────────────────────────────────────────────────────────────────────────
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ENUMS: Healthcare Professional Roles (21+ Roles)
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum HealthcareProfessionalRole {
+  // ─── Clinical Medical Roles ───
+  GENERAL_PRACTITIONER          @map("general_practitioner")         // አጠቃላይ ሐኪም
+  MEDICAL_SPECIALIST            @map("medical_specialist")          // ስፔሻሊስት ሐኪም
+  SUB_SPECIALIST                @map("sub_specialist")              // ሰብ-ስፔሻሊስት ሐኪም
+
+  // ─── Nursing & Midwifery ───
+  CLINICAL_NURSE                @map("clinical_nurse")              // ክሊኒካል ነርስ
+  SPECIALIZED_NURSE             @map("specialized_nurse")           // ልዩ ነርስ
+  MIDWIFE                        @map("midwife")                    // ወሊድ ባለሙያ
+
+  // ─── Public Health ───
+  HEALTH_EXTENSION_WORKER       @map("health_extension_worker")    // የጤና ኤክስቴንሽን ባለሙያ
+  HEALTH_OFFICER                @map("health_officer")             // ጤና መኮንን
+
+  // ─── Diagnostic Services ───
+  LABORATORY_TECHNICIAN         @map("laboratory_technician")       // የላቦራቶሪ ቴክኒሻን
+  LABORATORY_TECHNOLOGIST       @map("laboratory_technologist")     // የላቦራቶሪ ቴክኖሎጂስት
+  RADIOGRAPHER                  @map("radiographer")                // የራጅ ባለሙያ / X-Ray Technician
+
+  // ─── Specialized Clinical ───
+  ANESTHETIST                   @map("anesthetist")                 // ማደንዘዣ ባለሙያ
+  INTEGRATED_EMERGENCY_SURGICAL_OFFICER @map("ieso")              // Integrated Emergency Surgical Officer
+
+  // ─── Pharmacy ───
+  PHARMACIST                    @map("pharmacist")                  // ፋርማሲስት
+
+  // ─── Administration & Management ───
+  HOSPITAL_MANAGER              @map("hospital_manager")            // ሆስፒታል ስራ አስኪያጅ / CEO
+  HIS_ADMINISTRATOR             @map("his_administrator")           // የጤና መረጃ ስርዓት / IT Administrator
+  FINANCE_OFFICER               @map("finance_officer")             // ሂሳብ ክፍያ / Finance Officer
+
+  // ─── Support Services ───
+  RECEPTIONIST                  @map("receptionist")                // አስተናጋጅ
+  CARD_ROOM_CLERK               @map("card_room_clerk")             // የካርድ ክፍል ሰራተኛ
+  AMBULANCE_DRIVER              @map("ambulance_driver")            // የአምቡላንስ አሽከርካሪ
+  SECURITY_GUARD                @map("security_guard")              // የጥበቃ ሰራተኛ
+  CLEANER                        @map("cleaner")                    // የፅዳት ሰራተኛ
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ENUMS: Facility Classification
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum FacilityOwnershipType {
+  PUBLIC                        @map("public")                      // የመንግስት
+  PRIVATE                       @map("private")                     // የግል
+}
+
+enum FacilityServiceType {
+  PHCU                          @map("phcu")                        // Primary Health Care Unit
+  HEALTH_POST                   @map("health_post")                 // ጤና ኬላ
+  HEALTH_CENTER                 @map("health_center")               // ጤና ጣቢያ
+  PRIMARY_HOSPITAL              @map("primary_hospital")            // የመጀመሪያ ደረጃ ሆስፒታል
+  GENERAL_HOSPITAL              @map("general_hospital")            // አጠቃላይ ሆስፒታል
+  SPECIALIZED_HOSPITAL          @map("specialized_hospital")        // ልዩ ሆስፒታል
+  REFERRAL_HOSPITAL             @map("referral_hospital")           // ሪፈራል ሆስፒታል
+  PRIMARY_CLINIC                @map("primary_clinic")              // መካከለኛ ክሊኒክ
+  SPECIALTY_CLINIC              @map("specialty_clinic")            // ልዩ ክሊኒክ
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ENUMS: Patient & Appointment Workflow
+// ═════════════════════════════════════════════════════════════════════════════
+
+enum TriageStatus {
+  RED
+  YELLOW
+  GREEN
+  WAITING_FOR_TRIAGE
+}
+
+enum AppointmentStatus {
+  PENDING              @map("pending")
+  CONFIRMED            @map("confirmed")
+  IN_PROGRESS          @map("in_progress")
+  COMPLETED            @map("completed")
+  CANCELLED            @map("cancelled")
+  NO_SHOW              @map("no_show")
+}
+
+enum AppointmentPriority {
+  ROUTINE              @map("routine")
+  URGENT               @map("urgent")
+  EMERGENCY            @map("emergency")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// TYPES: Bilingual Content Support
+// ═════════════════════════════════════════════════════════════════════════════
+
+type BilingualContent {
+  en String     // English
+  am String     // Amharic
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: Location Hierarchy (Region → Zone → Woreda → Kebele)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Location {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── Hierarchical Geographic Structure ───
+  region            String   @db.String(255)                       // e.g., "Addis Ababa"
+  regionAm          String?  @db.String(255)                       // e.g., "አዲስ አበባ"
+  zone              String?  @db.String(255)                       // e.g., "Zone 5"
+  woreda            String   @db.String(255)                       // e.g., "Gulele"
+  woredaAm          String?  @db.String(255)                       // e.g., "ጉሌሌ"
+  kebele            String?  @db.String(255)                       // e.g., "Kebele 5"
+  kebeleAm          String?  @db.String(255)
+
+  // ─── Fast Query Path ───
+  hierarchyPath     String   @unique @db.String(500)              // "Addis Ababa/Zone5/Gulele/Kebele5"
+
+  // ─── Reference ───
+  organizationId    String?  @map("organization_id")
+
+  // ─── Audit ───
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([region])
+  @@index([woreda])
+  @@index([hierarchyPath])
+  @@map("locations")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: Organization (Hospital/Facility/Clinic)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Organization {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── Identity & Basic Info ───
+  name              String   @unique @db.String(500)               // e.g., "Debre Berhan Referral Hospital"
+  nameLng           BilingualContent                                // Bilingual name struct
+  code              String   @unique @db.String(50)                // MH-{REGION}-{FACILITY}-{UUID}
+  registrationId    String   @unique @db.String(100)               // Unique registration identifier
+
+  // ─── Classification Tiers ───
+  ownershipType     FacilityOwnershipType                           // PUBLIC / PRIVATE
+  serviceType       FacilityServiceType                             // Hospital type classification
+
+  // ─── Contact Information ───
+  email             String?
+  phone             String?
+  website           String?
+  faxNumber         String?
+
+  // ─── Location Details ───
+  location          Location?
+  longitude         Float?
+  latitude          Float?
+
+  // ─── Registration & Verification ───
+  isActive          Boolean  @default(true)
+  isVerified        Boolean  @default(false)                        // Only active+verified shown in directory
+  verificationCode  String?  @unique
+  verifiedAt        DateTime?
+  registeredAt      DateTime @default(now())
+
+  // ─── Capacity & Services ───
+  totalBeds         Int?
+  staffCount        Int?
+  operatingHoursNote String?
+
+  // ─── Audit Trail ───
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // ─── Relations ───
+  users             User[] @relation("UserToOrganization")
+  patients          FacilityPatientJoin[] @relation("FacilityPatients")
+  appointments      Appointment[] @relation("FacilityAppointments")
+  departments       Department[]
+  services          Service[]
+
+  @@index([code])
+  @@index([registrationId])
+  @@index([isActive, isVerified])
+  @@index([ownershipType, serviceType])
+  @@map("organizations")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: User (Healthcare Professional/Staff)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model User {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── Authentication Credentials ───
+  emailOrUsername   String   @unique @db.String(255)               // Normalized identifier
+  email             String?  @unique @db.String(255)               // Optional backup email
+  passwordHash      String   @db.String(255)                        // HMAC-SHA256 hash
+
+  // ─── Personal Information ───
+  firstName         String   @db.String(100)
+  lastName          String   @db.String(100)
+  fullName          String   @db.String(200)
+  phoneNumber       String?
+
+  // ─── Professional Credentials ───
+  role              HealthcareProfessionalRole
+  professionalLicenseNumber String? @unique @db.String(50)
+  licenseExpiry     DateTime?
+  specialization    String?  @db.String(255)                        // e.g., "Cardiology", "Pediatrics"
+
+  // ─── Identification ───
+  nationalId        String?  @unique @db.String(50)
+  profilePhotoUrl   String?
+
+  // ─── Facility Assignment (Multi-Tenant) ───
+  organizationId    String   @map("organization_id")
+  organization      Organization @relation("UserToOrganization", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // ─── Permissions ───
+  isActive          Boolean  @default(true)
+  canApproveAccounts Boolean @default(false)                        // For admin roles
+  canManageUsers    Boolean  @default(false)
+  canViewReports    Boolean  @default(false)
+
+  // ─── Audit Trail ───
+  lastLoginAt       DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // ─── Relations ───
+  createdAppointments Appointment[] @relation("AppointmentCreatedBy")
+  handledAppointments Appointment[] @relation("AppointmentHandledBy")
+
+  @@index([organizationId])
+  @@index([role, organizationId])
+  @@index([isActive, organizationId])
+  @@map("users")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: Patient (Multi-Facility Registration)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Patient {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── Health Identification ───
+  healthId          String   @unique @db.String(50)                // MyHealthID Unique Identifier
+  nationalId        String?  @unique @db.String(50)
+  faydaId           String?  @unique @db.String(100)               // Legacy Fayda System ID
+
+  // ─── Personal Information ───
+  firstName         String   @db.String(100)
+  lastName          String   @db.String(100)
+  fullName          String   @db.String(200)
+  dateOfBirth       DateTime?
+  age               Int
+  sex               String   @db.String(10)                         // M / F / Other
+  phoneNumber       String?
+  email             String?
+
+  // ─── Demographics ───
+  region            String   @db.String(100)
+  zone              String?  @db.String(100)
+  woreda            String   @db.String(100)
+  kebele            String?  @db.String(100)
+
+  // ─── Medical Profile ───
+  bloodGroup        String?  @db.String(5)                          // A+, B-, O+, etc.
+  allergyInformation String?
+  preExistingConditions String?
+  familyHistory     String?
+  surgicalHistory   String?
+
+  // ─── Status Flags ───
+  isActive          Boolean  @default(true)
+  isRestricted      Boolean  @default(false)                        // Privacy restrictions
+  emergencyFlag     Boolean  @default(false)
+
+  // ─── Multi-Facility Primary ───
+  primaryOrganizationId String?
+  primaryFacilityName String?                                       // Denormalized
+
+  // ─── Audit Trail ───
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // ─── Relations ───
+  facilitiesRegistered FacilityPatientJoin[]
+  appointments      Appointment[] @relation("PatientAppointments")
+  medicalRecords    MedicalRecord[]
+
+  @@index([healthId])
+  @@index([nationalId])
+  @@index([primaryOrganizationId])
+  @@map("patients")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: FacilityPatientJoin (Many-to-Many with Facility-Specific Data)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model FacilityPatientJoin {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── References (Isolation Keys) ───
+  organizationId    String   @map("organization_id")
+  organization      Organization @relation("FacilityPatients", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  patientId         String   @map("patient_id")
+  patient           Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  // ─── Facility-Specific Data ───
+  facilityMrn       String?  @db.String(50)                        // Hospital-specific MRN
+  isActive          Boolean  @default(true)
+  registrationDate  DateTime @default(now())
+  lastVisitDate     DateTime?
+
+  // ─── Audit ───
+  createdAt         DateTime @default(now())
+
+  @@unique([organizationId, patientId])
+  @@index([organizationId, patientId])
+  @@map("facility_patient_joins")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: Appointment (Strict Multi-Tenant Isolation)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Appointment {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── ISOLATION KEY (MUST filter all queries by this) ───
+  organizationId    String   @map("organization_id")
+  organization      Organization @relation("FacilityAppointments", fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // ─── Patient Information ───
+  patientId         String   @map("patient_id")
+  patient           Patient @relation("PatientAppointments", fields: [patientId], references: [id])
+  patientHealthId   String   @db.String(50)                        // Denormalized for quick lookup
+
+  // ─── Appointment Details ───
+  appointmentType   String   @db.String(100)                       // "General Consultation", "Lab Test", etc.
+  requestedService  String   @db.String(100)                       // Department/Service
+  appointmentDate   DateTime
+  appointmentTime   String   @db.String(5)                         // HH:mm format
+  duration          Int?                                            // Minutes
+  description       String?
+
+  // ─── Status & Priority ───
+  status            AppointmentStatus @default(PENDING)
+  priority          AppointmentPriority @default(ROUTINE)
+  notes             String?
+
+  // ─── Assignment & Handling ───
+  createdById       String?  @map("created_by")
+  createdBy         User? @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
+
+  handledById       String?  @map("handled_by")
+  handledBy         User? @relation("AppointmentHandledBy", fields: [handledById], references: [id])
+  
+  handledAt         DateTime?
+
+  // ─── Audit Trail ───
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  // ─── Indexes for Query Performance ───
+  @@unique([organizationId, id])
+  @@index([organizationId, patientId])
+  @@index([organizationId, status])
+  @@index([organizationId, appointmentDate])
+  @@index([organizationId, createdAt])
+  @@map("appointments")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: Medical Records (Isolated by Organization)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model MedicalRecord {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── Isolation Key ───
+  organizationId    String   @map("organization_id")
+
+  // ─── Record Information ───
+  patientId         String   @map("patient_id")
+  patient           Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  recordType        String   @db.String(50)                        // "Consultation", "Lab Result", "Prescription"
+  title             String   @db.String(255)
+  content           String   @db.String(10000)                     // Rich text or JSON
+
+  // ─── Metadata ───
+  recordedBy        String?  @db.String(100)                       // Provider name
+  recordedAt        DateTime @default(now())
+
+  @@index([organizationId, patientId])
+  @@index([organizationId, recordType])
+  @@map("medical_records")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: Department (Per-Facility)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Department {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── Reference ───
+  organizationId    String   @map("organization_id")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // ─── Department Information ───
+  name              String   @db.String(255)
+  nameLng           BilingualContent                                // Bilingual name
+  description       String?
+  departmentCode    String?  @db.String(50)
+
+  // ─── Status ───
+  isActive          Boolean  @default(true)
+
+  // ─── Audit ───
+  createdAt         DateTime @default(now())
+
+  @@unique([organizationId, name])
+  @@index([organizationId])
+  @@map("departments")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// MODEL: Service (Per-Facility)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Service {
+  id                String   @id @default(uuid()) @map("_id")
+
+  // ─── Reference ───
+  organizationId    String   @map("organization_id")
+  organization      Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // ─── Service Information ───
+  name              String   @db.String(255)
+  nameLng           BilingualContent                                // Bilingual name
+  description       String?
+  serviceCode       String   @db.String(50)
+
+  // ─── Status ───
+  isActive          Boolean  @default(true)
+
+  // ─── Audit ───
+  createdAt         DateTime @default(now())
+
+  @@unique([organizationId, serviceCode])
+  @@index([organizationId])
+  @@map("services")
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// Legacy/Existing Models (Keep for Backward Compatibility)
+// ═════════════════════════════════════════════════════════════════════════════
+
+model Address {
+  id       String  @id @default(uuid()) @map("_id")
+  region   String?
+  zone     String?
+  woreda   String?
+  kebele   String?
+  @@map("addresses")
+}
+
+enum Ward {
+  OPD_OUTPATIENT
+  EMERGENCY
+  MEDICAL_WARD
+  SURGICAL_WARD
+  MATERNITY_WARD
+  GYNECOLOGY
+  PEDIATRIC_WARD
+  NEWBORN_NEONATAL
+  INPATIENT_GENERAL_WARD
+  LABORATORY
+  PHARMACY
+  PROCEDURE_MINOR_OPERATION
+  ISOLATION
+  SUPPORT_UNITS
+}
+
+enum PriorityLevel {
+  EMERGENCY
+  URGENT
+  ROUTINE
+}
+
+enum ScreeningTriageLevel {
+  GREEN
+  YELLOW
+  RED
+}
+
+enum QueueStatus {
+  WAITING
+  IN_PROGRESS
+  COMPLETED
+}
+
+// ═════════════════════════════════════════════════════════════════════════════
+// NOTES ON IMPLEMENTATION
+// ═════════════════════════════════════════════════════════════════════════════
+// 
+// 1. MULTI-TENANT ISOLATION:
+//    - organizationId is the PRIMARY isolation key
+//    - ALL queries MUST include organizationId filter
+//    - Create database indexes on (organizationId, <other-fields>)
+//    - Use @@index and @@unique constraints to enforce at schema level
+//
+// 2. BILINGUAL SUPPORT:
+//    - Use BilingualContent type for dynamic database content
+//    - Use i18n JSON files (lib/locales/) for static UI labels
+//    - All Organization, Department, Service names stored as BilingualContent
+//
+// 3. DATA ISOLATION:
+//    - FacilityPatientJoin ensures patient belongs to facility
+//    - Appointments tied to organizationId + patientId
+//    - MedicalRecords include organizationId for isolation
+//    - Use @relation onDelete: Cascade for referential integrity
+//
+// 4. HEALTHCARE ROLES:
+//    - Extended from 6 roles to 21+ professional roles
+//    - Enum: HealthcareProfessionalRole covers all clinical & support staff
+//    - Map role-based permissions in middleware & route guards
+//
+// 5. FACILITY CLASSIFICATION:
+//    - FacilityOwnershipType: PUBLIC / PRIVATE
+//    - FacilityServiceType: 9 types from PHCU to Specialty Clinic
+//    - Enables hierarchical facility directory & filtering
+//
+// ═════════════════════════════════════════════════════════════════════════════

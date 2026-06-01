@@ -10,9 +10,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { UserPlus, CheckCircle2, Copy, Check, ArrowRight, ShieldCheck, Mail, Building, Key, Award, Eye, EyeOff } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useLanguage } from "@/components/LanguageProvider";
+import { HEALTHCARE_ROLE_KEYS, getHealthcareRoleTranslation } from "@/lib/locales/enums";
 
 function RegisterStaffForm() {
   const router = useRouter();
+  const { language } = useLanguage();
   const searchParams = useSearchParams();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
@@ -28,7 +31,7 @@ function RegisterStaffForm() {
   const [organizationId, setOrganizationId] = useState("");
   const [fullName, setFullName] = useState("");
   const [licenseNumber, setLicenseNumber] = useState("");
-  const [role, setRole] = useState<"DOCTOR" | "NURSE" | "PHARMACIST" | "RECEPTIONIST" | "ADMIN" | "LAB_TECH" | "">("");
+  const [role, setRole] = useState<string>("");
   const [pin, setPin] = useState("");
 
   useEffect(() => {
@@ -223,15 +226,18 @@ function RegisterStaffForm() {
               </Label>
               <Select onValueChange={(val: any) => setRole(val)} value={role || undefined} required>
                 <SelectTrigger id="role" className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-11">
-                  <SelectValue placeholder="Select your System Role..." />
+                  <SelectValue placeholder={language === "am" ? "የስራ ሚናዎን ይምረጡ..." : "Select your System Role..."} />
                 </SelectTrigger>
                 <SelectContent className="bg-slate-900 border-slate-800 text-white rounded-xl">
-                  <SelectItem value="DOCTOR" className="focus:bg-slate-800 focus:text-white cursor-pointer">Attending Doctor</SelectItem>
-                  <SelectItem value="NURSE" className="focus:bg-slate-800 focus:text-white cursor-pointer">Triage Nurse</SelectItem>
-                  <SelectItem value="PHARMACIST" className="focus:bg-slate-800 focus:text-white cursor-pointer">Head Pharmacist</SelectItem>
-                  <SelectItem value="LAB_TECH" className="focus:bg-slate-800 focus:text-white cursor-pointer">Laboratory Technician</SelectItem>
-                  <SelectItem value="RECEPTIONIST" className="focus:bg-slate-800 focus:text-white cursor-pointer">Receptionist</SelectItem>
-                  <SelectItem value="ADMIN" className="focus:bg-slate-800 focus:text-white cursor-pointer">Medical Director (Admin)</SelectItem>
+                  {HEALTHCARE_ROLE_KEYS.map((roleKey) => (
+                    <SelectItem
+                      key={roleKey}
+                      value={roleKey}
+                      className="focus:bg-slate-800 focus:text-white cursor-pointer"
+                    >
+                      {getHealthcareRoleTranslation(roleKey, language)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

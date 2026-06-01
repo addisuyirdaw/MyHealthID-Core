@@ -2,12 +2,14 @@ import prisma from "@/lib/prisma";
 import React from "react";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
+import { ADMIN_ROLES, CLINICAL_ROLES, normalizeHealthcareRole } from "@/lib/locales/enums";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, FileText, User } from "lucide-react";
 import { LiveQueueStatus } from "@/components/LiveQueueStatus";
 import { CheckInButton } from "@/components/CheckInButton";
 import BreakGlassClient from "@/components/BreakGlassClient";
+import { Role } from "@prisma/client";
 
 type TimelineEvent = {
   id: string;
@@ -44,11 +46,11 @@ export default async function ClinicalRecordsDashboard({
   const cookieStore = cookies();
   const viewerRole = cookieStore.get("userRole")?.value || "UNKNOWN";
   const isCitizen = viewerRole === "CITIZEN";
-  const isDoctor = viewerRole === "DOCTOR" || viewerRole === "ADMIN" || viewerRole === "NURSE";
+  const isClinicalUser = CLINICAL_ROLES.includes(viewerRole as any) || ADMIN_ROLES.includes(viewerRole as any);
   const hasOverride = searchParams.override === "1";
 
-  // RBAC Gate: if doctor tries to view a restricted patient without override → show Break-Glass
-  if (!isCitizen && isDoctor && patient.isRestricted && !hasOverride) {
+  // RBAC Gate: if a clinical provider tries to view a restricted patient without override → show Break-Glass
+  if (!isCitizen && isClinicalUser && patient.isRestricted && !hasOverride) {
     return (
       <BreakGlassClient
         patientId={patient.id}
@@ -57,16 +59,34 @@ export default async function ClinicalRecordsDashboard({
     );
   }
 
-  // Log VIEW event if a doctor (not citizen) is accessing
-  if (isDoctor && !hasOverride) {
+  // Log VIEW event if a clinical provider (not citizen) is accessing
+  if (isClinicalUser && !hasOverride) {
     try {
-      const doctorName = cookieStore.get("professionalName")?.value || "Dr. Dawit Tadesse";
+      const clinicianName = cookieStore.get("professionalName")?.value || "Dr. Dawit Tadesse";
+      const userId = cookieStore.get("userId")?.value || "";
+      const organizationId = cookieStore.get("organizationId")?.value || patient.organizationId || "";
+
+      // Normalize role to canonical enum
+      const normalizedRole = normalizeHealthcareRole(viewerRole) as Role;
+
+      // Get facility service type from organization
+      let facilityServiceType = undefined;
+      if (organizationId) {
+        const org = await prisma.organization.findUnique({
+          where: { id: organizationId },
+          select: { serviceType: true },
+        });
+        facilityServiceType = org?.serviceType || undefined;
+      }
+
       await prisma.accessLog.create({
         data: {
           patientId: patient.id,
-          accessedByName: doctorName,
-          facility: "Debre Berhan Hospital",
-          role: viewerRole,
+          userId: userId || undefined,
+          organizationId: organizationId || undefined,
+          accessedByName: clinicianName,
+          role: normalizedRole,
+          facilityServiceType: facilityServiceType,
           action: "VIEW",
         },
       });

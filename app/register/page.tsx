@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { registerPatient } from "@/lib/actions/patient.actions";
 import { checkInToQueue } from "@/lib/actions/queue.actions";
+import { ADMIN_ROLES, REGISTRATION_ROLES } from "@/lib/locales/enums";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -504,7 +505,7 @@ export default function RegisterPage() {
 
 
   // Only block logged-in users with the wrong role; citizens (role = "") can self-register
-  if (authChecked && role && role !== "RECEPTIONIST" && role !== "ADMIN") {
+  if (authChecked && role && !REGISTRATION_ROLES.includes(role as any) && !ADMIN_ROLES.includes(role as any)) {
     return (
       <div className="min-h-screen bg-slate-950 flex items-center justify-center p-6">
         <div className="bg-slate-900/80 backdrop-blur-xl border border-slate-800 rounded-3xl p-10 shadow-2xl text-center max-w-md w-full">

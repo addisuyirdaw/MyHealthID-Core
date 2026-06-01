@@ -9,6 +9,7 @@ import { LocalizedText } from "./LocalizedText";
 import { LogoIcon } from "./LogoIcon";
 import prisma from "@/lib/prisma";
 import { logoutUser } from "@/lib/actions/auth.actions";
+import { ADMIN_ROLES, CLINICAL_ROLES, TRIAGE_ROLES, LAB_ROLES, PHARMACY_ROLES, REGISTRATION_ROLES } from "@/lib/locales/enums";
 
 export async function Sidebar() {
   const cookieStore = cookies();
@@ -33,12 +34,12 @@ export async function Sidebar() {
   }
 
   const isCitizen = role === "CITIZEN";
-  const isDoctor = role === "DOCTOR";
-  const isAdmin = role === "ADMIN";
-  const isPharmacist = role === "PHARMACIST";
-  const isLabTech = role === "LAB_TECH";
-  const isNurse = role === "NURSE";
-  const isReceptionist = role === "RECEPTIONIST";
+  const isAdmin = ADMIN_ROLES.includes(role as any);
+  const canAccessClinical = CLINICAL_ROLES.includes(role as any) || isAdmin;
+  const canAccessTriage = TRIAGE_ROLES.includes(role as any) || isAdmin;
+  const canAccessLab = LAB_ROLES.includes(role as any) || isAdmin;
+  const canAccessPharmacy = PHARMACY_ROLES.includes(role as any) || isAdmin;
+  const canAccessRegistration = REGISTRATION_ROLES.includes(role as any) || isAdmin;
 
   const badgeColors: Record<string, string> = {
     ADMIN: "text-emerald-400 bg-emerald-500/10 border-emerald-500/30",
@@ -100,7 +101,7 @@ export async function Sidebar() {
         )}
 
         {/* ── CLINICAL SUITE (DOCTOR / ADMIN) ────────────────────────── */}
-        {(isDoctor || isAdmin) && (
+        {canAccessClinical && (
           <>
             <p className="text-xs font-bold text-slate-500 uppercase tracking-widest px-3 py-2">Clinical</p>
 
@@ -133,7 +134,7 @@ export async function Sidebar() {
         )}
 
         {/* ── TRIAGE & SCREENING SUITE (NURSE) ────────────────────────── */}
-        {(isNurse || isAdmin) && (
+        {canAccessTriage && (
           <>
             <p className="text-xs font-bold text-teal-500/80 uppercase tracking-widest px-3 py-2 mt-2">Nurse Portal</p>
             <Link
@@ -154,7 +155,7 @@ export async function Sidebar() {
         )}
 
         {/* ── RECEPTION SUITE (RECEPTIONIST) ────────────────────────── */}
-        {(isReceptionist || isAdmin) && (
+        {canAccessRegistration && (
           <>
             <p className="text-xs font-bold text-pink-500/80 uppercase tracking-widest px-3 py-2 mt-2">Reception</p>
             <Link
@@ -175,7 +176,7 @@ export async function Sidebar() {
         )}
 
         {/* ── PHARMACY SUITE (PHARMACIST) ─────────────────────────────────── */}
-        {(isPharmacist || isAdmin) && (
+        {canAccessPharmacy && (
           <>
             <p className="text-xs font-bold text-amber-500/80 uppercase tracking-widest px-3 py-2 mt-2">Pharmacy</p>
             <Link
@@ -189,7 +190,7 @@ export async function Sidebar() {
         )}
 
         {/* ── LABORATORY SUITE (LAB_TECH) ─────────────────────────────────── */}
-        {(isLabTech || isAdmin) && (
+        {canAccessLab && (
           <>
             <p className="text-xs font-bold text-cyan-500/80 uppercase tracking-widest px-3 py-2 mt-2">Laboratory</p>
             <Link
