@@ -106,7 +106,11 @@ async function applyStandardOrgFilter(
   const ctx = await getTenantContextOrNull();
 
   // No session context (public route, build-time SSG, system task) — pass through
-  if (!ctx) return query(args);
+  if (!ctx) {
+    const where = args.where as Record<string, unknown> | undefined;
+    const { cleanWhere } = extractBypass(where);
+    return query({ ...args, where: cleanWhere });
+  }
 
   const { organizationId } = ctx;
 
@@ -151,7 +155,11 @@ async function applyDiagnosticOrderOrgFilter(
   query: (a: any) => Promise<unknown>
 ): Promise<unknown> {
   const ctx = await getTenantContextOrNull();
-  if (!ctx) return query(args);
+  if (!ctx) {
+    const where = args.where as Record<string, unknown> | undefined;
+    const { cleanWhere } = extractBypass(where);
+    return query({ ...args, where: cleanWhere });
+  }
 
   const { organizationId } = ctx;
 
@@ -266,6 +274,36 @@ function buildExtension(base: PrismaClient) {
         updateMany:        async ({ args, query }) => applyDiagnosticOrderOrgFilter("updateMany",       args, query),
         delete:            async ({ args, query }) => applyDiagnosticOrderOrgFilter("delete",           args, query),
         deleteMany:        async ({ args, query }) => applyDiagnosticOrderOrgFilter("deleteMany",       args, query),
+      },
+
+      // ── LabRequest ─────────────────────────────────────────────────────────
+      labRequest: {
+        findMany:          async ({ args, query }) => applyStandardOrgFilter("findMany",         args, query),
+        findFirst:         async ({ args, query }) => applyStandardOrgFilter("findFirst",        args, query),
+        findFirstOrThrow:  async ({ args, query }) => applyStandardOrgFilter("findFirstOrThrow", args, query),
+        findUnique:        async ({ args, query }) => applyStandardOrgFilter("findUnique",        args, query, "labRequest"),
+        findUniqueOrThrow: async ({ args, query }) => applyStandardOrgFilter("findUniqueOrThrow", args, query, "labRequest"),
+        count:             async ({ args, query }) => applyStandardOrgFilter("count",            args, query),
+        create:            async ({ args, query }) => applyStandardOrgFilter("create",           args, query),
+        update:            async ({ args, query }) => applyStandardOrgFilter("update",           args, query),
+        updateMany:        async ({ args, query }) => applyStandardOrgFilter("updateMany",       args, query),
+        delete:            async ({ args, query }) => applyStandardOrgFilter("delete",           args, query),
+        deleteMany:        async ({ args, query }) => applyStandardOrgFilter("deleteMany",       args, query),
+      },
+
+      // ── LabTestTemplate ────────────────────────────────────────────────────
+      labTestTemplate: {
+        findMany:          async ({ args, query }) => applyStandardOrgFilter("findMany",         args, query),
+        findFirst:         async ({ args, query }) => applyStandardOrgFilter("findFirst",        args, query),
+        findFirstOrThrow:  async ({ args, query }) => applyStandardOrgFilter("findFirstOrThrow", args, query),
+        findUnique:        async ({ args, query }) => applyStandardOrgFilter("findUnique",        args, query, "labTestTemplate"),
+        findUniqueOrThrow: async ({ args, query }) => applyStandardOrgFilter("findUniqueOrThrow", args, query, "labTestTemplate"),
+        count:             async ({ args, query }) => applyStandardOrgFilter("count",            args, query),
+        create:            async ({ args, query }) => applyStandardOrgFilter("create",           args, query),
+        update:            async ({ args, query }) => applyStandardOrgFilter("update",           args, query),
+        updateMany:        async ({ args, query }) => applyStandardOrgFilter("updateMany",       args, query),
+        delete:            async ({ args, query }) => applyStandardOrgFilter("delete",           args, query),
+        deleteMany:        async ({ args, query }) => applyStandardOrgFilter("deleteMany",       args, query),
       },
     },
   });

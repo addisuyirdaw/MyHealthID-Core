@@ -245,6 +245,7 @@ model Patient {
   appointments    Appointment[]
   medicalRecords  MedicalRecord[]
   referralSummaries ReferralSummary[]
+  labRequests     LabRequest[]
 
   @@index([nationalId])
   @@index([faydaId])
@@ -646,6 +647,8 @@ model Organization {
   diagnosticOrdersAsDestination DiagnosticOrder[] @relation("DiagnosticOrderDestination")
   referralSummariesAsOrigin ReferralSummary[] @relation("ReferralSummaryOrigin")
   referralSummariesAsDestination ReferralSummary[] @relation("ReferralSummaryDestination")
+  labRequests               LabRequest[]
+  labTestTemplates           LabTestTemplate[]
 }
 
 model Appointment {
@@ -764,4 +767,67 @@ model ReferralSummary {
   @@index([destinationOrganizationId])
   @@index([issuedByUserId])
   @@map("referral_summaries")
+}
+
+enum LabRequestStatus {
+  PENDING
+  SAMPLE_COLLECTED
+  COMPLETED
+  CANCELLED
+}
+
+model LabTestTemplate {
+  id             String   @id @default(uuid()) @map("_id")
+  organizationId String   @map("organization_id")
+  testName       String   @map("test_name")
+  category       String
+  unit           String
+  normalLow      Float    @map("normal_low")
+  normalHigh     Float    @map("normal_high")
+  panicLow       Float    @map("panic_low")
+  panicHigh      Float    @map("panic_high")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, testName])
+  @@map("lab_test_templates")
+}
+
+model LabRequest {
+  id             String           @id @default(uuid()) @map("_id")
+  organizationId String           @map("organization_id")
+  encounterId    String           @map("encounter_id")
+  patientId      String           @map("patient_id")
+  status         LabRequestStatus @default(PENDING)
+  tests          String[]
+  orderDate      DateTime         @default(now()) @map("order_date")
+  completedDate  DateTime?        @map("completed_date")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+
+  patient        Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  organization   Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  results        LabResultItem[]
+
+  @@index([organizationId, status])
+  @@index([patientId, orderDate])
+  @@map("lab_requests")
+}
+
+model LabResultItem {
+  id         String   @id @default(uuid()) @map("_id")
+  requestId  String   @map("request_id")
+  testName   String   @map("test_name")
+  value      Float
+  textValue  String?  @map("text_value")
+  isAbnormal Boolean  @default(false) @map("is_abnormal")
+  isCritical Boolean  @default(false) @map("is_critical")
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  request    LabRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@map("lab_result_items")
 }

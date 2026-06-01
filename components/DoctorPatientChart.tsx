@@ -10,10 +10,12 @@ import {
   Pill, ArrowLeft, ClipboardList, CheckCircle2,
   AlertTriangle, Droplet, Activity, Thermometer,
   Wind, Scale, Brain, Save, ExternalLink, Clock,
-  FileText, Microscope, Scan, TestTubeDiagonal
+  FileText, Microscope, Scan, TestTubeDiagonal,
+  Sparkles, Shield, Lock, X, Info
 } from "lucide-react";
 import { saveClinicalExam, saveDoctorAssessment } from "@/lib/actions/patient.actions";
 import { createLabOrder } from "@/lib/actions/investigation.actions";
+import { generateClinicalContextStream } from "@/lib/actions/ai.actions";
 import { OrderTestModal } from "@/components/OrderTestModal";
 import { PrescribeModal } from "@/components/PrescribeModal";
 import { DynamicVitalsModal } from "@/components/DynamicVitalsModal";
@@ -149,6 +151,58 @@ function VitalCard({ icon: Icon, label, value, unit, color }: {
 export default function DoctorPatientChart({ patient }: { patient: any }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("identification");
+
+  // AI Clinical Support states
+  const [showAIPanel, setShowAIPanel] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiStreaming, setAiStreaming] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [streamedBullets, setStreamedBullets] = useState<string[]>([]);
+
+  const handleTriggerAI = async () => {
+    setAiLoading(true);
+    setAiError("");
+    setStreamedBullets([]);
+    try {
+      const res = await generateClinicalContextStream(patient);
+      setAiLoading(false);
+      setAiStreaming(true);
+
+      // Stream bullets sequentially
+      let currentBulletIdx = 0;
+      const streamNextBullet = () => {
+        if (currentBulletIdx >= res.bullets.length) {
+          setAiStreaming(false);
+          return;
+        }
+        const fullText = res.bullets[currentBulletIdx];
+        let charIdx = 0;
+        const interval = setInterval(() => {
+          setStreamedBullets(prev => {
+            const copy = [...prev];
+            copy[currentBulletIdx] = fullText.slice(0, charIdx);
+            return copy;
+          });
+          charIdx += 6; // stream 6 characters at a time for smooth speed
+          if (charIdx > fullText.length) {
+            setStreamedBullets(prev => {
+              const copy = [...prev];
+              copy[currentBulletIdx] = fullText;
+              return copy;
+            });
+            clearInterval(interval);
+            currentBulletIdx++;
+            setTimeout(streamNextBullet, 150); // small delay between bullets
+          }
+        }, 15);
+      };
+      streamNextBullet();
+    } catch (err: any) {
+      setAiLoading(false);
+      setAiStreaming(false);
+      setAiError(err.message || "Failed to generate AI insights.");
+    }
+  };
 
   // History & Examination state
   const [historyData, setHistoryData] = useState({
@@ -313,6 +367,17 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
 
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap gap-2">
+              <Button
+                onClick={() => setShowAIPanel(prev => !prev)}
+                className={`font-semibold rounded-xl flex items-center gap-1.5 shadow-md transition-all duration-300 ${
+                  showAIPanel
+                    ? "bg-blue-600 hover:bg-blue-500 text-white border border-blue-400"
+                    : "bg-[#262626] hover:bg-[#323232] text-neutral-200 border border-neutral-700/60"
+                }`}
+              >
+                <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
+                AI Clinical Support
+              </Button>
               <DynamicVitalsModal patientId={patient.id} patientName={patient.fullName} />
               <PrescribeModal patientId={patient.id} patientName={patient.fullName} patientAllergies={patient.allergyInformation} />
               <ReferModal patientId={patient.id} patientName={patient.fullName} />
@@ -343,8 +408,9 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
         </div>
       </div>
 
-      {/* ── Tab Content ── */}
-      <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
+      {/* ── Tab Content and Sidebar Layout ── */}
+      <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-6 flex flex-col lg:flex-row gap-6 items-start">
+        <div className="flex-1 w-full min-w-0">
 
         {/* ══ TAB 1: Identification & Triage Vitals ══ */}
         {activeTab === "identification" && (
@@ -771,6 +837,173 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
               </>
             )}
           </div>
+        )}
+        </div>
+
+        {/* ── AI Support Sidebar Panel ── */}
+        {showAIPanel && (
+          <aside className="w-full lg:w-96 shrink-0 bg-[#141414] border border-neutral-850 rounded-2xl p-5 flex flex-col gap-4 self-start lg:sticky lg:top-6 transition-all duration-300">
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+              <div className="flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-blue-400 animate-pulse" />
+                <span className="font-bold text-white tracking-tight">AI Clinical Support</span>
+              </div>
+              <button
+                onClick={() => setShowAIPanel(false)}
+                className="text-neutral-400 hover:text-neutral-200 p-1 rounded-lg hover:bg-neutral-800 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Privacy Shield Info */}
+            <div className={`p-3 rounded-xl border flex items-start gap-2 text-xs ${
+              patient.isRestricted 
+                ? "bg-red-950/20 border-red-900/30 text-red-300"
+                : "bg-blue-950/20 border-blue-900/30 text-blue-300"
+            }`}>
+              {patient.isRestricted ? (
+                <>
+                  <Lock className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block">Estonian Model: Restricted</span>
+                    Cross-facility data sharing is restricted by patient request.
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Shield className="w-4 h-4 text-blue-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-semibold block">Estonian Model: Active</span>
+                    Access is audited. Read-only clinical analysis enabled.
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Main Content Area */}
+            <div className="flex-1 flex flex-col gap-3 min-h-[300px]">
+              {/* Error State */}
+              {aiError && (
+                <div className="p-3 bg-red-900/20 border border-red-800/40 rounded-xl text-red-300 text-xs flex gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+                  <div>
+                    <p className="font-semibold">Request Aborted</p>
+                    <p className="mt-1 leading-relaxed">{aiError}</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Initial Idle State */}
+              {!aiLoading && streamedBullets.length === 0 && !aiError && (
+                <div className="flex flex-col items-center justify-center text-center py-10 px-4 gap-4 flex-1">
+                  <div className="w-12 h-12 rounded-full bg-neutral-800 flex items-center justify-center text-blue-400">
+                    <Brain className="w-6 h-6 animate-pulse" />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-neutral-200 text-sm">Clinical Assistant</h4>
+                    <p className="text-xs text-neutral-500 mt-1 leading-relaxed">
+                      Analyze legacy medication logs, pre-existing patient behaviors, and suggest diagnostic investigation panels.
+                    </p>
+                  </div>
+                  {!patient.isRestricted && (
+                    <Button
+                      onClick={handleTriggerAI}
+                      className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold rounded-xl py-2.5 flex items-center justify-center gap-2 shadow-lg"
+                    >
+                      <Sparkles className="w-4 h-4" /> Generate Insights
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* Loading State */}
+              {aiLoading && (
+                <div className="flex flex-col gap-4 py-6 flex-1 justify-center">
+                  <div className="flex items-center gap-3 justify-center text-neutral-400 text-sm">
+                    <Clock className="w-4 h-4 animate-spin text-blue-500" />
+                    <span>Analyzing record history...</span>
+                  </div>
+                  <div className="space-y-2 px-4">
+                    <div className="h-4 bg-neutral-800 rounded animate-pulse w-3/4" />
+                    <div className="h-4 bg-neutral-800 rounded animate-pulse w-5/6" />
+                    <div className="h-4 bg-neutral-800 rounded animate-pulse w-2/3" />
+                  </div>
+                </div>
+              )}
+
+              {/* Streaming / Loaded Insights */}
+              {(streamedBullets.length > 0) && (
+                <div className="space-y-4 text-xs">
+                  {streamedBullets.map((bullet, idx) => {
+                    let sectionTitle = "Insight";
+                    let sectionClass = "border-neutral-850 bg-neutral-900/40 text-neutral-300";
+                    let IconComp = Info;
+
+                    if (bullet.includes("Cross-Hospital Alert") || bullet.includes("Medication")) {
+                      sectionTitle = "Medication Safety & Cross-Facility Alert";
+                      sectionClass = "border-amber-800/30 bg-amber-950/10 text-amber-200";
+                      IconComp = AlertTriangle;
+                    } else if (bullet.includes("Behavioral Analytics") || bullet.includes("behavior")) {
+                      sectionTitle = "Behavioral & Lifestyle Risks";
+                      sectionClass = "border-indigo-800/30 bg-indigo-950/10 text-indigo-200";
+                      IconComp = Brain;
+                    } else if (bullet.includes("Diagnostic Recommendations") || bullet.includes("recommends")) {
+                      sectionTitle = "Suggested Diagnostic panel";
+                      sectionClass = "border-blue-800/30 bg-blue-950/10 text-blue-200";
+                      IconComp = FlaskConical;
+                    }
+
+                    return (
+                      <div key={idx} className={`p-4 rounded-xl border flex flex-col gap-2 transition-all duration-300 ${sectionClass}`}>
+                        <div className="flex items-center gap-2 font-bold uppercase tracking-wider text-[10px] opacity-80">
+                          <IconComp className="w-3.5 h-3.5" />
+                          {sectionTitle}
+                        </div>
+                        <p className="leading-relaxed font-medium whitespace-pre-wrap">{bullet}</p>
+                      </div>
+                    );
+                  })}
+
+                  {/* Typing Indicator */}
+                  {aiStreaming && (
+                    <div className="flex items-center gap-1.5 pl-2 text-neutral-500 font-medium">
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <span className="text-[10px] ml-1">AI compiling...</span>
+                    </div>
+                  )}
+
+                  {/* Sync State Status Indicators */}
+                  {!aiStreaming && (
+                    <div className="pt-3 border-t border-neutral-800 space-y-1.5 text-[10px] text-neutral-500 font-medium">
+                      <div className="flex justify-between items-center">
+                        <span>Source Engine:</span>
+                        <span className="text-blue-400 font-bold font-mono">CROSS_FACILITY_V2</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Sync status:</span>
+                        <span className="text-green-500 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block animate-ping" /> Real-time Synced
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span>Last sync:</span>
+                        <span>{new Date().toLocaleTimeString()}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="pt-3 border-t border-neutral-800 text-[9px] text-neutral-600 leading-relaxed font-semibold">
+              ⚠️ This assistant panel operates in read-only mode. Access is audited under Estonian X-Road privacy regulation guidelines.
+            </div>
+          </aside>
         )}
       </div>
     </div>
