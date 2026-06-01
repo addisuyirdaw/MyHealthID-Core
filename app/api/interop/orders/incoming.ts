@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
         diagnosticOrderId,
         destinationOrganizationId,
         rejectedByUserId: acceptedByUserId,
-        rejectedByRole,
+        rejectedByRole: acceptedByRole,
         rejectionReason,
       });
     }
