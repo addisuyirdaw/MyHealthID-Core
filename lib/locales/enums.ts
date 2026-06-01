@@ -263,16 +263,18 @@ export const FACILITY_SERVICE_TYPES = {
  */
 export function getHealthcareRoleTranslation(
   roleKey: keyof typeof HEALTHCARE_ROLES,
-  lang: "en" | "am" = "en",
+  lang: "en" | "am" | "EN" | "AM" = "en",
   format: "full" | "short" = "full"
 ): string {
   const role = HEALTHCARE_ROLES[roleKey];
   if (!role) return roleKey;
 
+  const normalizedLang = lang.toLowerCase() as "en" | "am";
+
   if (format === "short") {
-    return lang === "en" ? role.shortEn : role.shortAm;
+    return normalizedLang === "en" ? role.shortEn : role.shortAm;
   }
-  return lang === "en" ? role.en : role.am;
+  return normalizedLang === "en" ? role.en : role.am;
 }
 
 /**
@@ -280,11 +282,12 @@ export function getHealthcareRoleTranslation(
  */
 export function getFacilityOwnershipTranslation(
   ownershipKey: keyof typeof FACILITY_OWNERSHIP_TYPES,
-  lang: "en" | "am" = "en"
+  lang: "en" | "am" | "EN" | "AM" = "en"
 ): string {
   const ownership = FACILITY_OWNERSHIP_TYPES[ownershipKey];
   if (!ownership) return ownershipKey;
-  return lang === "en" ? ownership.en : ownership.am;
+  const normalizedLang = lang.toLowerCase() as "en" | "am";
+  return normalizedLang === "en" ? ownership.en : ownership.am;
 }
 
 /**
@@ -292,16 +295,18 @@ export function getFacilityOwnershipTranslation(
  */
 export function getFacilityServiceTypeTranslation(
   serviceTypeKey: keyof typeof FACILITY_SERVICE_TYPES,
-  lang: "en" | "am" = "en",
+  lang: "en" | "am" | "EN" | "AM" = "en",
   format: "full" | "short" = "full"
 ): string {
   const serviceType = FACILITY_SERVICE_TYPES[serviceTypeKey];
   if (!serviceType) return serviceTypeKey;
 
+  const normalizedLang = lang.toLowerCase() as "en" | "am";
+
   if (format === "short") {
-    return lang === "en" ? serviceType.shortEn : serviceType.shortAm;
+    return normalizedLang === "en" ? serviceType.shortEn : serviceType.shortAm;
   }
-  return lang === "en" ? serviceType.en : serviceType.am;
+  return normalizedLang === "en" ? serviceType.en : serviceType.am;
 }
 
 export const FACILITY_SERVICE_TYPE_KEYS = Object.keys(FACILITY_SERVICE_TYPES) as Array<keyof typeof FACILITY_SERVICE_TYPES>;

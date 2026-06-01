@@ -133,7 +133,7 @@ export async function dispatchExternalOrder(params: {
     // Verify referrer exists and belongs to origin facility
     const referrer = await prisma.user.findUnique({
       where: { id: referredByUserId },
-      select: { id: true, organizationId: true, role: true },
+      select: { id: true, organizationId: true, role: true, fullName: true },
     });
 
     if (!referrer) {
