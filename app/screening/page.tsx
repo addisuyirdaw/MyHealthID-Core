@@ -30,7 +30,7 @@ export default function ScreeningEntryPage() {
     setAuthChecked(true);
   }, []);
 
-  const t = (en: string, am: string) => (lang === "am" ? am : en);
+  const t = (en: string, am: string) => (lang === "AM" ? am : en);
 
   const go = async (e: React.FormEvent) => {
     e.preventDefault();
