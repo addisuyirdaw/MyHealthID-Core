@@ -28,10 +28,22 @@ function LoginForm() {
     });
   }, [searchParams]);
 
-  const handleSubmit = async (formData: FormData) => {
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setStatus("loading");
+    // Manually build FormData from controlled state so values are never null
+    const fd = new FormData();
+    fd.append("emailOrUsername", emailOrUsername.trim());
+    fd.append("password", password);
+    fd.append("hospitalIdCode", hospitalIdCode.trim());
+    fd.append("role", "HOSPITAL_CEO");
     try {
-      await loginUser(formData);
+      const res = await loginUser(fd);
+      if (res && res.error) {
+        setStatus("idle");
+        alert(res.error);
+        return;
+      }
     } catch (error: any) {
       if (error.digest?.startsWith("NEXT_REDIRECT")) {
         setStatus("success");
@@ -47,7 +59,21 @@ function LoginForm() {
     fd.append("emailOrUsername", "dr.dawit@myhealthid.gov.et");
     fd.append("password", "demo-password-hash");
     fd.append("hospitalIdCode", "");
-    handleSubmit(fd);
+    fd.append("role", "HOSPITAL_CEO");
+    setStatus("loading");
+    loginUser(fd).then((res) => {
+      if (res && res.error) {
+        setStatus("idle");
+        alert(res.error);
+      }
+    }).catch((error: any) => {
+      if (error.digest?.startsWith("NEXT_REDIRECT")) {
+        setStatus("success");
+        throw error;
+      }
+      setStatus("idle");
+      alert(error.message);
+    });
   };
 
   if (status === "success") {
@@ -121,7 +147,7 @@ function LoginForm() {
           </Button>
         </div>
 
-        <form action={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4">
           {/* Hospital ID Code */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
@@ -190,8 +216,7 @@ function LoginForm() {
             </div>
           </div>
 
-          {/* Role hidden field default */}
-          <input type="hidden" name="role" value="HOSPITAL_CEO" />
+          {/* Role is appended to FormData manually in handleSubmit */}
 
           <Button
             type="submit"

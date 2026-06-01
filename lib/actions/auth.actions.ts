@@ -247,23 +247,59 @@ export async function registerHealthcareProfessional(data: {
   }
 }
 
-export async function loginUser(formData: FormData) {
-  const emailOrUsername = formData.get("emailOrUsername") as string;
-  const password = formData.get("password") as string;
-  const hospitalIdCode = formData.get("hospitalIdCode") as string;
+export async function loginUser(formData: FormData | any) {
+  // Support both FormData object and raw dictionary payload
+  let emailOrUsername: any = null;
+  let emailOrLicense: any = null;
+  let username: any = null;
+  let extractedPassword: any = null;
+  let extractedHospitalIdCode: any = null;
+  let extractedRole: any = null;
+  let data: any = {};
 
-  if (!emailOrUsername) {
-    throw new Error("Email/Username is required for login.");
+  if (formData instanceof FormData) {
+    emailOrUsername = formData.get("emailOrUsername");
+    emailOrLicense = formData.get("emailOrLicense");
+    username = formData.get("username");
+    extractedPassword = formData.get("password");
+    extractedHospitalIdCode = formData.get("hospitalIdCode");
+    extractedRole = formData.get("role");
+  } else if (formData && typeof formData === "object") {
+    data = formData;
+    emailOrUsername = formData.emailOrUsername;
+    emailOrLicense = formData.emailOrLicense;
+    username = formData.username;
+    extractedPassword = formData.password;
+    extractedHospitalIdCode = formData.hospitalIdCode;
+    extractedRole = formData.role;
   }
 
-  const cleanIdentifier = normalizeLoginIdentifier(emailOrUsername);
+  const finalIdentifier = emailOrUsername || emailOrLicense || data.username;
+
+  if (!finalIdentifier || typeof finalIdentifier !== 'string') {
+    return { error: "Please enter your valid email or license username." };
+  }
+
+  const passwordVal = extractedPassword ? String(extractedPassword).trim() : "";
+  const hospitalIdCodeVal = extractedHospitalIdCode ? String(extractedHospitalIdCode).trim() : "";
+
+  const cleanIdentifier = normalizeLoginIdentifier(finalIdentifier);
+
+  // Secondary guard: normalisation must not produce an empty result
+  if (!cleanIdentifier || typeof cleanIdentifier !== 'string') {
+    return { error: "Please enter your valid email or license username." };
+  }
+
+  const password = passwordVal;
+  const hospitalIdCode = hospitalIdCodeVal;
+
   let dbUser = await prisma.user.findFirst({
     where: {
       OR: [
         { email: cleanIdentifier },
-        { emailOrUsername: cleanIdentifier }
-      ]
-    }
+        { emailOrUsername: cleanIdentifier },
+      ],
+    },
   });
 
   let finalOrgId: string;
@@ -304,8 +340,8 @@ export async function loginUser(formData: FormData) {
     }
 
     if (!dbUser) {
-      // First login for a new facility → create as a facility executive role
-      const formRole = normalizeHealthcareRole((formData.get("role") as string) || "HOSPITAL_CEO");
+      const rawRole = (formData instanceof FormData) ? formData.get("role") : extractedRole;
+      const formRole = normalizeHealthcareRole(String(rawRole ?? "HOSPITAL_CEO") || "HOSPITAL_CEO");
       const [firstName, ...lastNameParts] = cleanIdentifier.split("@")[0].split(".");
       dbUser = await prisma.user.create({
         data: {
@@ -328,8 +364,17 @@ export async function loginUser(formData: FormData) {
       throw new Error("This account is not registered under this facility. Check your Organization ID.");
     }
 
-    if (password && dbUser.passwordHash !== hashPassword(password)) {
+    // If passwordHash is null (legacy document), skip password check and let the
+    // auto-update path below set a real hash on next login
+    if (dbUser.passwordHash && password && dbUser.passwordHash !== hashPassword(password)) {
       throw new Error("Invalid Security PIN/Password.");
+    }
+    // Backfill missing passwordHash for legacy documents
+    if (!dbUser.passwordHash && password) {
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { passwordHash: hashPassword(password) },
+      });
     }
 
     finalOrgId = org.id;
@@ -351,6 +396,20 @@ export async function loginUser(formData: FormData) {
     path: "/",
   });
 
+  cookies().set("userId", dbUser!.id, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 7, // 1 week
+    path: "/",
+  });
+
+  cookies().set("userName", `${dbUser!.firstName} ${dbUser!.lastName}`, {
+    httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 60 * 60 * 24 * 7, // 1 week
+    path: "/",
+  });
+
   const roleStr = normalizeHealthcareRole(role as string);
   if (ADMIN_ROLES.includes(roleStr as any)) redirect("/admin/dashboard");
   if (CLINICAL_ROLES.includes(roleStr as any)) redirect("/doctor/dashboard");
@@ -365,6 +424,8 @@ export async function loginUser(formData: FormData) {
 export async function logoutUser() {
   cookies().delete("userRole");
   cookies().delete("organizationId");
+  cookies().delete("userId");
+  cookies().delete("userName");
   redirect("/");
 }
 

@@ -48,6 +48,14 @@ export async function getPendingInvestigations() {
       },
       include: {
         patient: true,
+        doctor: {
+          select: { firstName: true, lastName: true },
+        },
+        diagnosticOrder: {
+          include: {
+            originOrganization: true,
+          },
+        },
       },
       orderBy: {
         createdAt: "asc",

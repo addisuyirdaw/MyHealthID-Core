@@ -74,6 +74,23 @@ export default function PharmacyPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null);
 
+  // Modern states for slide-out validation drawer and checklist
+  const [drawerPatientId, setDrawerPatientId] = useState<string | null>(null);
+  const [checklist, setChecklist] = useState<Record<string, { stock: boolean; expiry: boolean; dosage: boolean }>>({});
+
+  const handleChecklistToggle = (pxId: string, key: "stock" | "expiry" | "dosage") => {
+    setChecklist((prev) => {
+      const current = prev[pxId] || { stock: false, expiry: false, dosage: false };
+      return {
+        ...prev,
+        [pxId]: {
+          ...current,
+          [key]: !current[key],
+        },
+      };
+    });
+  };
+
   useEffect(() => {
     const r = getRoleFromCookie();
     setRole(r);
@@ -113,24 +130,23 @@ export default function PharmacyPage() {
     setDispensing(prescriptionId);
     try {
       await dispensePrescription(prescriptionId);
-      setDispensedIds((prev) => new Set(prev).add(prescriptionId));
-      setTimeout(() => {
-        setPatients((prev) =>
-          prev
-            .map((p) => ({
-              ...p,
-              prescriptions: p.prescriptions.filter((px: any) => px.id !== prescriptionId),
-            }))
-            .filter((p) => p.prescriptions.length > 0)
-        );
-        setDispensedIds((prev) => {
-          const s = new Set(prev);
-          s.delete(prescriptionId);
-          return s;
-        });
-      }, 1200);
+      setDispensedIds((prev) => {
+        const next = new Set(prev);
+        next.add(prescriptionId);
+        return next;
+      });
+      
+      // Update local state to mark prescription as dispensed
+      setPatients((prev) =>
+        prev.map((p) => ({
+          ...p,
+          prescriptions: p.prescriptions.map((px: any) =>
+            px.id === prescriptionId ? { ...px, status: "DISPENSED" } : px
+          ),
+        }))
+      );
     } catch {
-      alert("Failed to dispense prescription");
+      alert("Failed to dispense prescription. Please try again.");
     } finally {
       setDispensing(null);
     }
@@ -325,7 +341,7 @@ export default function PharmacyPage() {
       {/* ── MAIN CONTENT ── */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* LEFT: Patient Prescription Cards */}
+        {/* LEFT: Active Queue Table */}
         <div className="flex-1 overflow-y-auto p-6 space-y-4">
           {loading ? (
             <div className="flex flex-col items-center justify-center h-64 gap-4 text-neutral-500">
@@ -343,122 +359,150 @@ export default function PharmacyPage() {
               </div>
             </div>
           ) : (
-            (selectedPatient ? [selectedPatient] : patients).map((patient) => {
-              if (!patient.prescriptions || patient.prescriptions.length === 0) return null;
-              const isEmergency = patient.emergencyFlag || patient.triageStatus === "RED";
-              const wait = waitMinutes(patient.updatedAt || patient.createdAt);
-
-              return (
-                <div
-                  key={patient.id}
-                  className={`bg-neutral-900 border rounded-2xl overflow-hidden transition-all ${
-                    isEmergency ? "border-red-500/40" : "border-neutral-800"
-                  }`}
-                >
-                  {/* Patient Header */}
-                  <div className={`flex items-center justify-between px-5 py-3.5 border-b ${
-                    isEmergency ? "bg-red-950/20 border-red-500/20" : "bg-neutral-900/60 border-neutral-800"
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      <div className={`w-9 h-9 rounded-full flex items-center justify-center border ${
-                        isEmergency
-                          ? "bg-red-900/40 border-red-500/40"
-                          : "bg-neutral-800 border-neutral-700"
-                      }`}>
-                        <User className={`w-4 h-4 ${isEmergency ? "text-red-400" : "text-neutral-400"}`} />
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-white">{patient.fullName}</span>
-                          {isEmergency && (
-                            <span className="text-[10px] bg-red-500/10 text-red-400 border border-red-500/20 px-1.5 py-0.5 rounded-full flex items-center gap-1">
-                              <AlertTriangle className="w-2.5 h-2.5" /> Emergency
-                            </span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <span className="font-mono text-[10px] text-neutral-500">{patient.healthId}</span>
-                          <span className="text-[10px] text-neutral-600">·</span>
-                          <span className="text-[10px] text-neutral-500">{patient.age} yrs · {patient.sex}</span>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="text-[10px] text-neutral-600">Waiting</div>
-                        <div className={`text-sm font-bold font-mono ${wait > 20 ? "text-amber-400" : "text-neutral-400"}`}>
-                          {wait}m
-                        </div>
-                      </div>
-                      <span className="font-mono text-[10px] bg-neutral-800 border border-neutral-700 text-neutral-400 px-2 py-0.5 rounded">
-                        {patient.prescriptions.length} Rx
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Prescriptions */}
-                  <div className="divide-y divide-neutral-800/50">
-                    {patient.prescriptions.map((px: any) => {
-                      const isDispensed = dispensedIds.has(px.id);
-                      const isDispensing = dispensing === px.id;
+            <div className="rounded-2xl border border-neutral-850 overflow-hidden bg-neutral-900/30 shadow-xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-xs text-left min-w-[700px] border-collapse">
+                  <thead>
+                    <tr className="bg-neutral-900 border-b border-neutral-800 text-[10px] uppercase tracking-wider text-neutral-400">
+                      <th className="px-5 py-4 w-60">Patient ID & Name</th>
+                      <th className="px-5 py-4">Prescribed Medications</th>
+                      <th className="px-5 py-4 w-44">Status</th>
+                      <th className="px-5 py-4 w-40 text-right">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800/50">
+                    {(selectedPatientId ? patients.filter((p) => p.id === selectedPatientId) : patients).map((patient) => {
+                      if (!patient.prescriptions || patient.prescriptions.length === 0) return null;
+                      
+                      const isEmergency = patient.emergencyFlag || patient.triageStatus === "RED";
+                      const wait = waitMinutes(patient.updatedAt || patient.createdAt);
+                      
+                      // Calculate overall patient status based on their prescriptions
+                      const allDispensed = patient.prescriptions.every((px: any) => px.status === "DISPENSED" || dispensedIds.has(px.id));
+                      const someDispensed = patient.prescriptions.some((px: any) => px.status === "DISPENSED" || dispensedIds.has(px.id));
+                      const pendingRxCount = patient.prescriptions.filter((px: any) => px.status === "PENDING" && !dispensedIds.has(px.id)).length;
 
                       return (
-                        <div key={px.id} className={`flex items-center gap-4 px-5 py-4 transition-all ${
-                          isDispensed ? "bg-emerald-950/20" : ""
-                        }`}>
-                          {/* Drug icon */}
-                          <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
-                            isDispensed ? "bg-emerald-900/40" : "bg-violet-900/30"
-                          }`}>
-                            {isDispensed
-                              ? <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                              : <Pill className="w-4 h-4 text-violet-400" />
-                            }
-                          </div>
-
-                          {/* Drug info */}
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className={`font-semibold text-sm ${isDispensed ? "text-emerald-300" : "text-white"}`}>
-                                {px.drugName}
-                              </span>
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-full border font-semibold ${
-                                isDispensed
-                                  ? "bg-emerald-900/30 text-emerald-400 border-emerald-500/30"
-                                  : "bg-neutral-800 text-neutral-500 border-neutral-700"
+                        <tr 
+                          key={patient.id} 
+                          className={`hover:bg-neutral-800/10 transition-colors border-b border-neutral-800/40 last:border-0 ${
+                            isEmergency ? "bg-red-950/5 hover:bg-red-950/10" : ""
+                          }`}
+                        >
+                          {/* Patient ID & Name */}
+                          <td className="px-5 py-4">
+                            <div className="flex items-start gap-2.5">
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center border shrink-0 mt-0.5 ${
+                                isEmergency
+                                  ? "bg-red-500/10 border-red-500/30 text-red-400"
+                                  : "bg-neutral-800 border-neutral-700 text-neutral-400"
                               }`}>
-                                {isDispensed ? "DISPENSED" : px.status}
-                              </span>
+                                <User className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <span className="font-bold text-white text-sm truncate max-w-[130px]">{patient.fullName}</span>
+                                  {isEmergency && (
+                                    <span className="text-[8px] font-bold bg-red-500/10 border border-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full uppercase tracking-wider animate-pulse flex items-center gap-0.5">
+                                      <span className="w-1 h-1 rounded-full bg-red-400" /> Emergency
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="font-mono text-[10px] text-neutral-400 mt-1 truncate">
+                                  ID: <span className="font-semibold text-violet-400">{patient.healthId}</span>
+                                  {patient.nationalId && (
+                                    <> &middot; Nat: <span className="font-semibold text-cyan-400">{patient.nationalId}</span></>
+                                  )}
+                                </div>
+                                <div className="text-[10px] text-neutral-500 mt-0.5">
+                                  {patient.age} yrs &middot; {patient.sex} &middot; ⏰ {wait}m waiting
+                                </div>
+                              </div>
                             </div>
-                            <div className="text-xs text-neutral-500 mt-0.5">
-                              {px.dosage} · {px.frequency} · {px.duration}
-                            </div>
-                            {px.notes && (
-                              <div className="text-xs text-amber-400/80 mt-0.5 truncate">📝 {px.notes}</div>
-                            )}
-                          </div>
+                          </td>
 
-                          {/* Dispense button */}
-                          {!isDispensed && (
-                            <button
-                              onClick={() => handleDispense(px.id)}
-                              disabled={isDispensing}
-                              className="flex items-center gap-1.5 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white rounded-lg text-xs font-semibold transition-all whitespace-nowrap"
-                            >
-                              {isDispensing ? (
-                                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Dispensing...</>
-                              ) : (
-                                <><CheckCircle2 className="w-3.5 h-3.5" /> Dispense</>
-                              )}
-                            </button>
-                          )}
-                        </div>
+                          {/* Prescribed Medications */}
+                          <td className="px-5 py-4">
+                            <div className="space-y-2 max-w-sm">
+                              {patient.prescriptions.map((px: any) => {
+                                const isItemDispensed = px.status === "DISPENSED" || dispensedIds.has(px.id);
+                                return (
+                                  <div key={px.id} className="flex items-start gap-2 leading-tight">
+                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 mt-1.5 ${
+                                      isItemDispensed ? "bg-emerald-500" : "bg-violet-400"
+                                    }`} />
+                                    <div className="min-w-0">
+                                      <div className={`font-semibold text-[11px] truncate ${
+                                        isItemDispensed ? "text-emerald-400/60 line-through" : "text-neutral-200"
+                                      }`}>
+                                        {px.drugName}
+                                      </div>
+                                      <div className="text-[9px] text-neutral-500 truncate mt-0.5">
+                                        Dosage: {px.dosage} &middot; Dur: {px.duration}
+                                        {px.notes && <span className="text-amber-500/80 ml-1">({px.notes})</span>}
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </td>
+
+                          {/* Status Badge */}
+                          <td className="px-5 py-4 whitespace-nowrap">
+                            {allDispensed ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border bg-emerald-500/10 border-emerald-500/30 text-emerald-400 text-[10px] font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> COMPLETED
+                              </span>
+                            ) : someDispensed ? (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border bg-indigo-500/10 border-indigo-500/30 text-indigo-400 text-[10px] font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> PARTIALLY FULFILLED
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full border bg-violet-500/10 border-violet-500/30 text-violet-400 text-[10px] font-bold">
+                                <span className="w-1.5 h-1.5 rounded-full bg-violet-500" /> PENDING
+                              </span>
+                            )}
+                            <div className="text-[9px] text-neutral-500 mt-1 font-mono">
+                              {pendingRxCount} / {patient.prescriptions.length} Rx remaining
+                            </div>
+                          </td>
+
+                          {/* Actions */}
+                          <td className="px-5 py-4 text-right whitespace-nowrap">
+                            {allDispensed ? (
+                              <button
+                                disabled
+                                className="px-3 py-1.5 bg-neutral-800 border border-neutral-700 text-neutral-500 rounded-lg text-xs font-bold cursor-default"
+                              >
+                                Dispensed
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => {
+                                  // Pre-populate checklist state for this patient's pending prescriptions
+                                  const nextChecklist = { ...checklist };
+                                  patient.prescriptions.forEach((px: any) => {
+                                    if (px.status === "PENDING" && !nextChecklist[px.id]) {
+                                      nextChecklist[px.id] = { stock: false, expiry: false, dosage: false };
+                                    }
+                                  });
+                                  setChecklist(nextChecklist);
+                                  setDrawerPatientId(patient.id);
+                                }}
+                                className="px-3.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white hover:shadow-lg hover:shadow-violet-900/10 rounded-lg text-xs font-bold transition-all border border-violet-500/30"
+                              >
+                                Review &amp; Dispense
+                              </button>
+                            )}
+                          </td>
+                        </tr>
                       );
                     })}
-                  </div>
-                </div>
-              );
-            })
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
         </div>
 
@@ -559,6 +603,171 @@ export default function PharmacyPage() {
           </section>
         </div>
       </div>
+
+      {/* ── SLIDE-OUT DRAWER ── */}
+      {drawerPatientId && (() => {
+        const patient = patients.find(p => p.id === drawerPatientId);
+        if (!patient) return null;
+        
+        const isEmergency = patient.emergencyFlag || patient.triageStatus === "RED";
+        const pendingPrescriptions = patient.prescriptions.filter((px: any) => px.status === "PENDING" && !dispensedIds.has(px.id));
+        const allDispensed = patient.prescriptions.every((px: any) => px.status === "DISPENSED" || dispensedIds.has(px.id));
+
+        return (
+          <div className="fixed inset-0 z-50 flex justify-end">
+            {/* Backdrop */}
+            <div 
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 animate-in fade-in"
+              onClick={() => setDrawerPatientId(null)}
+            />
+            {/* Drawer Panel */}
+            <div className="relative w-full max-w-md h-full bg-neutral-900 border-l border-neutral-800 shadow-2xl flex flex-col z-10 animate-in slide-in-from-right duration-300 overflow-hidden">
+              {/* Header */}
+              <div className={`p-5 border-b border-neutral-850 flex items-center justify-between ${
+                isEmergency ? "bg-red-950/20 border-red-500/10" : "bg-neutral-900/60"
+              }`}>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-white leading-tight">Dispense Prescription</h3>
+                    {isEmergency && (
+                      <span className="text-[8px] bg-red-500/10 border border-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full font-bold uppercase tracking-wider animate-pulse">
+                        Emergency
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[11px] text-neutral-400 mt-1 font-semibold">
+                    {patient.fullName} &middot; <span className="font-mono text-[10px] text-violet-400">{patient.healthId}</span>
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setDrawerPatientId(null)}
+                  className="w-7 h-7 rounded-lg border border-neutral-800 flex items-center justify-center text-neutral-500 hover:text-neutral-300 hover:bg-neutral-800 transition-all"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {allDispensed ? (
+                  <div className="flex flex-col items-center justify-center py-12 px-6 text-center space-y-4 animate-in zoom-in duration-200">
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center ring-8 ring-emerald-500/5">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-400" />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-white">All Medications Dispensed</h4>
+                      <p className="text-xs text-neutral-500 mt-1">
+                        All prescriptions for {patient.fullName} have been successfully validated and dispensed.
+                      </p>
+                    </div>
+                    <div className="bg-emerald-950/20 border border-emerald-500/20 rounded-xl p-3.5 text-left text-[11px] text-emerald-400 leading-relaxed font-mono w-full">
+                      <div className="font-bold border-b border-emerald-500/20 pb-1 mb-1.5 uppercase text-[9px] tracking-wider">SMS Dispatch simulated</div>
+                      To: {patient.emergencyContactPhone || "Patient Mobile"}<br/>
+                      Msg: "Dear {patient.nationalId || patient.healthId}, your medication is ready at the pharmacy. Please collect."
+                    </div>
+                    <button
+                      onClick={() => setDrawerPatientId(null)}
+                      className="w-full py-2 bg-neutral-800 hover:bg-neutral-750 text-white rounded-lg text-xs font-bold transition-all border border-neutral-700"
+                    >
+                      Close Workspace
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider">
+                      Pending Prescription Checklist ({pendingPrescriptions.length} remaining)
+                    </div>
+
+                    <div className="space-y-3">
+                      {patient.prescriptions.map((px: any) => {
+                        const isItemDispensed = px.status === "DISPENSED" || dispensedIds.has(px.id);
+                        if (isItemDispensed) {
+                          return (
+                            <div key={px.id} className="bg-emerald-950/10 border border-emerald-500/20 rounded-xl p-3.5 flex items-center justify-between">
+                              <div className="min-w-0">
+                                <div className="font-bold text-xs text-emerald-400 line-through truncate">{px.drugName}</div>
+                                <div className="text-[10px] text-neutral-500 mt-0.5">Dispensation complete</div>
+                              </div>
+                              <span className="shrink-0 w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                              </span>
+                            </div>
+                          );
+                        }
+
+                        const currentCheck = checklist[px.id] || { stock: false, expiry: false, dosage: false };
+                        const isVerified = currentCheck.stock && currentCheck.expiry && currentCheck.dosage;
+                        const isItemDispensing = dispensing === px.id;
+
+                        return (
+                          <div key={px.id} className="bg-neutral-900/60 border border-neutral-800 rounded-xl p-4 space-y-3">
+                            <div>
+                              <div className="font-bold text-xs text-white leading-tight">💊 {px.drugName}</div>
+                              <div className="text-[10px] text-neutral-500 mt-1">
+                                {px.dosage} &middot; {px.duration}
+                              </div>
+                              {px.notes && (
+                                <div className="text-[10px] text-amber-500/90 mt-1 font-mono p-2 bg-amber-500/5 border border-amber-500/10 rounded">
+                                  Instructions: {px.notes}
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Checklist Inputs */}
+                            <div className="space-y-1.5 pt-1.5 border-t border-neutral-800/60">
+                              {[
+                                { key: "stock", label: "Verify drug availability in local inventory" },
+                                { key: "expiry", label: "Verify expiration date & batch status is valid" },
+                                { key: "dosage", label: "Confirm correct labeling & bilingual counseling" }
+                              ].map((item) => (
+                                <label 
+                                  key={item.key} 
+                                  className="flex items-start gap-2.5 text-[11px] text-neutral-400 hover:text-neutral-200 cursor-pointer p-1.5 hover:bg-neutral-850/30 rounded transition-all select-none"
+                                >
+                                  <input 
+                                    type="checkbox"
+                                    checked={Boolean(currentCheck[item.key as "stock" | "expiry" | "dosage"])}
+                                    onChange={() => handleChecklistToggle(px.id, item.key as "stock" | "expiry" | "dosage")}
+                                    className="h-3.5 w-3.5 rounded border-neutral-700 bg-neutral-800 text-violet-600 focus:ring-violet-500 focus:ring-offset-neutral-900 mt-0.5"
+                                  />
+                                  <span>{item.label}</span>
+                                </label>
+                              ))}
+                            </div>
+
+                            {/* Action Button */}
+                            <button
+                              onClick={() => handleDispense(px.id)}
+                              disabled={!isVerified || isItemDispensing}
+                              className="w-full flex items-center justify-center gap-1.5 py-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-xs font-bold transition-all border border-violet-500/30 mt-2"
+                            >
+                              {isItemDispensing ? (
+                                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Dispensing...</>
+                              ) : (
+                                <><CheckCircle2 className="w-3.5 h-3.5" /> Dispense medication</>
+                              )}
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t border-neutral-800 bg-neutral-900/60 shrink-0 text-right">
+                <button
+                  onClick={() => setDrawerPatientId(null)}
+                  className="px-4 py-2 bg-neutral-800 hover:bg-neutral-750 text-white rounded-lg text-xs font-bold transition-all border border-neutral-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── FOOTER ── */}
       <footer className="border-t border-neutral-800 bg-neutral-900/50 px-6 py-2.5 flex items-center justify-between text-[10px] text-neutral-600 shrink-0">

@@ -123,18 +123,14 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Create queue entry for the patient
+    // Create queue entry for the patient — Queue model fields: patientId, status, checkInTime
     const queue = await prisma.queue.create({
       data: {
         patientId: patient.id,
-        patientName: patient.fullName,
-        patientCard: cardNumber,
-        ward: Ward.OPD_OUTPATIENT,
         status: "WAITING",
-        position: patientCount + 1,
-        checkedInAt: new Date(),
       },
     });
+
 
     // Note: no Visit model in Prisma schema; queue entry created above is sufficient here.
 

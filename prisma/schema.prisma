@@ -74,14 +74,14 @@ type BilingualContent {
 model User {
   id              String @id @default(uuid()) @map("_id")
   email           String @unique
-  emailOrUsername String @unique
-  passwordHash    String
+  emailOrUsername String? @unique
+  passwordHash    String?
   role            Role   @default(RECEPTIONIST)
 
   firstName                 String?
   lastName                  String?
   fullName                  String?
-  professionalLicenseNumber String? @unique
+  professionalLicenseNumber String?
   specialization            String?
   hospitalId                String? @map("hospital_id")
   hospitalName              String?
@@ -108,6 +108,7 @@ model User {
   diagnosticOrdersReferred DiagnosticOrder[]
   createdAppointments   Appointment[]     @relation("AppointmentCreatedBy")
   handledAppointments   Appointment[]     @relation("AppointmentHandledBy")
+  referralSummaries     ReferralSummary[]
 }
 
 enum Ward {
@@ -243,6 +244,7 @@ model Patient {
   medicalTimeline MedicalTimelineEntry[]
   appointments    Appointment[]
   medicalRecords  MedicalRecord[]
+  referralSummaries ReferralSummary[]
 
   @@index([nationalId])
   @@index([faydaId])
@@ -626,7 +628,7 @@ model Organization {
   website          String?
   isActive         Boolean   @default(true)
   isVerified       Boolean   @default(false)
-  verificationCode String?   @unique
+  verificationCode String?
   verifiedAt       DateTime?
   registeredAt     DateTime  @default(now())
   createdAt        DateTime  @default(now())
@@ -642,6 +644,8 @@ model Organization {
   medicalAuditLogs            MedicalAuditLog[]
   diagnosticOrdersAsOrigin    DiagnosticOrder[] @relation("DiagnosticOrderOrigin")
   diagnosticOrdersAsDestination DiagnosticOrder[] @relation("DiagnosticOrderDestination")
+  referralSummariesAsOrigin ReferralSummary[] @relation("ReferralSummaryOrigin")
+  referralSummariesAsDestination ReferralSummary[] @relation("ReferralSummaryDestination")
 }
 
 model Appointment {
@@ -737,4 +741,27 @@ type Address {
   zone   String?
   woreda String?
   kebele String?
+}
+
+model ReferralSummary {
+  id                         String   @id @default(uuid()) @map("_id")
+  patientId                  String   @map("patient_id")
+  originOrganizationId       String   @map("origin_organization_id")
+  destinationOrganizationId  String?  @map("destination_organization_id")
+  clinicalSnapshot           Json     @map("clinical_snapshot")
+  issuedByUserId             String   @map("issued_by_user_id")
+  createdAt                  DateTime @default(now()) @map("created_at")
+  documentHash               String   @map("document_hash")
+
+  // Relations
+  patient                 Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  originOrganization      Organization  @relation("ReferralSummaryOrigin", fields: [originOrganizationId], references: [id], onDelete: Cascade)
+  destinationOrganization Organization? @relation("ReferralSummaryDestination", fields: [destinationOrganizationId], references: [id], onDelete: SetNull)
+  issuedByUser            User          @relation(fields: [issuedByUserId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([originOrganizationId])
+  @@index([destinationOrganizationId])
+  @@index([issuedByUserId])
+  @@map("referral_summaries")
 }

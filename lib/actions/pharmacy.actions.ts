@@ -45,9 +45,7 @@ export async function getReadyForPharmacyPatients() {
         organizationId: organizationId,
       },
       include: {
-        prescriptions: {
-          where: { status: "PENDING" }
-        }
+        prescriptions: true,
       },
       orderBy: {
         updatedAt: "asc",
@@ -78,10 +76,19 @@ export async function dispensePrescription(id: string) {
     console.log(`[SMS] To [${phone}]: Dear ${identifier}, your medication is ready at the pharmacy. Please collect.`);
     console.log(`======================================================\n`);
 
-    await prisma.patient.update({
-      where: { id: p.id },
-      data: { examStatus: "COMPLETED" }
+    const pendingCount = await prisma.prescription.count({
+      where: {
+        patientId: p.id,
+        status: "PENDING",
+      },
     });
+
+    if (pendingCount === 0) {
+      await prisma.patient.update({
+        where: { id: p.id },
+        data: { examStatus: "COMPLETED" }
+      });
+    }
 
     revalidatePath("/dashboard");
     revalidatePath("/pharmacy");

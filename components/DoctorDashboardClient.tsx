@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import GlobalPatientLookup from "@/components/GlobalPatientLookup";
@@ -9,7 +10,7 @@ import {
   HeartPulse, AlertTriangle, Search, Stethoscope, Users, Zap, Clock, Activity,
   Calendar, ChevronRight, RefreshCw, Building2, User, FlaskConical, Pill,
   DatabaseZap, Loader2, ArrowUpRight, Globe, X, CheckCircle2,
-  ShieldCheck, TrendingUp, ClipboardList,
+  ShieldCheck, TrendingUp, ClipboardList, Send,
 } from "lucide-react";
 import { getActivePatientsForFacility, searchPatientMasterRecord } from "@/lib/actions/patient.actions";
 
@@ -592,6 +593,21 @@ export default function DoctorDashboardClient({
               </div>
             </section>
           )}
+
+          {/* Referrals shortcut */}
+          <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
+            <h3 className="text-[10px] font-bold uppercase tracking-widest text-orange-400 flex items-center gap-1.5 mb-3">
+              <ShieldCheck className="w-3 h-3" /> Referrals
+            </h3>
+            <Link
+              href="/doctor/dashboard/referrals"
+              className="flex items-center gap-2 w-full px-3 py-2 bg-orange-950/30 hover:bg-orange-950/50 border border-orange-500/25 hover:border-orange-500/40 text-orange-300 text-xs font-semibold rounded-lg transition-all"
+            >
+              <Send className="w-3 h-3" />
+              View Referral Summaries
+              <ChevronRight className="w-3 h-3 ml-auto" />
+            </Link>
+          </section>
 
           {/* Auto-refresh indicator */}
           <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 flex items-center gap-2">

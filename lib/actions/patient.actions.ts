@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import prisma from "@/lib/prisma";
+import { CROSS_FACILITY } from "@/lib/utils/tenantContext";
 import { checkInToQueue } from "./queue.actions";
 import { generateHealthId, generateChildId, generateMhidSuffix, formatMyHealthPublicId } from "../utils";
 import { randomUUID } from "crypto";
@@ -74,8 +75,6 @@ export async function registerPatient(data: {
       bp, pulse, temp, spO2, phoneNumber,
       isMinor, guardianId, parentFaydaId
     } = data;
-
-    const organizationId = cookies().get("organizationId")?.value || null;
 
     const healthId = generateHealthId();
 
@@ -161,7 +160,7 @@ export async function registerPatient(data: {
         woreda: addressWoreda || "Not Specified",
         kebele: addressKebele || "Not Specified",
       },
-      organizationId,
+      // organizationId is stamped automatically by the Prisma tenant extension on create
       emergencyContactName: emergencyContactName || "Not Specified",
       emergencyContactPhone: emergencyContactPhone || "Not Specified",
       phoneNumber: phoneNumber || null,
@@ -265,12 +264,11 @@ export async function registerPatient(data: {
 }
 export async function getPatientsByWard(ward: Ward) {
   try {
-    const organizationId = cookies().get("organizationId")?.value || null;
+    // organizationId filter is injected automatically by the Prisma tenant extension
     const patients = await prisma.patient.findMany({
       where: {
         status: 'ACTIVE',
         ward: ward,
-        organizationId: organizationId,
         triageStatus: {
           not: TriageStatus.WAITING_FOR_TRIAGE,
         }
@@ -345,11 +343,14 @@ export async function getPatientsByWard(ward: Ward) {
 
 export async function searchPatients(query: string) {
   try {
+    // Retain the cookie read: organizationId is still needed for the
+    // auto-admission intake approval logic below (not for filtering).
     const organizationId = cookies().get("organizationId")?.value || null;
   const patients = await prisma.patient.findMany({
     where: {
+      // CROSS_FACILITY: global search by design — cross-facility lookup
+      ...CROSS_FACILITY,
       status: 'ACTIVE',
-      // Global search: organization filter removed to allow cross-facility lookup
       OR: [
         { healthId: { contains: query, mode: 'insensitive' } },
         { nationalId: { contains: query, mode: 'insensitive' } },
@@ -386,8 +387,10 @@ if (organizationId) {
           data: { status: "APPROVED" },
         });
         // Update patient's active facility to our current logged-in facility so they show up in the queues/wards
+        // Bypass tenant filter: we're intentionally moving a patient into
+        // the active facility after approving an incoming intake request.
         await prisma.patient.update({
-          where: { id: p.id },
+          where: { ...CROSS_FACILITY, id: p.id } as any,
           data: { organizationId: organizationId },
         });
         await checkInToQueue(p.id);
@@ -471,7 +474,7 @@ export async function recordVitals(data: {
       bmi = Math.round((w / (m * m)) * 10) / 10;
     }
 
-    const organizationId = cookies().get("organizationId")?.value || null;
+    // organizationId is stamped automatically by the Prisma tenant extension on create
     const vitals = await prisma.vitals.create({
       data: {
         patientId: data.patientId,
@@ -484,7 +487,6 @@ export async function recordVitals(data: {
         painLevel: data.painLevel ?? null,
         weightKg: w ?? null,
         heightCm: data.heightCm ?? null,
-        organizationId: organizationId,
       },
     });
 
@@ -552,11 +554,10 @@ export async function runAiTriage(patientId: string) {
 
 export async function getWaitingForTriagePatients() {
   try {
-    const organizationId = cookies().get("organizationId")?.value || null;
+    // organizationId filter is injected automatically by the Prisma tenant extension
     const patients = await prisma.patient.findMany({
       where: {
         triageStatus: 'WAITING_FOR_TRIAGE',
-        organizationId: organizationId,
       },
       orderBy: [
         { emergencyFlag: "desc" },
@@ -627,16 +628,14 @@ export async function processTriage(
 
 export async function saveClinicalExam(patientId: string, examData: any) {
   try {
-    const organizationId = cookies().get("organizationId")?.value || null;
+    // organizationId is stamped automatically by the Prisma tenant extension on create
     const exam = await prisma.clinicalExamination.upsert({
       where: { patientId },
       create: {
         patientId,
-        organizationId,
         ...examData
       },
       update: {
-        organizationId,
         ...examData
       }
     });
@@ -661,11 +660,10 @@ export async function saveClinicalExam(patientId: string, examData: any) {
 
 export async function getActivePatientsForFacility() {
   try {
-    const organizationId = cookies().get("organizationId")?.value || null;
+    // organizationId filter is injected automatically by the Prisma tenant extension
     const patients = await prisma.patient.findMany({
       where: {
         status: "ACTIVE",
-        organizationId: organizationId,
       },
       orderBy: [
         { updatedAt: "desc" },
@@ -708,13 +706,11 @@ export async function saveDoctorAssessment(
   }
 ) {
   try {
-    const organizationId = cookies().get("organizationId")?.value || null;
-
+    // organizationId is stamped automatically by the Prisma tenant extension on create
     const exam = await prisma.clinicalExamination.upsert({
       where: { patientId },
       create: {
         patientId,
-        organizationId,
         chiefAssessment: data.chiefAssessment,
         workingDiagnosis: data.workingDiagnosis,
         differentialDiagnosis: data.differentialDiagnosis,
@@ -749,8 +745,10 @@ export async function saveDoctorAssessment(
 
 export async function getPatientQueueStatus(identifier: string) {
   try {
+    // CROSS_FACILITY: citizen-facing lookup by identifier — no org boundary
     const patient = await prisma.patient.findFirst({
       where: {
+        ...CROSS_FACILITY,
         OR: [
           { healthId: identifier },
           { nationalId: identifier },
@@ -764,13 +762,14 @@ export async function getPatientQueueStatus(identifier: string) {
 
     if (!patient) return null;
 
-    // Fetch all active patients in the SAME ward (or waiting for triage) to calculate dynamic queue
+    // Scope queue calculation to the patient's own facility (not the session org)
     const allPatients = await prisma.patient.findMany({
       where: {
+        ...CROSS_FACILITY,
         status: 'ACTIVE',
         ward: patient.ward,
         examStatus: { not: "EXAMINATION_COMPLETE" },
-        organizationId: patient.organizationId,
+        organizationId: patient.organizationId, // patient's own facility
         // if this patient is waiting for triage, compare with others waiting for triage
         ...(patient.triageStatus === "WAITING_FOR_TRIAGE" ? { triageStatus: "WAITING_FOR_TRIAGE" } : { triageStatus: { not: "WAITING_FOR_TRIAGE" } })
       },
@@ -838,8 +837,9 @@ export async function verifyNationalID(nationalId: string) {
     // Simulate lookup delay
     await new Promise((resolve) => setTimeout(resolve, 800));
 
+    // CROSS_FACILITY: citizen identity lookup — no org boundary
     const patientRecord = await prisma.patient.findFirst({
-      where: { nationalId: rawId }
+      where: { ...CROSS_FACILITY, nationalId: rawId }
     });
 
     if (!patientRecord || !patientRecord.email) {
@@ -869,8 +869,9 @@ export async function mergeChildToAdult(childId: string, newFaydaId: string) {
       throw new Error("Fayda National ID must be exactly 12 or 16 digits.");
     }
 
+    // CROSS_FACILITY: identity merge is a global operation spanning all facilities
     const existingChild = await prisma.patient.findFirst({
-      where: { nationalId: childId }
+      where: { ...CROSS_FACILITY, nationalId: childId }
     });
 
     if (!existingChild) {
@@ -882,7 +883,7 @@ export async function mergeChildToAdult(childId: string, newFaydaId: string) {
     }
 
     const existingAdult = await prisma.patient.findFirst({
-      where: { nationalId: cleanFaydaId }
+      where: { ...CROSS_FACILITY, nationalId: cleanFaydaId }
     });
 
     if (existingAdult) {
@@ -890,7 +891,7 @@ export async function mergeChildToAdult(childId: string, newFaydaId: string) {
     }
 
     const updatedPatient = await prisma.patient.update({
-      where: { id: existingChild.id },
+      where: { ...CROSS_FACILITY, id: existingChild.id } as any,
       data: {
         nationalId: cleanFaydaId,
         isMinor: false,
@@ -912,8 +913,10 @@ export async function signInCitizen(identifier: string) {
       throw new Error("Identifier is required.");
     }
 
+    // CROSS_FACILITY: citizen sign-in has no org session context
     const patient = await prisma.patient.findFirst({
       where: {
+        ...CROSS_FACILITY,
         OR: [
           { nationalId: cleanId },
           { faydaId: cleanId },
@@ -961,8 +964,10 @@ export async function verifyFaydaCoach(faydaId: string, challengeInput: string) 
       return { success: false, error: "Both ID and Verification Challenge are required." };
     }
 
+    // CROSS_FACILITY: citizen 2FA verification has no org session context
     const patient = await prisma.patient.findFirst({
       where: {
+        ...CROSS_FACILITY,
         OR: [
           { nationalId: cleanId },
           { faydaId: cleanId },
@@ -1032,8 +1037,11 @@ export async function searchPatientMasterRecord(query: string) {
     const q = query.trim();
     if (!q || q.length < 2) return [];
 
+    // CROSS_FACILITY: master record search is explicitly global —
+    // allows a doctor to pull historical records from any facility.
     const patients = await prisma.patient.findMany({
       where: {
+        ...CROSS_FACILITY,
         OR: [
           { healthId:  { contains: q, mode: "insensitive" } },
           { nationalId:{ contains: q, mode: "insensitive" } },
