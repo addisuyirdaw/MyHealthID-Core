@@ -425,7 +425,7 @@ model Investigation {
 model DiagnosticOrder {
   id                        String         @id @default(uuid()) @map("_id")
   patientId                 String
-  investigationId           String?        @map("investigation_id")
+  investigationId           String?        @unique @map("investigation_id")
   originOrganizationId      String         @map("origin_organization_id")
   destinationOrganizationId String?        @map("destination_organization_id")
   referredByUserId          String         @map("referred_by_user_id")
