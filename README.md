@@ -1,75 +1,237 @@
-# MyHealthID-Core
+# 🏥 MyHealthID-Core
 
-## Overview
+> A comprehensive healthcare clinic management system built with Next.js 14, TypeScript, and Prisma ORM.
 
-This repository is a Next.js 14 application built with TypeScript, Tailwind CSS, Prisma, and React.
-It appears to be a healthcare/clinic management system with routes for admin, doctors, patients, pharmacy, laboratory, triage, screening, queue management, and QR/AI scanning.
+![Next.js](https://img.shields.io/badge/Next.js-14-black?style=for-the-badge&logo=next.js)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-blue?style=for-the-badge&logo=typescript)
+![Prisma](https://img.shields.io/badge/Prisma-ORM-2D3748?style=for-the-badge&logo=prisma)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS-38B2AC?style=for-the-badge&logo=tailwind-css)
 
-## Key technologies
+---
 
-- Next.js 14 (App Router)
-- TypeScript
-- Tailwind CSS
-- Prisma ORM
-- React + Radix UI
-- Recharts for charts
-- QR and OCR: `html5-qrcode`, `jsqr`, `qrcode-reader`, `tesseract.js`
-- Email support via `nodemailer`
+## 📋 Table of Contents
 
-## Folder structure
+- [Overview](#overview)
+- [Features](#features)
+- [Tech Stack](#tech-stack)
+- [Project Structure](#project-structure)
+- [Getting Started](#getting-started)
+- [Environment Variables](#environment-variables)
+- [Database Setup](#database-setup)
+- [Available Scripts](#available-scripts)
+- [Portals](#portals)
+- [Contributing](#contributing)
+- [License](#license)
 
-- `app/` — application routes and pages
-- `components/` — UI and shared components
-- `lib/` — helper modules, AI, Prisma client, OCR/QR utilities
-- `prisma/` — database schema and migrations
-- `scripts/` — utility scripts
+---
 
-## Setup
+## 🌟 Overview
 
-1. Install dependencies:
+**MyHealthID-Core** is a full-stack healthcare management platform designed to streamline operations across a clinic or hospital. It provides role-based portals for doctors, patients, pharmacists, lab technicians, triage nurses, and administrators — all in one unified system.
+
+Patients are identified using a unique **Health ID**, which can be scanned via **QR code** or read using **OCR (optical character recognition)**, making the system fast and paperless.
+
+---
+
+## ✨ Features
+
+- 🧑‍⚕️ **Doctor Portal** — View patient records, write prescriptions, request lab tests
+- 👤 **Patient Portal** — Access personal health records and visit history
+- 💊 **Pharmacy Portal** — Manage and dispense prescriptions
+- 🔬 **Laboratory Portal** — Receive and record investigation results
+- 🩺 **Triage Portal** — Record vital signs and assess patient urgency
+- 📋 **Screening Portal** — Initial patient screening and registration
+- 📊 **Admin Dashboard** — System-wide management and reporting
+- 🔢 **Queue Management** — Real-time patient queue tracking
+- 📷 **QR & OCR Scanning** — Instant patient identification
+- 📧 **Email Notifications** — Automated email support via Nodemailer
+- 📈 **Charts & Analytics** — Visual data with Recharts
+
+---
+
+## 🛠️ Tech Stack
+
+| Technology | Purpose |
+|---|---|
+| **Next.js 14** (App Router) | Full-stack React framework |
+| **TypeScript** | Type-safe development |
+| **Tailwind CSS** | Utility-first styling |
+| **Prisma ORM** | Database access and migrations |
+| **React + Radix UI** | UI components |
+| **Recharts** | Data visualization |
+| **html5-qrcode / jsqr** | QR code scanning |
+| **Tesseract.js** | OCR — reading text from images |
+| **Nodemailer** | Email sending |
+
+---
+
+## 📁 Project Structure
+
+```
+MyHealthID-Core-main/
+├── app/                    # Next.js App Router pages & routes
+│   ├── admin/              # Admin dashboard
+│   ├── doctor/             # Doctor portal
+│   ├── patient/            # Patient portal
+│   ├── pharmacy/           # Pharmacy portal
+│   ├── laboratory/         # Lab portal
+│   ├── triage/             # Triage portal
+│   ├── screening/          # Screening portal
+│   └── queue/              # Queue management
+├── components/             # Shared UI components
+├── lib/                    # Utilities: AI, Prisma client, OCR, QR
+├── prisma/                 # Database schema & migrations
+│   └── schema.prisma
+├── scripts/                # Helper/utility scripts
+├── .env.example            # Example environment variables
+├── middleware.ts           # Route protection middleware
+└── README.md
+```
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+Make sure you have the following installed:
+
+- [Node.js](https://nodejs.org/) v18 or higher
+- [npm](https://www.npmjs.com/) v9 or higher
+- A **PostgreSQL** (or compatible) database
+
+### Installation
+
+1. **Clone the repository**
+
+```bash
+git clone https://github.com/your-username/MyHealthID-Core.git
+cd MyHealthID-Core
+```
+
+2. **Install dependencies**
 
 ```bash
 npm install
 ```
 
-2. Configure environment variables:
+3. **Set up environment variables**
 
-- Copy `.env.example` to `.env` or `.env.local`
-- Provide values for database connection, authentication, and third-party services
+```bash
+cp .env.example .env.local
+```
 
-3. Generate Prisma client:
+Then fill in the required values (see [Environment Variables](#environment-variables)).
+
+4. **Generate Prisma client**
 
 ```bash
 npx prisma generate
 ```
 
-4. Apply database schema (migration or push):
+5. **Apply the database schema**
 
 ```bash
 npx prisma db push
 ```
 
-5. Run the dev server:
+6. **Start the development server**
 
 ```bash
 npm run dev
 ```
 
-## Available scripts
+Open [http://localhost:3000](http://localhost:3000) in your browser. 🎉
 
-- `npm run dev` — start development server
-- `npm run build` — build production app
-- `npm run start` — start Next production server
-- `npm run lint` — run Next/Eslint checks
+---
 
-## Notes
+## 🔐 Environment Variables
 
-- The root project is the active application.
-- There is a nested `MyHealthID-Core/` folder inside the repository that appears to duplicate the root application files. It is likely an obsolete backup or copied workspace and should be reviewed before removing.
-- `.env`, `.env.local`, `node_modules`, `.next`, and build artifacts are already ignored in `.gitignore`.
+Copy `.env.example` to `.env.local` and fill in the values:
 
-## Recommended next steps
+```env
+# Database
+DATABASE_URL="postgresql://user:password@localhost:5432/myhealthid"
 
-- Review the nested `MyHealthID-Core/` folder before deleting it.
-- Add a project-specific README section for required environment variables and deployment details.
-- Consider adding tests for critical behavior.
+# Authentication
+NEXTAUTH_SECRET="your-secret-key"
+NEXTAUTH_URL="http://localhost:3000"
+
+# Email (Nodemailer)
+EMAIL_HOST="smtp.example.com"
+EMAIL_PORT=587
+EMAIL_USER="your@email.com"
+EMAIL_PASS="your-email-password"
+```
+
+> ⚠️ **Never commit your `.env` or `.env.local` files to GitHub.** They are already listed in `.gitignore`.
+
+---
+
+## 🗄️ Database Setup
+
+This project uses **Prisma ORM**. The schema is defined in `prisma/schema.prisma`.
+
+```bash
+# Generate the Prisma client after schema changes
+npx prisma generate
+
+# Push schema to the database (development)
+npx prisma db push
+
+# Run migrations (production)
+npx prisma migrate deploy
+
+# Open Prisma Studio (visual DB browser)
+npx prisma studio
+```
+
+---
+
+## 📜 Available Scripts
+
+| Script | Description |
+|---|---|
+| `npm run dev` | Start development server |
+| `npm run build` | Build for production |
+| `npm run start` | Start production server |
+| `npm run lint` | Run ESLint checks |
+
+---
+
+## 🏥 Portals
+
+| Portal | Route | Description |
+|---|---|---|
+| Admin | `/admin` | System administration |
+| Doctor | `/doctor` | Clinical workflows |
+| Patient | `/patient` | Patient self-service |
+| Pharmacy | `/pharmacy` | Prescription management |
+| Laboratory | `/laboratory` | Lab results & tests |
+| Triage | `/triage` | Vitals & urgency triage |
+| Screening | `/screening` | Initial registration |
+| Queue | `/queue` | Real-time queue board |
+
+---
+
+## 🤝 Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a new branch: `git checkout -b feature/your-feature-name`
+3. Make your changes and commit: `git commit -m "Add your feature"`
+4. Push to your fork: `git push origin feature/your-feature-name`
+5. Open a **Pull Request**
+
+---
+
+## 📄 License
+
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+---
+
+<div align="center">
+  Made with ❤️ for better healthcare
+</div>
