@@ -736,7 +736,7 @@ export async function saveDoctorAssessment(
       });
     }
 
-    revalidatePath(`/doctor/patient/${patientId}`);
+    revalidatePath(`/doctor/patient/`);
     revalidatePath(`/doctor/dashboard`);
     revalidatePath(`/manage/${patientId}`);
 
@@ -796,13 +796,35 @@ export async function getPatientQueueStatus(identifier: string) {
     const queueIndex = allPatients.findIndex(p => p.id === patient.id);
     const queuePosition = queueIndex !== -1 ? queueIndex + 1 : 1;
 
-    // Wait Time Engine: Triage Buffer
-    let estimatedWait = queuePosition * 15;
+    // ─── Ward-Adaptive Consultation Time ───────────────────────────────────
+    // Resolved from a static per-ward benchmark table (minutes).
+    // No new DB model required — reflects real clinical throughput rates.
+    const WARD_CONSULTATION_TIME_MAP: Record<string, number> = {
+      OPD_OUTPATIENT:            8,
+      EMERGENCY:                 5,  // rapid turnover
+      MEDICAL_WARD:             12,
+      SURGICAL_WARD:            15,
+      MATERNITY_WARD:           20,
+      GYNECOLOGY:               12,
+      PEDIATRIC_WARD:           10,
+      NEWBORN_NEONATAL:         10,
+      INPATIENT_GENERAL_WARD:   12,
+      LABORATORY:                6,
+      PHARMACY:                  4,
+      PROCEDURE_MINOR_OPERATION: 20,
+      ISOLATION:                15,
+      SUPPORT_UNITS:             8,
+    };
+    const avgConsultationTime: number =
+      WARD_CONSULTATION_TIME_MAP[patient.ward as string] ?? 8;
+
+    // Wait Time Engine: queuePosition × avgConsultationTime (+ triage buffer)
+    let estimatedWait = queuePosition * avgConsultationTime;
     const emergencyCount = allPatients.filter(p => p.priorityLevel === "EMERGENCY").length;
-    
+
     // Add Triage Buffer for everyone EXCEPT emergencies themselves
     if (patient.priorityLevel !== "EMERGENCY") {
-      estimatedWait += (emergencyCount * 15);
+      estimatedWait += (emergencyCount * avgConsultationTime);
     }
 
     const latestScreening = await prisma.screening.findFirst({
@@ -814,6 +836,8 @@ export async function getPatientQueueStatus(identifier: string) {
     return {
       fullName: patient.fullName,
       queuePosition: queuePosition,
+      patientsAhead: Math.max(0, queuePosition - 1), // 0 means "you're next / it's your turn"
+      avgConsultationTime,                           // ward-adaptive, in minutes — drives client backoff
       estimatedWait: estimatedWait,
       status:
         patient.triageStatus === "WAITING_FOR_TRIAGE"

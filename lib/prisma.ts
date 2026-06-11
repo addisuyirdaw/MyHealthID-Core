@@ -107,6 +107,9 @@ async function applyStandardOrgFilter(
 
   // No session context (public route, build-time SSG, system task) — pass through
   if (!ctx) {
+    if (args.where === undefined) {
+      return query(args);
+    }
     const where = args.where as Record<string, unknown> | undefined;
     const { cleanWhere } = extractBypass(where);
     return query({ ...args, where: cleanWhere });
@@ -156,6 +159,9 @@ async function applyDiagnosticOrderOrgFilter(
 ): Promise<unknown> {
   const ctx = await getTenantContextOrNull();
   if (!ctx) {
+    if (args.where === undefined) {
+      return query(args);
+    }
     const where = args.where as Record<string, unknown> | undefined;
     const { cleanWhere } = extractBypass(where);
     return query({ ...args, where: cleanWhere });
@@ -188,6 +194,94 @@ async function applyDiagnosticOrderOrgFilter(
         { destinationOrganizationId: organizationId },
       ],
     },
+  });
+}
+
+/**
+ * applyAppointmentOrgFilter
+ *
+ * Scopes Appointment model:
+ * 1. If staff context is active (organizationId is present), filter by facilityId.
+ * 2. If staff context is null, this is a public/citizen context:
+ *    - Force-inject a strict security filter: constrain the search parameters
+ *      to matches containing the caller's validated `citizenPatientId` cookie.
+ *    - If no `citizenPatientId` cookie is present (e.g. unauthenticated or build time),
+ *      allow bypass only if the bypass flag is set, otherwise force no-match.
+ */
+async function applyAppointmentOrgFilter(
+  operation: string,
+  args: any,
+  query: (a: any) => Promise<unknown>
+): Promise<unknown> {
+  const ctx = await getTenantContextOrNull();
+
+  // 1. Staff session exists - filter by facilityId
+  if (ctx) {
+    const { organizationId } = ctx;
+    const where = args.where as Record<string, unknown> | undefined;
+    const { bypass, cleanWhere } = extractBypass(where);
+    if (bypass) return query({ ...args, where: cleanWhere });
+
+    if (operation === "create") {
+      const existingData = (args.data as Record<string, unknown>) ?? {};
+      if (!existingData.facilityId) {
+        return query({ ...args, data: { facilityId: organizationId, ...existingData } });
+      }
+      return query(args);
+    }
+
+    if (operation === "findUnique") {
+      return (prisma as any).appointment.findFirst({ ...args, where: { ...cleanWhere, facilityId: organizationId } });
+    }
+    if (operation === "findUniqueOrThrow") {
+      return (prisma as any).appointment.findFirstOrThrow({ ...args, where: { ...cleanWhere, facilityId: organizationId } });
+    }
+
+    return query({ ...args, where: { ...cleanWhere, facilityId: organizationId } });
+  }
+
+  // 2. No staff session context (public / Citizen context)
+  const where = args.where as Record<string, unknown> | undefined;
+  const { bypass, cleanWhere } = extractBypass(where);
+  if (bypass) return query({ ...args, where: cleanWhere });
+
+  // Read citizenPatientId from cookies if inside a request context
+  let citizenPatientId: string | undefined = undefined;
+  try {
+    const { cookies } = require("next/headers");
+    citizenPatientId = cookies().get("citizenPatientId")?.value?.trim();
+  } catch {
+    // Non-request context
+  }
+
+  if (citizenPatientId) {
+    if (operation === "create") {
+      const existingData = (args.data as Record<string, unknown>) ?? {};
+      return query({
+        ...args,
+        data: { ...existingData, patientId: citizenPatientId },
+      });
+    }
+
+    if (operation === "findUnique") {
+      return (prisma as any).appointment.findFirst({ ...args, where: { ...cleanWhere, patientId: citizenPatientId } });
+    }
+    if (operation === "findUniqueOrThrow") {
+      return (prisma as any).appointment.findFirstOrThrow({ ...args, where: { ...cleanWhere, patientId: citizenPatientId } });
+    }
+
+    return query({
+      ...args,
+      where: { ...cleanWhere, patientId: citizenPatientId },
+    });
+  }
+
+  if (operation === "create") {
+    throw new Error("Unauthorized: Patient context required for booking.");
+  }
+  return query({
+    ...args,
+    where: { ...cleanWhere, patientId: "none" },
   });
 }
 
@@ -274,6 +368,21 @@ function buildExtension(base: PrismaClient) {
         updateMany:        async ({ args, query }) => applyDiagnosticOrderOrgFilter("updateMany",       args, query),
         delete:            async ({ args, query }) => applyDiagnosticOrderOrgFilter("delete",           args, query),
         deleteMany:        async ({ args, query }) => applyDiagnosticOrderOrgFilter("deleteMany",       args, query),
+      },
+
+      // ── Appointment ────────────────────────────────────────────────────────
+      appointment: {
+        findMany:          async ({ args, query }) => applyAppointmentOrgFilter("findMany",         args, query),
+        findFirst:         async ({ args, query }) => applyAppointmentOrgFilter("findFirst",        args, query),
+        findFirstOrThrow:  async ({ args, query }) => applyAppointmentOrgFilter("findFirstOrThrow", args, query),
+        findUnique:        async ({ args, query }) => applyAppointmentOrgFilter("findUnique",        args, query),
+        findUniqueOrThrow: async ({ args, query }) => applyAppointmentOrgFilter("findUniqueOrThrow", args, query),
+        count:             async ({ args, query }) => applyAppointmentOrgFilter("count",            args, query),
+        create:            async ({ args, query }) => applyAppointmentOrgFilter("create",           args, query),
+        update:            async ({ args, query }) => applyAppointmentOrgFilter("update",           args, query),
+        updateMany:        async ({ args, query }) => applyAppointmentOrgFilter("updateMany",       args, query),
+        delete:            async ({ args, query }) => applyAppointmentOrgFilter("delete",           args, query),
+        deleteMany:        async ({ args, query }) => applyAppointmentOrgFilter("deleteMany",       args, query),
       },
 
       // ── LabRequest ─────────────────────────────────────────────────────────

@@ -2,7 +2,8 @@ import Link from "next/link";
 import { cookies } from "next/headers";
 import {
   Shield, Activity, Users, ClipboardList, Pill,
-  TestTubeDiagonal, QrCode, UserCircle, Lock, History, Settings, Search, Hospital, LogOut
+  TestTubeDiagonal, QrCode, UserCircle, Lock, History, Settings, Search, Hospital, LogOut,
+  Calendar
 } from "lucide-react";
 import { LanguageToggle } from "./LanguageToggle";
 import { LocalizedText } from "./LocalizedText";
@@ -97,6 +98,14 @@ export async function Sidebar() {
               <Hospital className="w-5 h-5 text-emerald-400" />
               <span>Search Facilities</span>
             </Link>
+
+            <Link
+              href="/citizen/appointments"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
+            >
+              <Calendar className="w-5 h-5 text-violet-400" />
+              <span>Book Appointment</span>
+            </Link>
           </>
         )}
 
@@ -178,6 +187,14 @@ export async function Sidebar() {
             >
               <QrCode className="w-5 h-5 text-pink-400" />
               <span>Scan ID</span>
+            </Link>
+
+            <Link
+              href="/receptionist/dashboard"
+              className="flex items-center gap-3 px-3 py-2.5 rounded-xl border border-transparent hover:bg-neutral-800 hover:text-white transition-colors"
+            >
+              <Calendar className="w-5 h-5 text-pink-400" />
+              <span>External Bookings</span>
             </Link>
           </>
         )}

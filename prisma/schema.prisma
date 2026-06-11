@@ -52,12 +52,10 @@ enum FacilityServiceType {
 }
 
 enum AppointmentStatus {
-  PENDING
-  CONFIRMED
-  IN_PROGRESS
-  COMPLETED
+  PENDING_CONFIRMATION
+  SCHEDULED
+  ARRIVED
   CANCELLED
-  NO_SHOW
 }
 
 enum AppointmentPriority {
@@ -106,8 +104,6 @@ model User {
   accessLogs            AccessLog[]
   medicalAuditLogs      MedicalAuditLog[]
   diagnosticOrdersReferred DiagnosticOrder[]
-  createdAppointments   Appointment[]     @relation("AppointmentCreatedBy")
-  handledAppointments   Appointment[]     @relation("AppointmentHandledBy")
   referralSummaries     ReferralSummary[]
 }
 
@@ -652,31 +648,20 @@ model Organization {
 }
 
 model Appointment {
-  id               String              @id @default(uuid()) @map("_id")
-  organizationId   String              @map("organization_id")
-  organization     Organization        @relation(fields: [organizationId], references: [id], onDelete: Cascade)
-  patientId        String              @map("patient_id")
-  patient          Patient             @relation(fields: [patientId], references: [id])
-  patientHealthId  String
-  appointmentType  String
-  requestedService String
-  appointmentDate  DateTime
-  appointmentTime  String
-  duration         Int?
-  status           AppointmentStatus   @default(PENDING)
-  priority         AppointmentPriority @default(ROUTINE)
-  notes            String?
-  createdById      String?             @map("created_by")
-  createdBy        User?               @relation("AppointmentCreatedBy", fields: [createdById], references: [id])
-  handledById      String?             @map("handled_by")
-  handledBy        User?               @relation("AppointmentHandledBy", fields: [handledById], references: [id])
-  handledAt        DateTime?
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  id         String            @id @default(uuid()) @map("_id")
+  patientId  String            @map("patient_id")
+  patient    Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  facilityId String            @map("facility_id")
+  facility   Organization      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  department String
+  dateTime   DateTime
+  status     AppointmentStatus @default(PENDING_CONFIRMATION)
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 
-  @@index([organizationId, patientId])
-  @@index([organizationId, status])
-  @@index([organizationId, appointmentDate])
+  @@index([facilityId, patientId])
+  @@index([facilityId, status])
+  @@index([facilityId, dateTime])
 }
 
 model MedicalRecord {

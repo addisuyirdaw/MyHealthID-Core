@@ -81,19 +81,18 @@ export async function GET(req: NextRequest) {
     });
 
     // 4. Fetch today's upcoming appointments
-    const upcomingAppointments = await prisma.appointment.findMany({
+    const rawUpcomingAppointments = await prisma.appointment.findMany({
       where: {
-        organizationId: organizationId,
-        appointmentDate: {
+        facilityId: organizationId,
+        dateTime: {
           gte: todayStart,
         },
         status: {
-          in: ["PENDING", "CONFIRMED", "IN_PROGRESS"],
+          in: ["PENDING_CONFIRMATION", "SCHEDULED"],
         },
       },
       orderBy: [
-        { appointmentDate: "asc" },
-        { appointmentTime: "asc" },
+        { dateTime: "asc" },
       ],
       include: {
         patient: {
@@ -106,6 +105,23 @@ export async function GET(req: NextRequest) {
           },
         },
       },
+    });
+
+    const upcomingAppointments = rawUpcomingAppointments.map((app) => {
+      const dateObj = new Date(app.dateTime);
+      const formattedTime = dateObj.toLocaleTimeString("en-US", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      return {
+        id: app.id,
+        appointmentTime: formattedTime,
+        requestedService: app.department,
+        status: app.status === "PENDING_CONFIRMATION" ? "PENDING" : app.status === "SCHEDULED" ? "CONFIRMED" : app.status,
+        patient: app.patient,
+      };
     });
 
     return NextResponse.json({

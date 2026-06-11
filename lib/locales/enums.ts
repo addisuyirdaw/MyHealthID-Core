@@ -376,12 +376,10 @@ export function normalizeFacilityServiceType(serviceType: string): string {
 // ═════════════════════════════════════════════════════════════════════════════
 
 export const APPOINTMENT_STATUS_LABELS = {
-  PENDING: { en: "Pending", am: "በመጠባበቅ ላይ" },
-  CONFIRMED: { en: "Confirmed", am: "ተረጋግጧል" },
-  IN_PROGRESS: { en: "In Progress", am: "በሂደት ላይ" },
-  COMPLETED: { en: "Completed", am: "ተጠናቅቋል" },
-  CANCELLED: { en: "Cancelled", am: "ተሰርዞ ነበር" },
-  NO_SHOW: { en: "No-Show", am: "ወዳ አልበለው" },
+  PENDING_CONFIRMATION: { en: "Pending Confirmation", am: "ማረጋገጫ በመጠባበቅ ላይ" },
+  SCHEDULED: { en: "Scheduled", am: "ቀጠሮ ተይዟል" },
+  ARRIVED: { en: "Arrived", am: "ደርሷል" },
+  CANCELLED: { en: "Cancelled", am: "ተሰርዟል" },
 } as const;
 
 export const APPOINTMENT_PRIORITY_LABELS = {

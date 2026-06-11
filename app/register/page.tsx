@@ -1053,7 +1053,6 @@ export default function RegisterPage() {
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
                     disabled={identityMode === "FAYDA" && isVerified}
-                    required
                     className="bg-slate-950 border-slate-800 text-slate-100"
                   />
                 </div>
