@@ -193,6 +193,33 @@ export async function registerPatient(data: {
       }
     } : undefined;
 
+    // Real-time duplicate check: check if any patient already exists with either
+    // this National ID/Fayda ID OR this phoneNumber
+    const duplicateConditions: any[] = [];
+    if (idValue !== null) {
+      duplicateConditions.push(
+        { nationalId: idValue },
+        { faydaId: idValue },
+        { hospitalId: idValue }
+      );
+    }
+    const cleanPhoneForCheck = phoneNumber ? String(phoneNumber).replace(/\s+/g, "") : null;
+    if (cleanPhoneForCheck) {
+      duplicateConditions.push({ phoneNumber: cleanPhoneForCheck });
+    }
+
+    if (duplicateConditions.length > 0) {
+      const existingDuplicate = await prisma.patient.findFirst({
+        where: {
+          ...CROSS_FACILITY,
+          OR: duplicateConditions,
+        } as any
+      });
+      if (existingDuplicate && existingDuplicate.fullName !== "Pending Registration" && !existingDuplicate.healthId.startsWith("TMP-")) {
+        throw new Error("DUPLICATE_PATIENT_IDENTITY");
+      }
+    }
+
     let patient;
 
     if (idValue !== null) {
@@ -210,9 +237,6 @@ export async function registerPatient(data: {
         } as any
       });
       if (existing) {
-        if (existing.fullName !== "Pending Registration" && !existing.healthId.startsWith("TMP-")) {
-            throw new Error("This National ID is already registered.");
-        }
         patient = await prisma.patient.update({
           where: { id: existing.id },
           data: {

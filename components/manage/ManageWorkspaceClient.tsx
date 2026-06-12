@@ -613,7 +613,7 @@ export default function ManageWorkspaceClient({ bundle }: { bundle: Bundle }) {
           patientAllergies={patient.allergyInformation}
           patientHistory={patient.preExistingConditions}
         />
-        <ReferModal patientId={patient.id} patientName={patient.fullName} />
+        <ReferModal patient={patient} />
         <Button
           variant="default"
           className="bg-neutral-800 hover:bg-neutral-700 text-white border border-neutral-700"

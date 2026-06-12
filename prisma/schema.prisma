@@ -138,6 +138,12 @@ enum PriorityLevel {
   ROUTINE
 }
 
+enum ReferralStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
 /// Result of a structured clinical screening (Green / Yellow / Red).
 enum ScreeningTriageLevel {
   GREEN
@@ -495,14 +501,21 @@ model Referral {
   id        String @id @default(uuid()) @map("_id")
   patientId String
 
-  reason              String
-  destinationFacility String
+  reason                String
+  destinationFacility   String
+  receivingFacilityId   String?        @map("receiving_facility_id")
+  status                ReferralStatus @default(PENDING)
+  rejectionReason       String?        @map("rejection_reason")
+  aiOverrideLogged      Boolean        @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   // Relations
   patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@index([receivingFacilityId])
 }
 
 model SystemSettings {

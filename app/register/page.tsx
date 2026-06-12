@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanSearch, AlertTriangle, ShieldAlert } from "lucide-react";
+import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanSearch, AlertTriangle, ShieldAlert, ArrowRight } from "lucide-react";
 import { useLanguage } from "@/components/LanguageProvider";
 import dynamic from "next/dynamic";
 import { parseFaydaScanPayload } from "@/lib/fayda-scan";
@@ -41,7 +41,7 @@ type ScanFeedback =
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { t } = useLanguage();
+  const { t, language } = useLanguage();
   const [loading, setLoading] = useState(false);
   const isSubmitting = useRef(false);
 
@@ -86,6 +86,33 @@ export default function RegisterPage() {
   const [sex, setSex] = useState<string>("");
   const [dateOfBirth, setDateOfBirth] = useState<string>(""); // yyyy-mm-dd
 
+  // Duplicate Check and Intent Router state
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [newPatient, setNewPatient] = useState<any | null>(null);
+
+  const checkDuplicate = async (nidVal?: string, phoneVal?: string) => {
+    const cleanNid = (nidVal ?? nationalId).replace(/\s/g, '');
+    const cleanPhone = (phoneVal ?? phone).replace(/\s/g, '');
+    if (!cleanNid && !cleanPhone) {
+      setDuplicateWarning(null);
+      return false;
+    }
+    try {
+      const res = await fetch(`/api/patients/check-exists?nid=${cleanNid}&phone=${cleanPhone}`);
+      const data = await res.json();
+      if (data.exists) {
+        setDuplicateWarning("DUPLICATE_PATIENT_IDENTITY");
+        return true;
+      } else {
+        setDuplicateWarning(null);
+        return false;
+      }
+    } catch (err) {
+      console.error(err);
+      return false;
+    }
+  };
+
   const resetIdentityState = () => {
     setNationalId("");
     setFcn("");
@@ -100,6 +127,8 @@ export default function RegisterPage() {
     setOcrReason("");
     lastUploadedFile.current = null;
     isAutoSubmitting.current = false;
+    setDuplicateWarning(null);
+    setPhone("");
   };
 
   // Smart Triage State
@@ -195,20 +224,7 @@ export default function RegisterPage() {
   };
 
   const handleNidBlur = async () => {
-    const cleanId = nationalId.replace(/\s/g, '');
-    if (!cleanId) return;
-
-    try {
-      const res = await fetch(`/api/patients/check-exists?nid=${cleanId}`);
-      const data = await res.json();
-      if (data.exists) {
-        setNidExistsError("This ID is already in use. Please edit or login.");
-      } else {
-        setNidExistsError("");
-      }
-    } catch (err) {
-      console.error(err);
-    }
+    await checkDuplicate(nationalId, phone);
   };
 
   const verifyFayda = async (fin: string, scannedFcn: string) => {
@@ -288,6 +304,19 @@ export default function RegisterPage() {
     try {
       const dobDate = patientDob ? new Date(`${patientDob}T00:00:00.000Z`) : undefined;
       const ageCalc = dobDate ? Math.max(0, new Date().getFullYear() - dobDate.getFullYear()) : 0;
+      
+      const isDup = await checkDuplicate(patientFin, phone);
+      if (isDup) {
+        setScanFeedback({ 
+          variant: "error", 
+          title: "Registration halted", 
+          detail: "An official health profile is already linked to this information. Navigate to the Sign-In panel to verify." 
+        });
+        setLoading(false);
+        isAutoSubmitting.current = false;
+        return;
+      }
+
       const result = await registerPatient({
         fullName: patientFullName,
         faydaId: patientFin,
@@ -302,19 +331,32 @@ export default function RegisterPage() {
         generateMyHealthId: false,
       });
       if (result?.error) {
-        setScanFeedback({ variant: "error", title: "Registration error", detail: result.error });
+        if (result.error === "DUPLICATE_PATIENT_IDENTITY") {
+          setDuplicateWarning("DUPLICATE_PATIENT_IDENTITY");
+          setScanFeedback({ 
+            variant: "error", 
+            title: "Registration halted", 
+            detail: "An official health profile is already linked to this information. Navigate to the Sign-In panel to verify." 
+          });
+        } else {
+          setScanFeedback({ variant: "error", title: "Registration error", detail: result.error });
+        }
         setLoading(false);
         isAutoSubmitting.current = false;
         return;
       }
-      await checkInToQueue(result.id);
-      router.push(`/queue?token=${result.queuePosition ?? 1}&name=${encodeURIComponent(patientFullName)}`);
+      try {
+        await checkInToQueue(result.id);
+      } catch (e) {
+        // queue checkin error
+      }
+      setNewPatient({ id: result.id, name: patientFullName });
     } catch (err: any) {
       setScanFeedback({ variant: "error", title: "Auto-registration failed", detail: err.message || "Please try again." });
       setLoading(false);
       isAutoSubmitting.current = false;
     }
-  }, [router]);
+  }, [router, phone, checkDuplicate]);
 
   const handleFrontCapture = async (file: File) => {
     lastUploadedFile.current = file;
@@ -388,6 +430,13 @@ export default function RegisterPage() {
     isSubmitting.current = true;
     setLoading(true);
     try {
+      const isDup = await checkDuplicate(undefined, emergencyDeskPhone.trim());
+      if (isDup) {
+        setLoading(false);
+        isSubmitting.current = false;
+        return;
+      }
+
       const result = await registerPatient({
         fullName: name,
         generateMyHealthId: true,
@@ -401,7 +450,11 @@ export default function RegisterPage() {
         phoneNumber: emergencyDeskPhone.trim() || undefined,
       });
       if (result?.error) {
-        alert(result.error);
+        if (result.error === "DUPLICATE_PATIENT_IDENTITY") {
+          setDuplicateWarning("DUPLICATE_PATIENT_IDENTITY");
+        } else {
+          alert(result.error);
+        }
         return;
       }
       try {
@@ -409,7 +462,7 @@ export default function RegisterPage() {
       } catch {
         /* already queued */
       }
-      router.push(`/queue?token=${result.queuePosition ?? 1}&name=${encodeURIComponent(name)}`);
+      setNewPatient({ id: result.id, name: name });
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Emergency registration failed.");
     } finally {
@@ -426,6 +479,15 @@ export default function RegisterPage() {
     const formData = new FormData(e.currentTarget);
 
     const nationalIdVal = nationalId.replace(/\s/g, '');
+    const phoneVal = (formData.get("phoneNumber") as string || phone).replace(/\s/g, '');
+
+    // Real-time duplicate check
+    const isDup = await checkDuplicate(nationalIdVal, phoneVal);
+    if (isDup) {
+      setLoading(false);
+      isSubmitting.current = false;
+      return;
+    }
 
     if (identityMode === "FAYDA") {
       if (nationalIdVal && nationalIdVal.length !== 12) {
@@ -470,17 +532,21 @@ export default function RegisterPage() {
       detailedSituation: "",
       preExistingConditions: "",
       allergyInformation: "",
-      phoneNumber: formData.get("phoneNumber") as string,
+      phoneNumber: phoneVal || null,
     };
 
     try {
       const result = await registerPatient(data);
       if (result && result.error) {
-        alert(result.error);
+        if (result.error === "DUPLICATE_PATIENT_IDENTITY") {
+          setDuplicateWarning("DUPLICATE_PATIENT_IDENTITY");
+        } else {
+          alert(result.error);
+        }
         return;
       }
       try { await checkInToQueue(result.id); } catch { /* queue already exists */ }
-      router.push(`/queue?token=${result.queuePosition ?? 1}&name=${encodeURIComponent((formData.get("fullName") as string) || fullName)}`);
+      setNewPatient({ id: result.id, name: (formData.get("fullName") as string) || fullName });
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Registration failed. Please try again.");
@@ -765,6 +831,9 @@ export default function RegisterPage() {
                         name="phoneNumber"
                         placeholder="+251 9XX XXX XXX"
                         type="tel"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value.replace(/\s+/g, ""))}
+                        onBlur={() => checkDuplicate(nationalId, phone)}
                         className="bg-slate-950 border-slate-800 text-slate-100"
                       />
                     </div>
@@ -1090,6 +1159,7 @@ export default function RegisterPage() {
                     placeholder="09... (Optional)" 
                     value={phone}
                     onChange={(e) => setPhone(e.target.value.replace(/\s+/g, ''))}
+                    onBlur={() => checkDuplicate(nationalId, phone)}
                     pattern="^(09|07)\d{8}$" 
                     title="Phone number must be 10 digits starting with 09 or 07" 
                     className="bg-slate-950 border-slate-800 text-slate-100"
@@ -1181,14 +1251,34 @@ export default function RegisterPage() {
           ) : null}
           </>
           )}
-
           </CardContent>
 
           {!emergencyFastPath && (
-          <CardFooter>
+          <CardFooter className="flex flex-col gap-4">
+            {duplicateWarning && (
+              <div className="w-full p-4 rounded-xl bg-amber-950/40 border border-amber-500/30 text-amber-250 space-y-3 animate-in fade-in duration-300">
+                <div className="flex items-start gap-2.5">
+                  <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+                  <div className="text-sm">
+                    <p className="font-bold text-amber-200">
+                      {t.registration.duplicateWarning}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex justify-end pt-1">
+                  <Button
+                    type="button"
+                    onClick={() => router.push("/signin")}
+                    className="bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-lg text-xs px-3.5 py-1.5 transition-all"
+                  >
+                    {t.registration.goToSignIn} →
+                  </Button>
+                </div>
+              </div>
+            )}
             <button 
               className="w-full h-12 flex items-center justify-center gap-2 text-base font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-lg border border-blue-500/20 transition-all active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none" 
-              disabled={loading || !isVerified || !identityMode} 
+              disabled={loading || !isVerified || !identityMode || Boolean(duplicateWarning)} 
               type="submit"
             >
               {loading ? t.registration.registering : t.registration.completeRegistration}
@@ -1197,6 +1287,105 @@ export default function RegisterPage() {
           )}
         </form>
       </Card>
+
+      {newPatient && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/85 backdrop-blur-md p-4 animate-in fade-in duration-300">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 max-w-2xl w-full shadow-2xl relative overflow-hidden ring-1 ring-white/5">
+            {/* Ambient glows */}
+            <div className="pointer-events-none absolute -top-24 -left-24 w-64 h-64 rounded-full bg-blue-500/10 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 -right-24 w-64 h-64 rounded-full bg-emerald-500/10 blur-3xl" />
+
+            <div className="relative z-10 space-y-6">
+              {/* Header */}
+              <div className="text-center space-y-2">
+                <div className="mx-auto w-14 h-14 bg-emerald-500/10 border border-emerald-500/20 rounded-full flex items-center justify-center text-emerald-450 shadow-inner mb-2">
+                  <CheckCircle2 className="w-7 h-7" />
+                </div>
+                <h2 className="text-2xl font-black text-white tracking-tight">
+                  {language === "AM" ? "ምዝገባው ተጠናቋል!" : "Registration Complete!"}
+                </h2>
+                <p className="text-slate-400 text-sm max-w-md mx-auto">
+                  {language === "AM" 
+                    ? `ለ ${newPatient.name} ቀጣይ እርምጃ ይምረጡ፡` 
+                    : `Select the next action step for ${newPatient.name}:`}
+                </p>
+              </div>
+
+              {/* Two Split Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                {/* Card 1: Clinical Pathway */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Set cookies for citizen appointments
+                    document.cookie = `citizenPatientId=${newPatient.id}; path=/; max-age=604800`;
+                    document.cookie = `userRole=CITIZEN; path=/; max-age=604800`;
+                    router.push("/citizen/appointments");
+                  }}
+                  className="group relative flex flex-col justify-between text-left p-6 rounded-2xl border border-blue-900/40 bg-blue-950/10 hover:bg-blue-950/20 hover:border-blue-500 transition-all duration-300 shadow-lg active:scale-[0.98]"
+                >
+                  <div className="space-y-4">
+                    <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/25 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                      <HeartPulse className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-blue-200 group-hover:text-blue-100">
+                        {t.registration.scheduleVisitTitle}
+                      </h3>
+                      <p className="text-xs text-blue-400/80 mt-1 leading-relaxed">
+                        {t.registration.scheduleVisitDesc}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-blue-400 font-bold text-xs mt-6 group-hover:translate-x-1 transition-transform">
+                    {language === "AM" ? "ቀጠሮ ይያዙ" : "Book Appointment"} <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </button>
+
+                {/* Card 2: Administrative / Portal Pathway */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    router.push(`/patients/${newPatient.id}/clinical-records`);
+                  }}
+                  className="group relative flex flex-col justify-between text-left p-6 rounded-2xl border border-emerald-900/40 bg-emerald-950/10 hover:bg-emerald-950/20 hover:border-emerald-500/50 transition-all duration-300 shadow-lg active:scale-[0.98]"
+                >
+                  <div className="space-y-4">
+                    <div className="w-10 h-10 rounded-xl bg-emerald-600/10 border border-emerald-500/25 flex items-center justify-center text-emerald-450 group-hover:scale-110 transition-transform">
+                      <User className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold text-emerald-250 group-hover:text-emerald-100">
+                        {t.registration.enterPortalTitle}
+                      </h3>
+                      <p className="text-xs text-emerald-400/80 mt-1 leading-relaxed">
+                        {t.registration.enterPortalDesc}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs mt-6 group-hover:translate-x-1 transition-transform">
+                    {language === "AM" ? "ወደ ፖርታል ይሂዱ" : "Go to Portal"} <ArrowRight className="w-3.5 h-3.5" />
+                  </div>
+                </button>
+              </div>
+
+              {/* Secondary Actions */}
+              <div className="flex justify-center pt-4 border-t border-slate-800/60">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNewPatient(null);
+                    resetIdentityState();
+                  }}
+                  className="text-xs text-slate-500 hover:text-slate-300 underline font-semibold transition-colors"
+                >
+                  {language === "AM" ? "አዲስ ምዝገባ ይጀምሩ" : "Start a New Registration"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

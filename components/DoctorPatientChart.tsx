@@ -380,7 +380,7 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
               </Button>
               <DynamicVitalsModal patientId={patient.id} patientName={patient.fullName} />
               <PrescribeModal patientId={patient.id} patientName={patient.fullName} patientAllergies={patient.allergyInformation} />
-              <ReferModal patientId={patient.id} patientName={patient.fullName} />
+              <ReferModal patient={patient} />
             </div>
           </div>
         </div>

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { 
   Calendar, Clock, Building, Stethoscope, 
   CheckCircle2, AlertTriangle, ArrowRight, History, Sparkles, X, AlertCircle 
 } from "lucide-react";
 import { bookAppointment } from "@/lib/actions/appointment.actions";
+import { getLiveQueueStatus } from "@/lib/actions/queue.actions";
 import { getHealthcareRoleTranslation, APPOINTMENT_STATUS_LABELS } from "@/lib/locales/enums";
 
 interface Hospital {
@@ -51,6 +52,95 @@ export function CitizenAppointmentsClient({
 }: CitizenAppointmentsClientProps) {
   const [appointments, setAppointments] = useState<Appointment[]>(initialAppointments);
   const [hospitals, setHospitals] = useState<Hospital[]>(initialHospitals);
+
+  // ── Queue Circuit-Breaker State ────────────────────────────────────────────
+  const [queueStatus, setQueueStatus] = useState<{
+    inQueue: boolean;
+    queuePosition: number;
+    status: string;
+    ward?: string;
+  } | null>(null);
+  const [patientsAhead, setPatientsAhead] = useState(0);
+  const [baseWaitMinutes, setBaseWaitMinutes] = useState(0);
+  const [displayedCountdown, setDisplayedCountdown] = useState(0);
+  const [isFrozen, setIsFrozen] = useState(false);
+  // Track previous patientsAhead to detect queue advancement
+  const prevPatientsAheadRef = useRef<number | null>(null);
+
+  // Initial queue fetch on mount
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchQueue() {
+      const res = await getLiveQueueStatus(citizenPatientId);
+      if (cancelled) return;
+      if (res.inQueue && res.queuePosition != null) {
+        const ahead = Math.max(0, res.queuePosition - 1);
+        const base = ahead * 8;
+        setPatientsAhead(ahead);
+        setBaseWaitMinutes(base);
+        setDisplayedCountdown(base);
+        setIsFrozen(false);
+        prevPatientsAheadRef.current = ahead;
+        setQueueStatus({
+          inQueue: true,
+          queuePosition: res.queuePosition,
+          status: (res as any).status ?? "WAITING",
+          ward: (res as any).ward,
+        });
+      } else {
+        setQueueStatus({ inQueue: false, queuePosition: 0, status: "" });
+      }
+    }
+    void fetchQueue();
+    return () => { cancelled = true; };
+  }, [citizenPatientId]);
+
+  // ── Circuit-Breaker Countdown Engine (60-second interval) ─────────────────
+  useEffect(() => {
+    if (!queueStatus?.inQueue) return;
+
+    const timer = setInterval(() => {
+      setDisplayedCountdown((prev) => {
+        if (prev > 8) {
+          setIsFrozen(false);
+          return prev - 1;
+        }
+        // Freeze at 8 — do not allow below 8
+        setIsFrozen(true);
+        return 8;
+      });
+    }, 60_000);
+
+    return () => clearInterval(timer);
+  }, [queueStatus?.inQueue]);
+
+  // ── Dynamic Synchronization Hook (background re-poll every 60s) ───────────
+  useEffect(() => {
+    if (!queueStatus?.inQueue) return;
+
+    const poll = setInterval(async () => {
+      const res = await getLiveQueueStatus(citizenPatientId);
+      if (!res.inQueue || res.queuePosition == null) return;
+
+      const freshAhead = Math.max(0, res.queuePosition - 1);
+      const prev = prevPatientsAheadRef.current ?? freshAhead;
+
+      // Queue advanced — doctor called the next patient
+      if (freshAhead < prev) {
+        const newBase = freshAhead * 8;
+        setPatientsAhead(freshAhead);
+        setBaseWaitMinutes(newBase);
+        setDisplayedCountdown(newBase); // full reset, clears freeze
+        setIsFrozen(false);
+        setQueueStatus((s) =>
+          s ? { ...s, queuePosition: res.queuePosition! } : s
+        );
+      }
+      prevPatientsAheadRef.current = freshAhead;
+    }, 60_000);
+
+    return () => clearInterval(poll);
+  }, [citizenPatientId, queueStatus?.inQueue]);
   
   // Wizard States
   const [step, setStep] = useState(1);
@@ -150,6 +240,26 @@ export function CitizenAppointmentsClient({
       default:
         return "text-slate-400 bg-slate-500/10 border-slate-500/30";
     }
+  };
+
+  /** Map prisma Ward enum values → human-readable badge label + colour */
+  const getWardBadge = (ward?: string): { label: string; dot: string; ring: string; text: string } => {
+    const w = (ward ?? "").toUpperCase();
+    if (w.includes("EMERGENCY"))
+      return { label: "GENERAL EMERGENCY", dot: "🔴", ring: "border-red-500/60", text: "text-red-300" };
+    if (w.includes("OPD") || w.includes("OUTPATIENT"))
+      return { label: "MEDICAL OPD", dot: "🟢", ring: "border-emerald-500/60", text: "text-emerald-300" };
+    if (w.includes("SURGICAL"))
+      return { label: "SURGICAL WARD", dot: "🟡", ring: "border-amber-500/60", text: "text-amber-300" };
+    if (w.includes("PEDIATRIC"))
+      return { label: "PEDIATRIC WARD", dot: "🔵", ring: "border-blue-500/60", text: "text-blue-300" };
+    if (w.includes("MATERNITY") || w.includes("GYNECOLOGY"))
+      return { label: "MATERNITY / OB-GYN", dot: "🩷", ring: "border-pink-500/60", text: "text-pink-300" };
+    if (w.includes("LAB"))
+      return { label: "LABORATORY", dot: "🟣", ring: "border-violet-500/60", text: "text-violet-300" };
+    if (w.includes("PHARMACY"))
+      return { label: "PHARMACY", dot: "🟠", ring: "border-orange-500/60", text: "text-orange-300" };
+    return { label: "INPATIENT WARD", dot: "⚪", ring: "border-slate-500/60", text: "text-slate-300" };
   };
 
   const formatDateTime = (isoString: string) => {
@@ -391,8 +501,105 @@ export function CitizenAppointmentsClient({
             </div>
           </div>
 
-          {/* Booking History Column */}
+          {/* Right Sidebar: Queue Status + Booking History */}
           <div className="space-y-6">
+
+            {/* ── Queue Circuit-Breaker Panel ──────────────────────────────── */}
+            {queueStatus?.inQueue && (() => {
+              const badge = getWardBadge(queueStatus.ward);
+              const isActive = queueStatus.status === "IN_PROGRESS";
+              return (
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-700/60 rounded-3xl p-6 shadow-2xl relative overflow-hidden">
+                  {/* Ambient glow rings */}
+                  <div className="pointer-events-none absolute -top-16 -right-16 w-48 h-48 rounded-full bg-indigo-500/10 blur-3xl" />
+                  <div className="pointer-events-none absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-violet-500/10 blur-3xl" />
+
+                  <div className="relative z-10 flex flex-col items-center gap-5 text-center">
+
+                    {/* Ward Badge */}
+                    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border text-[11px] font-black uppercase tracking-widest ${badge.ring} ${badge.text} bg-slate-950/60`}>
+                      {badge.dot} {badge.label}
+                    </span>
+
+                    {/* Circular Countdown Clock */}
+                    <div className="relative flex items-center justify-center">
+                      {/* Outer decorative ring */}
+                      <svg width="160" height="160" className="absolute" viewBox="0 0 160 160">
+                        <circle cx="80" cy="80" r="72" fill="none" stroke="#334155" strokeWidth="6" />
+                        <circle
+                          cx="80" cy="80" r="72" fill="none"
+                          stroke={isFrozen ? "#f59e0b" : "#6366f1"}
+                          strokeWidth="6"
+                          strokeLinecap="round"
+                          strokeDasharray={`${2 * Math.PI * 72}`}
+                          strokeDashoffset={`${
+                            baseWaitMinutes > 0
+                              ? 2 * Math.PI * 72 * (1 - displayedCountdown / baseWaitMinutes)
+                              : 0
+                          }`}
+                          transform="rotate(-90 80 80)"
+                          style={{ transition: "stroke-dashoffset 1s ease, stroke 0.4s ease" }}
+                        />
+                      </svg>
+
+                      {/* Centre content */}
+                      <div className="w-36 h-36 rounded-full bg-slate-950/80 border border-slate-800/60 flex flex-col items-center justify-center shadow-inner z-10">
+                        {isActive ? (
+                          <>
+                            <span className="text-xs font-bold text-emerald-400 uppercase tracking-widest animate-pulse">Now Seeing You</span>
+                            <CheckCircle2 className="w-8 h-8 text-emerald-400 mt-1" />
+                          </>
+                        ) : (
+                          <>
+                            <span className={`text-4xl font-black tabular-nums leading-none ${
+                              isFrozen ? "text-amber-400" : "text-indigo-300"
+                            }`}>
+                              {displayedCountdown}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest mt-0.5">mins</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Queue position text */}
+                    <div className="space-y-1">
+                      <p className="text-white font-bold text-base leading-snug">
+                        You are{" "}
+                        <span className="text-indigo-300">#{queueStatus.queuePosition}</span>{" "}
+                        in queue
+                      </p>
+                      <p className="text-slate-400 text-sm">
+                        Patients Ahead:{" "}
+                        <span className="font-bold text-slate-200">{patientsAhead}</span>
+                      </p>
+                      {!isActive && (
+                        <p className="text-xs font-semibold">
+                          <span className="text-slate-400">Est. Wait Time: </span>
+                          <span className={isFrozen ? "text-amber-400 font-black" : "text-indigo-300 font-black"}>
+                            {displayedCountdown} min{displayedCountdown !== 1 ? "s" : ""}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Freeze notice — only when countdown is locked at 8 */}
+                    {isFrozen && !isActive && (
+                      <div className="w-full mt-1 p-3 rounded-xl bg-amber-950/30 border border-amber-500/30 animate-in fade-in duration-500">
+                        <div className="flex items-start gap-2 text-left">
+                          <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                          <p className="text-[11px] text-amber-200 leading-relaxed font-medium">
+                            Doctor currently consulting active patient. Your countdown will refresh as soon as the next patient is called.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                  </div>
+                </div>
+              );
+            })()}
+
             <div className="bg-slate-900/30 backdrop-blur-md border border-slate-800 rounded-3xl p-6 shadow-2xl">
               <h2 className="text-lg font-bold text-white flex items-center gap-2 mb-4">
                 <History className="w-4 h-4 text-indigo-400" /> Booking History

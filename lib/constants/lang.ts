@@ -41,7 +41,13 @@ export const TRANSLATIONS = {
       registering: "Registering Citizen...",
       demographicsTitle: "1. Citizen Demographics",
       addressTitle: "2. Address & Contact Information",
-      visitTitle: "3. Reason for Visit"
+      visitTitle: "3. Reason for Visit",
+      duplicateWarning: "An official health profile is already linked to this information. Please navigate to the Sign-In / Portal panel to verify via SMS OTP securely.",
+      goToSignIn: "Go to Sign-In",
+      scheduleVisitTitle: "Schedule Clinical Visit",
+      scheduleVisitDesc: "Book an outpatient appointment or queue check-in.",
+      enterPortalTitle: "Enter Patient Portal",
+      enterPortalDesc: "Access secure clinical records, test results, and medical logs."
     },
     login: {
       title: "Healthcare Professional Portal",
@@ -127,7 +133,13 @@ export const TRANSLATIONS = {
       registering: "ዜጋውን በመመዝገብ ላይ...",
       demographicsTitle: "1. የዜጋው ግላዊ መረጃ",
       addressTitle: "2. አድራሻ እና የመገናኛ መረጃ",
-      visitTitle: "3. የመጡበት ምክንያት"
+      visitTitle: "3. የመጡበት ምክንያት",
+      duplicateWarning: "ይፋዊ የጤና መገለጫ ከዚህ መረጃ ጋር ቀደም ሲል ተያይዟል። እባክዎ በኤስኤምኤስ ኦቲፒ (SMS OTP) በአስተማማኝ ሁኔታ ለማረጋገጥ ወደ መግቢያ / ፖርታል ፓነል ይሂዱ።",
+      goToSignIn: "ወደ መግቢያ ይሂዱ",
+      scheduleVisitTitle: "ክሊኒካዊ ቀጠሮ ይያዙ",
+      scheduleVisitDesc: "የተመላላሽ ታካሚ ቀጠሮ ይያዙ ወይም ለምርመራ ወረፋ ይግቡ።",
+      enterPortalTitle: "ወደ ዜጋው ፖርታል ይግቡ",
+      enterPortalDesc: "ደህንነቱ የተጠበቀ የህክምና መዝገቦችን እና ታሪክን ይመልከቱ።"
     },
     login: {
       title: "የጤና ባለሙያዎች ፖርታል",

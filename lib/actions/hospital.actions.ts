@@ -85,6 +85,8 @@ export async function getHospitals(filter?: { kilil?: string; zone?: string; wor
         zone: true,
         woreda: true,
         kebele: true,
+        isActive: true,
+        isVerified: true,
       }
     });
 
