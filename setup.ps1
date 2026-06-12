@@ -14,19 +14,19 @@ Write-Host ""
 
 # 1. Check for Node.js
 if (!(Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ Error: Node.js is not installed or not in PATH." -ForegroundColor Red
+    Write-Host "[Error] Node.js is not installed or not in PATH." -ForegroundColor Red
     Write-Host "Please download Node.js from https://nodejs.org/ and restart PowerShell." -ForegroundColor Yellow
     Exit
 }
-Write-Host "✔ Node.js detected: $(node -v)" -ForegroundColor Green
+Write-Host "[OK] Node.js detected: $(node -v)" -ForegroundColor Green
 
 # 2. Install Dependencies
 if (!(Test-Path "node_modules")) {
-    Write-Host "📦 Installing project dependencies (npm install)... This may take a moment." -ForegroundColor Cyan
+    Write-Host "[Info] Installing project dependencies (npm install)... This may take a moment." -ForegroundColor Cyan
     npm install
-    Write-Host "✔ Dependencies installed successfully!" -ForegroundColor Green
+    Write-Host "[OK] Dependencies installed successfully!" -ForegroundColor Green
 } else {
-    Write-Host "✔ Dependencies already installed (node_modules exists)." -ForegroundColor Green
+    Write-Host "[OK] Dependencies already installed (node_modules exists)." -ForegroundColor Green
 }
 
 # 3. Create .env & .env.local if missing
@@ -37,7 +37,7 @@ $defaultHost = "cluster0.jpr7vag.mongodb.net/MyHealthID"
 $envFiles = @(".env", ".env.local")
 foreach ($file in $envFiles) {
     if (!(Test-Path $file)) {
-        Write-Host "🔧 Creating configuration file: $file" -ForegroundColor Cyan
+        Write-Host "[Info] Creating configuration file: $file" -ForegroundColor Cyan
         
         $envContent = @"
 # =========================================================================
@@ -48,7 +48,7 @@ PORT=3000
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Database Connection (MongoDB Atlas Cloud Cluster)
-DATABASE_URL="mongodb+srv://$defaultUser:$defaultPass@$defaultHost?retryWrites=true&w=majority"
+DATABASE_URL="mongodb+srv://${defaultUser}:${defaultPass}@$defaultHost?retryWrites=true&w=majority"
 
 # Authentication & Security
 NEXTAUTH_SECRET="your_fallback_secure_nextauth_secret_here"
@@ -67,19 +67,19 @@ NEXT_PUBLIC_MOCK_FAYDA_VERIFICATION=true
 FAYDA_API_ENDPOINT="https://api.fayda.gov.et/v1/verify"
 "@
         [System.IO.File]::WriteAllText((Resolve-Path . -Relative) + "/" + $file, $envContent, [System.Text.UTF8Encoding]::new($false))
-        Write-Host "✔ Created $file with default Atlas credentials." -ForegroundColor Green
+        Write-Host "[OK] Created $file with default Atlas credentials." -ForegroundColor Green
     } else {
-        Write-Host "✔ $file config already exists." -ForegroundColor Green
+        Write-Host "[OK] $file config already exists." -ForegroundColor Green
     }
 }
 
 # 4. Generate Prisma Client
-Write-Host "🛠 Regenerating Prisma Client..." -ForegroundColor Cyan
+Write-Host "[Info] Regenerating Prisma Client..." -ForegroundColor Cyan
 npx prisma generate
-Write-Host "✔ Prisma Client ready!" -ForegroundColor Green
+Write-Host "[OK] Prisma Client ready!" -ForegroundColor Green
 
 # 5. Clean up any hanging local port 3000/3001 processes
-Write-Host "🧹 Checking for hanging Node.js dev server processes..." -ForegroundColor Cyan
+Write-Host "[Info] Checking for hanging Node.js dev server processes..." -ForegroundColor Cyan
 $processes = Get-NetTCPConnection -LocalPort 3000, 3001 -ErrorAction SilentlyContinue | 
              Where-Object { $_.State -eq 'Listen' } | 
              ForEach-Object { $_.OwningProcess } | 
@@ -90,13 +90,13 @@ if ($processes) {
     foreach ($procId in $processes) {
         Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
     }
-    Write-Host "✔ Ports cleared!" -ForegroundColor Green
+    Write-Host "[OK] Ports cleared!" -ForegroundColor Green
 } else {
-    Write-Host "✔ Ports 3000 and 3001 are free." -ForegroundColor Green
+    Write-Host "[OK] Ports 3000 and 3001 are free." -ForegroundColor Green
 }
 
 # 6. Start the Server
 Write-Host ""
-Write-Host "🚀 Launching development server (npm run dev)..." -ForegroundColor Cyan
+Write-Host "[Info] Launching development server (npm run dev)..." -ForegroundColor Cyan
 Write-Host "------------------------------------------" -ForegroundColor Gray
 npm run dev

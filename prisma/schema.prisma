@@ -11,6 +11,7 @@ datasource db {
 }
 
 enum Role {
+  CITIZEN
   GENERAL_PRACTITIONER @map("DOCTOR")
   MEDICAL_SPECIALIST
   SUB_SPECIALIST
