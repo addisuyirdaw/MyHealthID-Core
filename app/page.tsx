@@ -7,10 +7,20 @@ import { LocalizedText } from "@/components/LocalizedText";
 import { LogoIcon } from "@/components/LogoIcon";
 import { CitizenPassportLookup } from "@/components/CitizenPassportLookup";
 
+// Force server-side rendering on every request so the live DB count
+// is never frozen at build time (fixes the "0 citizens" stale cache bug).
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
+  // Count all digitized citizens: registered Patients + User accounts with CITIZEN role.
+  // Both queries run in parallel for speed. Falls back to 0 if DB is unavailable.
   let patientCount = 0;
   try {
-    patientCount = await prisma.patient.count();
+    const [patientRecords, citizenUsers] = await Promise.all([
+      prisma.patient.count(),
+      prisma.user.count({ where: { role: "CITIZEN" } }),
+    ]);
+    patientCount = patientRecords + citizenUsers;
   } catch (err) {
     console.error("[Home] DB unreachable, showing fallback count:", err);
   }

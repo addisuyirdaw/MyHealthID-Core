@@ -26,7 +26,8 @@ function toDashboard(request: NextRequest, role: string) {
   if (LAB_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/lab", request.url));
   if (PHARMACY_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/pharmacy", request.url));
   if (REGISTRATION_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/register", request.url));
-  return NextResponse.redirect(new URL("/login", request.url));
+  // Unknown/stale role – clear the cookie and let the user stay on /login
+  return null;
 }
 
 export function middleware(request: NextRequest) {
@@ -122,7 +123,13 @@ export function middleware(request: NextRequest) {
 
   // ── Already logged in → redirect away from /login
   if (path === "/login") {
-    return toDashboard(request, userRole);
+    const dashboardRedirect = toDashboard(request, userRole);
+    if (dashboardRedirect) return dashboardRedirect;
+    // Unrecognized/stale cookie – clear it and let the user access /login
+    const response = NextResponse.next();
+    response.cookies.delete("userRole");
+    response.cookies.delete("organizationId");
+    return response;
   }
 
   return NextResponse.next();
