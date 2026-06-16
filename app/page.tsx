@@ -7,7 +7,7 @@ import { LocalizedText } from "@/components/LocalizedText";
 import { LogoIcon } from "@/components/LogoIcon";
 import { CitizenPassportLookup } from "@/components/CitizenPassportLookup";
 
-// Force server-side rendering on every request so the live DB count
+// Force server-side rendering on every single request so the live DB count
 // is never frozen at build time (fixes the "0 citizens" stale cache bug).
 export const dynamic = "force-dynamic";
 
