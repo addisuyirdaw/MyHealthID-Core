@@ -7,9 +7,9 @@ import {
   Stethoscope, User, AlertTriangle, CheckCircle2, ShieldAlert,
   Thermometer, Heart, Droplets, Wind, ShieldCheck,
   FlameKindling, FileText, Send, Printer, RefreshCw, X,
-  ChevronRight, Bell, Hospital, LogOut,
+  ChevronRight, Bell, Hospital, LogOut, Phone,
 } from "lucide-react";
-import { processTriage, recordVitals } from "@/lib/actions/patient.actions";
+import { processTriage, recordVitals, updatePatientPhoneByStaff } from "@/lib/actions/patient.actions";
 import { logoutUser } from "@/lib/actions/auth.actions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -148,12 +148,106 @@ function getAiSuggestion(patient: any): TriageCategory {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+function EditPhoneForm({
+  patientId,
+  currentPhone,
+  staffId,
+  role,
+  facilityId,
+  onSuccess,
+}: {
+  patientId: string;
+  currentPhone: string;
+  staffId: string;
+  role: string;
+  facilityId: string;
+  onSuccess: (val: string) => void;
+}) {
+  const [newPhone, setNewPhone] = useState(currentPhone);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess(false);
+
+    try {
+      const res = await updatePatientPhoneByStaff(
+        patientId,
+        newPhone,
+        staffId,
+        role,
+        facilityId
+      );
+      if (res.success) {
+        setSuccess(true);
+        onSuccess(newPhone);
+      } else {
+        setError(res.error || "Failed to update phone number.");
+      }
+    } catch (err: any) {
+      setError(err.message || "An unexpected error occurred.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (success) {
+    return (
+      <div className="py-4 text-center space-y-2">
+        <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto animate-bounce" />
+        <p className="text-sm font-semibold text-emerald-300">Phone number updated successfully!</p>
+        <p className="text-xs text-neutral-400">Twin alerts sent to old & new numbers.</p>
+      </div>
+    );
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+      {error && (
+        <div className="p-3 bg-red-950/40 text-red-200 border border-red-900/40 rounded-xl text-xs flex gap-2 items-center">
+          <AlertTriangle className="w-4 h-4 text-red-400 flex-shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+      <div className="space-y-1">
+        <label className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">New Phone Number</label>
+        <input
+          type="text"
+          value={newPhone}
+          onChange={(e) => setNewPhone(e.target.value)}
+          placeholder="e.g. +251911000000"
+          required
+          className="w-full bg-neutral-950 border border-neutral-800 text-sm text-white rounded-lg px-3 py-2 outline-none focus:border-cyan-500/50 transition-all font-mono"
+        />
+      </div>
+      <Button
+        type="submit"
+        disabled={loading || newPhone === currentPhone}
+        className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold h-9 rounded-lg text-xs"
+      >
+        {loading ? "Updating Parameters..." : "Save Parameters"}
+      </Button>
+    </form>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 export default function TriageDashboardClient({
   initialPatients,
   facilityName,
+  staffId = "",
+  role = "",
+  facilityId = "",
 }: {
   initialPatients: any[];
   facilityName?: string;
+  staffId?: string;
+  role?: string;
+  facilityId?: string;
 }) {
   const router = useRouter();
   const [patients, setPatients] = useState(initialPatients);
@@ -729,6 +823,51 @@ export default function TriageDashboardClient({
                           <ShieldCheck className="w-2.5 h-2.5" /> Fayda Verified
                         </span>
                       )}
+                    </div>
+                    <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-neutral-800/80">
+                      <div className="flex items-center gap-1.5 text-xs text-neutral-400">
+                        <Phone className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                        <span className="font-mono text-[11px]">{selectedPatient.phoneNumber || "No Phone"}</span>
+                      </div>
+                      
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 h-7 px-2 hover:bg-neutral-800 rounded-lg cursor-pointer"
+                          >
+                            Edit Identity Phone Parameters
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="bg-neutral-900 border-neutral-800 text-neutral-100 max-w-sm rounded-xl">
+                          <DialogHeader>
+                            <DialogTitle className="text-base font-bold text-white flex items-center gap-2">
+                              <Phone className="w-4 h-4 text-cyan-400" /> Edit Phone Number
+                            </DialogTitle>
+                            <DialogDescription className="text-neutral-400 text-xs">
+                              Update the primary contact number for {selectedPatient.fullName}.
+                            </DialogDescription>
+                          </DialogHeader>
+                          
+                          <EditPhoneForm 
+                            patientId={selectedPatient.id}
+                            currentPhone={selectedPatient.phoneNumber || ""}
+                            staffId={staffId}
+                            role={role}
+                            facilityId={facilityId}
+                            onSuccess={(newPhoneVal) => {
+                              setPatients((prev) =>
+                                prev.map((p) =>
+                                  p.id === selectedPatient.id
+                                    ? { ...p, phoneNumber: newPhoneVal }
+                                    : p
+                                )
+                              );
+                            }}
+                          />
+                        </DialogContent>
+                      </Dialog>
                     </div>
                   </div>
                 </div>

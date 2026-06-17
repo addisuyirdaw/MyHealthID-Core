@@ -1,6 +1,6 @@
 import prisma from "@/lib/prisma";
 import React from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { ADMIN_ROLES, CLINICAL_ROLES, normalizeHealthcareRole } from "@/lib/locales/enums";
 import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, FileText, User, ShieldAlert, Lock } from "lucide-react";
@@ -8,6 +8,7 @@ import { LiveQueueStatus } from "@/components/LiveQueueStatus";
 import { CheckInButton } from "@/components/CheckInButton";
 import BreakGlassClient from "@/components/BreakGlassClient";
 import { Role } from "@prisma/client";
+import { verifyToken } from "@/lib/session";
 
 type TimelineEvent = {
   id: string;
@@ -46,6 +47,15 @@ export default async function ClinicalRecordsDashboard({
   const isCitizen = viewerRole === "CITIZEN";
   const isClinicalUser = CLINICAL_ROLES.includes(viewerRole as any) || ADMIN_ROLES.includes(viewerRole as any);
   const hasOverride = searchParams.override === "1";
+
+  // Citizen session token security check
+  if (isCitizen) {
+    const sessionToken = cookieStore.get("citizenSessionToken")?.value;
+    const payload = sessionToken ? verifyToken(sessionToken) : null;
+    if (!payload || payload.patientId !== patient.id) {
+      redirect("/signin");
+    }
+  }
 
   if (!isCitizen && isClinicalUser && patient.isRestricted && !hasOverride) {
     return <BreakGlassClient patientId={patient.id} patientName={patient.fullName} />;

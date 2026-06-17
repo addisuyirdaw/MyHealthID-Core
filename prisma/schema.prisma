@@ -171,6 +171,7 @@ model Patient {
   isSynced      Boolean @default(false)
   email         String?
   otpCode       String?
+  otpExpiresAt  DateTime? // OTP is valid for 5 minutes from generation
 
   // Queue Information
   phoneNumber   String?
@@ -249,6 +250,8 @@ model Patient {
   medicalRecords  MedicalRecord[]
   referralSummaries ReferralSummary[]
   labRequests     LabRequest[]
+  verificationAttempts VerificationAttempt[]
+  patientIdentityAudits PatientIdentityAudit[]
 
   @@index([nationalId])
   @@index([faydaId])
@@ -504,6 +507,10 @@ model Referral {
   reason                String
   destinationFacility   String
   receivingFacilityId   String?        @map("receiving_facility_id")
+  sourceFacilityId      String?        @map("source_facility_id")
+  targetFacilityId      String?        @map("target_facility_id")
+  clinicalUrgency       String?        @map("clinical_urgency")
+  provisionalDiagnosis  String?        @map("provisional_diagnosis")
   status                ReferralStatus @default(PENDING)
   rejectionReason       String?        @map("rejection_reason")
   aiOverrideLogged      Boolean        @default(false)
@@ -662,9 +669,10 @@ model Organization {
 }
 
 model Appointment {
-  id         String            @id @default(uuid()) @map("_id")
+  id         String            @id @default(auto()) @map("_id") @db.ObjectId
   patientId  String            @map("patient_id")
   patient    Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId   String?           @map("doctor_id")
   facilityId String            @map("facility_id")
   facility   Organization      @relation(fields: [facilityId], references: [id], onDelete: Cascade)
   department String
@@ -830,3 +838,46 @@ model LabResultItem {
 
   @@map("lab_result_items")
 }
+
+model RateLimit {
+  id       String   @id @default(auto()) @map("_id") @db.ObjectId
+  key      String   @unique
+  points   Int      @default(0)
+  expireAt DateTime
+
+  @@index([expireAt])
+  @@map("rate_limits")
+}
+
+model VerificationAttempt {
+  id        String   @id @default(uuid()) @map("_id")
+  patientId String   @map("patient_id")
+  otpHash   String   @map("otp_hash")
+  purpose   String   @default("CITIZEN_LOGIN")
+  expiresAt DateTime @map("expires_at")
+  attempts  Int      @default(0)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
+  @@map("verification_attempts")
+}
+
+model PatientIdentityAudit {
+  id           String   @id @default(uuid()) @map("_id")
+  patientId    String   @map("patient_id")
+  patient      Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  fieldAltered String   @map("field_altered")
+  oldValue     String   @map("old_value")
+  newValue     String   @map("new_value")
+  performedBy  String   @map("performed_by")
+  facilityId   String?  @map("facility_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  @@index([patientId])
+  @@map("patient_identity_audits")
+}
+
+
+

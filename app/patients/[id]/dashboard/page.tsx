@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import React from "react";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, FileText, User } from "lucide-react";
@@ -8,6 +9,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LiveQueueStatus } from "@/components/LiveQueueStatus";
 import { CheckInButton } from "@/components/CheckInButton";
+import { verifyToken } from "@/lib/session";
 type TimelineEvent = {
   id: string;
   type: "VITAL" | "LAB" | "PRESCRIPTION" | "EXAM" | "ADMISSION";
@@ -37,6 +39,17 @@ export default async function PatientDashboard({ params }: { params: { id: strin
   });
 
   if (!patient) return notFound();
+
+  // Citizen session token security check
+  const cookieStore = cookies();
+  const viewerRole = cookieStore.get("userRole")?.value || "UNKNOWN";
+  if (viewerRole === "CITIZEN") {
+    const sessionToken = cookieStore.get("citizenSessionToken")?.value;
+    const payload = sessionToken ? verifyToken(sessionToken) : null;
+    if (!payload || payload.patientId !== patient.id) {
+      redirect("/signin");
+    }
+  }
 
   const organizations = await prisma.organization.findMany({
     select: { id: true, name: true }

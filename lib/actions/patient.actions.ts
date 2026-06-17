@@ -5,9 +5,10 @@ import prisma from "@/lib/prisma";
 import { CROSS_FACILITY } from "@/lib/utils/tenantContext";
 import { checkInToQueue } from "./queue.actions";
 import { generateHealthId, generateChildId, generateMhidSuffix, formatMyHealthPublicId } from "../utils";
-import { randomUUID } from "crypto";
+import crypto, { randomUUID } from "crypto";
 import { z } from "zod";
 import { cookies } from "next/headers";
+import { signToken } from "@/lib/session";
 
 import { TriageStatus, Ward, PriorityLevel } from "@prisma/client";
 import { upsertVerifiedCitizenFromRegistration } from "@/lib/actions/verifiedCitizen.actions";
@@ -1209,3 +1210,353 @@ export async function getPatientByNationalId(searchQuery: string) {
     throw new Error(error.message || "Failed to retrieve patient by National ID.");
   }
 }
+
+/**
+ * Normalizes phone numbers to a consistent format (+251...)
+ */
+function normalizePhoneNumber(phone: string): string {
+  const clean = phone.replace(/[^\d+]/g, "");
+  if (clean.startsWith("0") && clean.length === 10) {
+    return "+251" + clean.slice(1);
+  }
+  if (clean.startsWith("251") && clean.length === 12) {
+    return "+" + clean;
+  }
+  return clean;
+}
+
+/**
+ * Initiates the citizen sign-in workflow by verifying the credential and generating an OTP.
+ */
+export async function initiateCitizenSignIn(credential: string) {
+  try {
+    const cleanCredential = credential.trim();
+    if (!cleanCredential) {
+      return { success: false, error: "Identifier is required." };
+    }
+
+    const normalizedPhone = normalizePhoneNumber(cleanCredential);
+    const phoneVariations = [cleanCredential, normalizedPhone];
+    if (normalizedPhone.startsWith("+251")) {
+      phoneVariations.push(normalizedPhone.slice(1));
+      phoneVariations.push("0" + normalizedPhone.slice(4));
+    }
+    const uniquePhoneVariations = Array.from(new Set(phoneVariations)).filter(Boolean);
+
+    const patient = await prisma.patient.findFirst({
+      where: {
+        ...CROSS_FACILITY,
+        OR: [
+          { nationalId: cleanCredential },
+          { faydaId: cleanCredential },
+          ...uniquePhoneVariations.map(p => ({ phoneNumber: p }))
+        ]
+      }
+    });
+
+    // Return a generic error to prevent identity harvesting
+    if (!patient) {
+      return { success: false, error: "Invalid credentials." };
+    }
+
+    // Generate secure 6-digit random code
+    const otpVal = crypto.randomInt(100000, 1000000);
+    const otpCode = String(otpVal);
+    const otpHash = crypto.createHash("sha256").update(otpCode).digest("hex");
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // Delete any existing attempts for this patient to prevent clutter
+    await prisma.verificationAttempt.deleteMany({
+      where: { patientId: patient.id, purpose: "CITIZEN_LOGIN" }
+    }).catch(() => {});
+
+    const attempt = await prisma.verificationAttempt.create({
+      data: {
+        patientId: patient.id,
+        otpHash,
+        purpose: "CITIZEN_LOGIN",
+        expiresAt,
+        attempts: 0
+      }
+    });
+
+    // Mock SMS transmission
+    console.log("\n========================================================");
+    console.log(`[SMS OTP SIMULATION] Sent OTP code: ${otpCode}`);
+    console.log(`To Patient: ${patient.fullName}`);
+    console.log(`Verified Phone Destination: ${patient.phoneNumber || "No Phone Number"}`);
+    console.log("========================================================\n");
+
+    // Mask phone number
+    let maskedPhone = "+251 *******94";
+    if (patient.phoneNumber) {
+      const norm = normalizePhoneNumber(patient.phoneNumber);
+      if (norm.startsWith("+251") && norm.length === 13) {
+        maskedPhone = `+251 *******${norm.slice(-2)}`;
+      } else {
+        const cleanPhone = patient.phoneNumber.replace(/[^\d+]/g, "");
+        if (cleanPhone.length > 4) {
+          maskedPhone = `${cleanPhone.slice(0, 4)} *******${cleanPhone.slice(-2)}`;
+        }
+      }
+    }
+
+    return {
+      success: true,
+      sessionId: attempt.id,
+      maskedPhone
+    };
+  } catch (error: any) {
+    console.error("❌ INITIATE SIGN-IN ERROR:", error.message);
+    return { success: false, error: "Failed to initiate sign-in workflow." };
+  }
+}
+
+/**
+ * Confirms the citizen sign-in workflow by validating the OTP code.
+ */
+export async function confirmCitizenSignIn(credential: string, otpCode: string) {
+  try {
+    const cleanCredential = credential.trim();
+    const cleanOtp = otpCode.trim();
+
+    if (!cleanCredential || !cleanOtp) {
+      return { success: false, error: "Credential and OTP code are required." };
+    }
+
+    const normalizedPhone = normalizePhoneNumber(cleanCredential);
+    const phoneVariations = [cleanCredential, normalizedPhone];
+    if (normalizedPhone.startsWith("+251")) {
+      phoneVariations.push(normalizedPhone.slice(1));
+      phoneVariations.push("0" + normalizedPhone.slice(4));
+    }
+    const uniquePhoneVariations = Array.from(new Set(phoneVariations)).filter(Boolean);
+
+    const patient = await prisma.patient.findFirst({
+      where: {
+        ...CROSS_FACILITY,
+        OR: [
+          { nationalId: cleanCredential },
+          { faydaId: cleanCredential },
+          ...uniquePhoneVariations.map(p => ({ phoneNumber: p }))
+        ]
+      }
+    });
+
+    if (!patient) {
+      return { success: false, error: "Authentication failed." };
+    }
+
+    const attempt = await prisma.verificationAttempt.findFirst({
+      where: {
+        patientId: patient.id,
+        purpose: "CITIZEN_LOGIN"
+      },
+      orderBy: {
+        createdAt: "desc"
+      }
+    });
+
+    if (!attempt) {
+      return { success: false, error: "No active verification session found." };
+    }
+
+    // Increment attempts
+    const updatedAttempt = await prisma.verificationAttempt.update({
+      where: { id: attempt.id },
+      data: { attempts: { increment: 1 } }
+    });
+
+    if (updatedAttempt.attempts > 3) {
+      await prisma.verificationAttempt.delete({ where: { id: attempt.id } }).catch(() => {});
+      return { success: false, error: "Too many failed attempts. Session blocked." };
+    }
+
+    if (new Date() > updatedAttempt.expiresAt) {
+      await prisma.verificationAttempt.delete({ where: { id: attempt.id } }).catch(() => {});
+      return { success: false, error: "Verification code expired." };
+    }
+
+    const hashedInput = crypto.createHash("sha256").update(cleanOtp).digest("hex");
+    if (hashedInput !== updatedAttempt.otpHash) {
+      return { success: false, error: "Incorrect verification code." };
+    }
+
+    // Success - issue token and set cookies
+    const tokenPayload = {
+      patientId: patient.id,
+      role: "CITIZEN",
+      iat: Date.now(),
+      exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+    const token = signToken(tokenPayload);
+
+    const cookieStore = cookies();
+    const isProd = process.env.NODE_ENV === "production";
+    const cookieOpts = {
+      httpOnly: false,
+      secure: isProd,
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/"
+    };
+
+    cookieStore.set("citizenSessionToken", token, {
+      ...cookieOpts,
+      httpOnly: true
+    });
+    cookieStore.set("userRole", "CITIZEN", cookieOpts);
+    cookieStore.set("citizenPatientId", patient.id, cookieOpts);
+
+    // Delete the attempt
+    await prisma.verificationAttempt.delete({ where: { id: attempt.id } }).catch(() => {});
+
+    return { success: true, patientId: patient.id, fullName: patient.fullName };
+  } catch (error: any) {
+    console.error("❌ CONFIRM SIGN-IN ERROR:", error.message);
+    return { success: false, error: error.message || "Authentication failed." };
+  }
+}
+
+/**
+ * Staff-triggered patient phone number update with auditing and broadcast simulation.
+ */
+export async function updatePatientPhoneByStaff(
+  patientId: string,
+  newPhone: string,
+  staffId: string,
+  role: string,
+  facilityId?: string
+) {
+  try {
+    const { normalizeHealthcareRole } = await import("@/lib/locales/enums");
+    const normalizedRole = normalizeHealthcareRole(role);
+
+    const isValidStaff =
+      normalizedRole === "RECEPTIONIST" ||
+      normalizedRole === "CARD_ROOM_CLERK" ||
+      normalizedRole === "IT_HIS_ADMIN" ||
+      normalizedRole === "HOSPITAL_CEO" ||
+      normalizedRole === "CLINICAL_NURSE" ||
+      normalizedRole === "SPECIALIZED_NURSE" ||
+      normalizedRole === "HEALTH_OFFICER";
+
+    if (!isValidStaff) {
+      return { success: false, error: "Unauthorized. Staff authorization failed." };
+    }
+
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId }
+    });
+
+    if (!patient) {
+      return { success: false, error: "Patient not found." };
+    }
+
+    const oldPhone = patient.phoneNumber || "None";
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.patient.update({
+        where: { id: patientId },
+        data: { phoneNumber: newPhone }
+      });
+
+      const audit = await tx.patientIdentityAudit.create({
+        data: {
+          patientId,
+          fieldAltered: "phoneNumber",
+          oldValue: oldPhone,
+          newValue: newPhone,
+          performedBy: staffId,
+          facilityId: facilityId || null
+        }
+      });
+
+      return { updated, audit };
+    });
+
+    // Twin-SMS broadcast simulation
+    console.log("\n========================================================");
+    console.log(`[TWIN-SMS ALERT BROADCAST]`);
+    console.log(`Alert sent to old phone [${oldPhone}]: Security notice: Your phone number has been changed to ${newPhone}.`);
+    console.log(`Alert sent to new phone [${newPhone}]: Security notice: Your phone number has been updated to this number.`);
+    console.log("========================================================\n");
+
+    return { success: true, oldPhone, newPhone };
+  } catch (error: any) {
+    console.error("❌ updatePatientPhoneByStaff error:", error);
+    return { success: false, error: error.message || "Failed to update phone number." };
+  }
+}
+
+/**
+ * Self-service update for citizens using validated metadata (Name, Birthday).
+ */
+export async function selfServiceUpdatePatientPhone(
+  faydaId: string,
+  newPhone: string,
+  dob: string,
+  fullName: string
+) {
+  try {
+    const cleanFayda = faydaId.trim();
+    const cleanName = fullName.trim().toLowerCase();
+
+    const patient = await prisma.patient.findFirst({
+      where: {
+        OR: [
+          { faydaId: cleanFayda },
+          { nationalId: cleanFayda }
+        ]
+      }
+    });
+
+    if (!patient) {
+      return { success: false, error: "No matching patient profile found." };
+    }
+
+    const incomingDob = new Date(dob);
+    const patientDob = patient.dateOfBirth ? new Date(patient.dateOfBirth) : null;
+    const isDobMatch = patientDob && incomingDob.toDateString() === patientDob.toDateString();
+
+    const isNameMatch = patient.fullName.trim().toLowerCase() === cleanName;
+
+    if (!isDobMatch || !isNameMatch) {
+      return { success: false, error: "Provided verification details do not match patient records." };
+    }
+
+    const oldPhone = patient.phoneNumber || "None";
+
+    const result = await prisma.$transaction(async (tx) => {
+      const updated = await tx.patient.update({
+        where: { id: patient.id },
+        data: { phoneNumber: newPhone }
+      });
+
+      const audit = await tx.patientIdentityAudit.create({
+        data: {
+          patientId: patient.id,
+          fieldAltered: "phoneNumber",
+          oldValue: oldPhone,
+          newValue: newPhone,
+          performedBy: "CITIZEN_SELF_SERVICE",
+          facilityId: null
+        }
+      });
+
+      return { updated, audit };
+    });
+
+    // Emit security alert logs
+    console.log("\n========================================================");
+    console.log(`[SELF-SERVICE SECURITY ALERT]`);
+    console.log(`Patient ${patient.fullName} (${patient.id}) updated phone number to ${newPhone} via self-service.`);
+    console.log("========================================================\n");
+
+    return { success: true, oldPhone, newPhone };
+  } catch (error: any) {
+    console.error("❌ selfServiceUpdatePatientPhone error:", error);
+    return { success: false, error: error.message || "Failed to update phone number." };
+  }
+}
+
+

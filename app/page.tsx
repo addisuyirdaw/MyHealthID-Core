@@ -1,3 +1,6 @@
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { cookies } from "next/headers";
@@ -6,10 +9,6 @@ import { ADMIN_ROLES, CLINICAL_ROLES } from "@/lib/locales/enums";
 import { LocalizedText } from "@/components/LocalizedText";
 import { LogoIcon } from "@/components/LogoIcon";
 import { CitizenPassportLookup } from "@/components/CitizenPassportLookup";
-
-// Force server-side rendering on every single request so the live DB count
-// is never frozen at build time (fixes the "0 citizens" stale cache bug).
-export const dynamic = "force-dynamic";
 
 export default async function Home() {
   // Count all digitized citizens: registered Patients + User accounts with CITIZEN role.
@@ -21,8 +20,9 @@ export default async function Home() {
       prisma.user.count({ where: { role: "CITIZEN" } }),
     ]);
     patientCount = patientRecords + citizenUsers;
-  } catch (err) {
-    console.error("[Home] DB unreachable, showing fallback count:", err);
+  } catch (error: any) {
+    console.error("METRIC_FETCH_ERROR:", error.message);
+    console.error("[Home] DB unreachable, showing fallback count:", error);
   }
   const cookieStore = cookies();
   const userRole = cookieStore.get("userRole")?.value;

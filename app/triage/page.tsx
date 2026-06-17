@@ -35,11 +35,21 @@ export default async function TriagePage() {
     }
   }
 
+  const staffId = cookieStore.get("userId")?.value || "";
+  const facilityId = activeOrgId || "";
+
   const patients = await getWaitingForTriagePatients();
 
   return (
     <div className="min-h-screen bg-neutral-900 text-white selection:bg-cyan-500/30">
-      <TriageDashboardClient initialPatients={patients} facilityName={facilityName} />
+      <TriageDashboardClient
+        initialPatients={patients}
+        facilityName={facilityName}
+        staffId={staffId}
+        role={userRole || ""}
+        facilityId={facilityId}
+      />
     </div>
   );
 }
+
