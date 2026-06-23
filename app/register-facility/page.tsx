@@ -21,6 +21,9 @@ export default function RegisterFacilityPage() {
   const [token, setToken] = useState("");
   const [facilityName, setFacilityName] = useState("");
   const [copied, setCopied] = useState(false);
+  const [adminLicenseNumber, setAdminLicenseNumber] = useState("");
+  const [adminActivationCode, setAdminActivationCode] = useState("");
+  const [copiedCode, setCopiedCode] = useState(false);
 
   // Form Fields State
   const [officialName, setOfficialName] = useState("");
@@ -51,6 +54,8 @@ export default function RegisterFacilityPage() {
       if (res.success && res.organizationId) {
         setToken(res.organizationId);
         setFacilityName(res.name || officialName);
+        setAdminLicenseNumber(res.adminLicenseNumber || "");
+        setAdminActivationCode(res.adminActivationCode || "");
         setSuccess(true);
       } else {
         alert(res.error || "Failed to register facility.");
@@ -66,6 +71,12 @@ export default function RegisterFacilityPage() {
     navigator.clipboard.writeText(token);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyActivationCode = () => {
+    navigator.clipboard.writeText(adminActivationCode);
+    setCopiedCode(true);
+    setTimeout(() => setCopiedCode(false), 2000);
   };
 
   if (success) {
@@ -112,6 +123,42 @@ export default function RegisterFacilityPage() {
             </p>
           </div>
 
+          {/* Admin Credentials Card */}
+          <div className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-5 mb-6">
+            <h3 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <ShieldCheck className="w-3.5 h-3.5" /> Your Facility Admin Login Credentials
+            </h3>
+            <div className="space-y-3">
+              {/* License Number */}
+              <div>
+                <p className="text-xs text-slate-400 mb-1">Email / License Number</p>
+                <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 font-mono text-sm text-white break-all select-all">
+                  {adminLicenseNumber}
+                </div>
+              </div>
+              {/* One-time Activation Code */}
+              <div>
+                <p className="text-xs text-slate-400 mb-1">One-Time Activation Code <span className="text-amber-400">(use as your first password)</span></p>
+                <div className="flex items-center gap-2 bg-slate-900 border border-amber-500/40 rounded-xl p-3">
+                  <span className="flex-1 font-mono text-lg font-black text-amber-300 tracking-[0.3em] select-all">{adminActivationCode}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={copyActivationCode}
+                    className="text-slate-400 hover:text-white hover:bg-slate-700 h-9 px-3 shrink-0"
+                  >
+                    {copiedCode ? <Check className="w-4 h-4 text-emerald-400 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
+                    {copiedCode ? "Copied" : "Copy"}
+                  </Button>
+                </div>
+              </div>
+            </div>
+            <p className="text-xs text-amber-400/80 mt-3 font-medium">
+              ⚠️ You will be prompted to set a new password after your first login. Save these credentials now.
+            </p>
+          </div>
+
           {/* Step-by-step next actions */}
           <div className="bg-slate-900/60 border border-slate-700/60 rounded-2xl p-5 mb-7 space-y-4">
             <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">What to do next</h3>
@@ -123,7 +170,7 @@ export default function RegisterFacilityPage() {
               </div>
               <div>
                 <p className="text-sm font-bold text-white">Log in as Facility Administrator</p>
-                <p className="text-xs text-slate-400 mt-0.5">Use your Organization ID above + your email + password on the login page.</p>
+                <p className="text-xs text-slate-400 mt-0.5">Use the License Number + Activation Code above along with the Organization ID on the login page.</p>
               </div>
             </div>
 
@@ -133,19 +180,30 @@ export default function RegisterFacilityPage() {
                 <span className="text-xs font-black text-blue-400">2</span>
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Onboard Your Staff</p>
-                <p className="text-xs text-slate-400 mt-0.5">Onboard them via the <span className="text-blue-400 font-semibold">Admin Dashboard</span> OR direct staff to self-register using the link below.</p>
+                <p className="text-sm font-bold text-white">Set Your Permanent Password</p>
+                <p className="text-xs text-slate-400 mt-0.5">You will be automatically redirected to set a permanent admin password on first login.</p>
               </div>
             </div>
 
             {/* Step 3 */}
             <div className="flex items-start gap-3">
+              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
+                <span className="text-xs font-black text-blue-400">3</span>
+              </div>
+              <div>
+                <p className="text-sm font-bold text-white">Onboard Your Staff</p>
+                <p className="text-xs text-slate-400 mt-0.5">From the Admin Dashboard, add doctors, nurses, receptionists, lab staff, and pharmacists.</p>
+              </div>
+            </div>
+
+            {/* Step 4 */}
+            <div className="flex items-start gap-3">
               <div className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                <span className="text-xs font-black text-emerald-400">3</span>
+                <span className="text-xs font-black text-emerald-400">4</span>
               </div>
               <div>
                 <p className="text-sm font-bold text-white">Staff Can Now Login</p>
-                <p className="text-xs text-slate-400 mt-0.5">Once registered, each staff member logs in with their license email + PIN + this Organization ID.</p>
+                <p className="text-xs text-slate-400 mt-0.5">Each staff member logs in with their license number + PIN + Organization ID.</p>
               </div>
             </div>
           </div>

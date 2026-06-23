@@ -4,12 +4,13 @@ import { notFound, redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, FileText, User } from "lucide-react";
+import { HeartPulse, FlaskConical, Pill, ActivitySquare, Clock, FileText, User, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { LiveQueueStatus } from "@/components/LiveQueueStatus";
 import { CheckInButton } from "@/components/CheckInButton";
 import { verifyToken } from "@/lib/session";
+import { verifyPatientIdentity } from "@/lib/actions/patient.actions";
 type TimelineEvent = {
   id: string;
   type: "VITAL" | "LAB" | "PRESCRIPTION" | "EXAM" | "ADMISSION";
@@ -133,6 +134,27 @@ export default async function PatientDashboard({ params }: { params: { id: strin
     <div className="min-h-screen bg-slate-50 p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-6">
         
+        {/* Pre-Registered Verification Alert Banner */}
+        {!patient.isVerified && viewerRole !== "CITIZEN" && (
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-amber-50 p-6 shadow-sm animate-in fade-in duration-200">
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="w-5 h-5 text-amber-600 shrink-0" />
+              <div>
+                <p className="font-bold text-amber-800">Pre-Registered Profile: Verify Identity Documents to Link Clinical History</p>
+                <p className="text-amber-700 text-sm">Please verify the patient's identity documents to link their clinical history.</p>
+              </div>
+            </div>
+            <form action={verifyPatientIdentity.bind(null, patient.id) as any}>
+              <button
+                type="submit"
+                className="bg-amber-600 hover:bg-amber-700 text-white font-bold px-4 py-2 rounded-xl text-sm transition-all whitespace-nowrap cursor-pointer"
+              >
+                Verify Identity
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* Header Profile */}
         <Card className="border-t-4 border-t-primary shadow-sm">
           <CardHeader className="flex flex-col md:flex-row justify-between md:items-center gap-4">

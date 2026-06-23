@@ -20,6 +20,7 @@ import { OrderTestModal } from "@/components/OrderTestModal";
 import { PrescribeModal } from "@/components/PrescribeModal";
 import { DynamicVitalsModal } from "@/components/DynamicVitalsModal";
 import { ReferModal } from "@/components/ReferModal";
+import { PatientTimeline } from "@/components/clinical/PatientTimeline";
 
 // ─── Investigation Catalog ─────────────────────────────────────────────────
 const INVESTIGATION_CATALOG = {
@@ -118,6 +119,7 @@ const TABS = [
   { id: "history",        label: "History & Examination",    icon: Stethoscope },
   { id: "assessment",     label: "Doctor Assessment",        icon: Brain },
   { id: "orders",         label: "Lab / Imaging / Pathology", icon: FlaskConical },
+  { id: "timeline",       label: "Timeline",                 icon: Clock },
 ] as const;
 type TabId = typeof TABS[number]["id"];
 
@@ -837,6 +839,11 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
               </>
             )}
           </div>
+        )}
+
+        {/* ══ TAB 5: Health Timeline ══ */}
+        {activeTab === "timeline" && (
+          <PatientTimeline patientId={patient.id} />
         )}
         </div>
 

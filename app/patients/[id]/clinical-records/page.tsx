@@ -9,6 +9,7 @@ import { CheckInButton } from "@/components/CheckInButton";
 import BreakGlassClient from "@/components/BreakGlassClient";
 import { Role } from "@prisma/client";
 import { verifyToken } from "@/lib/session";
+import { verifyPatientIdentity } from "@/lib/actions/patient.actions";
 
 type TimelineEvent = {
   id: string;
@@ -197,6 +198,27 @@ export default async function ClinicalRecordsDashboard({
           </div>
         )}
 
+        {/* Pre-Registered Verification Alert Banner */}
+        {!patient.isVerified && viewerRole !== "CITIZEN" && (
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 rounded-2xl border border-yellow-500/30 bg-yellow-950/40 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <ShieldAlert className="w-5 h-5 text-yellow-400 shrink-0" />
+              <div>
+                <p className="font-black text-yellow-300">Pre-Registered Profile: Verify Identity Documents to Link Clinical History</p>
+                <p className="text-yellow-400/70 text-sm">Please verify the patient's identity documents to activate full record syncing.</p>
+              </div>
+            </div>
+            <form action={verifyPatientIdentity.bind(null, patient.id) as any}>
+              <button
+                type="submit"
+                className="bg-yellow-600 hover:bg-yellow-500 text-neutral-950 font-bold px-4 py-2 rounded-xl text-sm transition-all whitespace-nowrap cursor-pointer"
+              >
+                Verify Patient Identity
+              </button>
+            </form>
+          </div>
+        )}
+
         {/* Hero welcome banner */}
         <div className="relative rounded-3xl overflow-hidden bg-gradient-to-br from-blue-900/60 to-indigo-900/50 border border-blue-500/20 p-6 md:p-8">
           <div className="absolute inset-0 bg-gradient-to-br from-blue-600/10 to-indigo-600/10 pointer-events-none" />
@@ -246,18 +268,30 @@ export default async function ClinicalRecordsDashboard({
           </div>
         </div>
 
-        {/* Privacy control link for citizens */}
+        {/* Citizen controls */}
         {isCitizen && (
-          <a
-            href={`/patients/${patient.id}/privacy`}
-            className="flex items-center justify-between bg-indigo-950/40 border border-indigo-500/20 rounded-2xl px-6 py-4 hover:bg-indigo-950/60 transition-colors group"
-          >
-            <div>
-              <p className="font-bold text-indigo-300">🔐 Privacy & Data Control</p>
-              <p className="text-indigo-400/70 text-sm">Manage who can see your records · ግላዊነት እና የዳታ ቁጥጥር</p>
-            </div>
-            <span className="text-indigo-400 group-hover:translate-x-1 transition-transform text-xl">→</span>
-          </a>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <a
+              href={`/patients/${patient.id}/privacy`}
+              className="flex items-center justify-between bg-indigo-950/40 border border-indigo-500/20 rounded-2xl px-6 py-4 hover:bg-indigo-950/60 transition-colors group"
+            >
+              <div>
+                <p className="font-bold text-indigo-300">🔐 Privacy & Data Control</p>
+                <p className="text-indigo-400/70 text-sm">Manage who can see your records · ግላዊነት እና የዳታ ቁጥጥር</p>
+              </div>
+              <span className="text-indigo-400 group-hover:translate-x-1 transition-transform text-xl">→</span>
+            </a>
+            <a
+              href={`/patients/${patient.id}/profile`}
+              className="flex items-center justify-between bg-neutral-900/60 border border-neutral-800 rounded-2xl px-6 py-4 hover:bg-neutral-900 transition-colors group"
+            >
+              <div>
+                <p className="font-bold text-neutral-300">👤 Edit My Profile</p>
+                <p className="text-neutral-500 text-sm">Update your name, phone, and date of birth · ፕሮፋይል ማስተካከያ</p>
+              </div>
+              <span className="text-neutral-400 group-hover:translate-x-1 transition-transform text-xl">→</span>
+            </a>
+          </div>
         )}
 
         {/* Live queue status */}

@@ -32,7 +32,43 @@ function toDashboard(request: NextRequest, role: string) {
 
 export function middleware(request: NextRequest) {
   const userRole = request.cookies.get("userRole")?.value;
+  const isFirstLogin = request.cookies.get("isFirstLogin")?.value === "true";
   const path = request.nextUrl.pathname;
+
+  /* ── First-time login password initialization guard ── */
+  if (isFirstLogin) {
+    if (path !== "/initialize-password") {
+      return NextResponse.redirect(new URL("/initialize-password", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // If user is initialized but attempts to access /initialize-password
+  if (path === "/initialize-password") {
+    if (userRole) {
+      const dashboardRedirect = toDashboard(request, userRole);
+      if (dashboardRedirect) return dashboardRedirect;
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
+
+  /* ── Admin-mediated temp-password reset guard ── */
+  const isTempPassword = request.cookies.get("isTempPassword")?.value === "true";
+  if (isTempPassword) {
+    if (path !== "/change-password") {
+      return NextResponse.redirect(new URL("/change-password", request.url));
+    }
+    return NextResponse.next();
+  }
+
+  // If not in temp-password mode, block direct access to /change-password
+  if (path === "/change-password") {
+    if (userRole) {
+      const dashboardRedirect = toDashboard(request, userRole);
+      if (dashboardRedirect) return dashboardRedirect;
+    }
+    return NextResponse.redirect(new URL("/login", request.url));
+  }
 
   /* ── Unauthenticated users: protect all staff-only routes ── */
   if (!userRole) {
@@ -151,5 +187,7 @@ export const config = {
     "/scan",
     "/dashboard/settings/:path*",
     "/login",
+    "/initialize-password",
+    "/change-password",
   ],
 };

@@ -77,10 +77,51 @@ export async function registerOrganization(data: {
       }
     });
 
+    // ─── Auto-create the default facility ADMIN account ────────────────────────
+    // Generate a stable, memorable default license number for the admin account
+    const adminLicenseNumber = `admin-${orgId.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
+    const adminEmail = `${adminLicenseNumber.replace(/[^a-z0-9]/g, "")}@myhealthid.gov.et`;
+    // IMPORTANT: normalizeLoginIdentifier strips hyphens during login, so we must
+    // store the hyphen-stripped version so the DB lookup finds this account.
+    const adminEmailOrUsername = adminLicenseNumber.replace(/[^a-z0-9]/g, "");
+
+    // Generate a readable 8-character one-time activation code
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let activationCode = "";
+    const bytes = crypto.randomBytes(8);
+    for (let i = 0; i < 8; i++) {
+      activationCode += chars[bytes[i] % chars.length];
+    }
+
+    // Synthetic national ID for the auto-admin
+    const nationalId = `fadmin-${orgId.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Math.random().toString(36).substring(2, 6)}`;
+
+    const adminRole = normalizeHealthcareRole("ADMIN");
+    await prisma.user.create({
+      data: {
+        email: adminEmail,
+        emailOrUsername: adminEmailOrUsername,
+        role: adminRole as any,
+        firstName: "Facility",
+        lastName: "Administrator",
+        professionalLicenseNumber: adminLicenseNumber,
+        hospitalId: orgId,
+        hospitalName: org.name,
+        organizationId: orgId,
+        nationalId,
+        isFirstLogin: true,
+        activationCode,
+      }
+    });
+    // ───────────────────────────────────────────────────────────────────────────
+
     return {
       success: true,
       organizationId: org.id,
       name: org.name,
+      // Return admin credentials so the UI can display them to the registrant
+      adminLicenseNumber,
+      adminActivationCode: activationCode,
     };
   } catch (error: any) {
     console.error("❌ Organization registration error:", error);
@@ -99,7 +140,7 @@ function normalizeLoginIdentifier(value: string) {
   return raw.replace(/[^a-z0-9]/g, "");
 }
 
-function hashPassword(password: string) {
+export async function hashPassword(password: string) {
   const salt = process.env.PASSWORD_SALT;
   if (!salt && process.env.NODE_ENV === "production") {
     // FIX 4: Hard-fail in production if the salt is not configured.
@@ -119,7 +160,7 @@ export async function onboardHealthcareProfessional(data: {
   fullName: string;
   licenseNumber: string;
   role: "DOCTOR" | "NURSE" | "PHARMACIST" | "RECEPTIONIST" | "ADMIN" | "LAB_TECH";
-  pin: string;
+  pin?: string;
 }) {
   try {
     const cookieStore = cookies();
@@ -146,12 +187,19 @@ export async function onboardHealthcareProfessional(data: {
 
     const nationalId = `onb-nid-${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Math.random().toString(36).substring(2, 6)}`;
 
+    // Generate a readable, random 6-character alphanumeric key
+    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    let activationCode = "";
+    const bytes = crypto.randomBytes(6);
+    for (let i = 0; i < 6; i++) {
+      activationCode += chars[bytes[i] % chars.length];
+    }
+
     const normalizedRole = normalizeHealthcareRole(data.role);
     const newUser = await prisma.user.create({
       data: {
         email,
         emailOrUsername,
-        passwordHash: hashPassword(data.pin),
         role: normalizedRole as any,
         firstName,
         lastName,
@@ -160,6 +208,8 @@ export async function onboardHealthcareProfessional(data: {
         hospitalName,
         organizationId: activeOrgId,
         nationalId,
+        isFirstLogin: true,
+        activationCode,
       }
     });
 
@@ -170,7 +220,8 @@ export async function onboardHealthcareProfessional(data: {
         email: newUser.email,
         fullName: `${newUser.firstName} ${newUser.lastName}`,
         role: newUser.role,
-        organizationId: newUser.organizationId
+        organizationId: newUser.organizationId,
+        activationCode: newUser.activationCode
       }
     };
   } catch (error: any) {
@@ -226,7 +277,7 @@ export async function registerHealthcareProfessional(data: {
       data: {
         email,
         emailOrUsername,
-        passwordHash: hashPassword(data.pin),
+        passwordHash: await hashPassword(data.pin),
         role: normalizedRole as any,
         firstName,
         lastName,
@@ -336,16 +387,27 @@ export async function loginUser(formData: FormData | any) {
     throw new Error("This account is not registered under this facility. Check your Organisation ID.");
   }
 
-  // Password check – skip only for legacy documents that have no hash yet
-  if (dbUser.passwordHash && password && dbUser.passwordHash !== hashPassword(password)) {
-    throw new Error("Invalid Security PIN/Password.");
+  // Deactivation guard – admin can suspend accounts via /admin/users
+  if (!dbUser.isActive) {
+    throw new Error("This account has been suspended by your facility administrator. Please contact your system administrator.");
   }
-  // Backfill missing passwordHash for legacy documents on next successful login
-  if (!dbUser.passwordHash && password) {
-    await prisma.user.update({
-      where: { id: dbUser.id },
-      data: { passwordHash: hashPassword(password) },
-    });
+
+  // Password check – check activationCode if first login, otherwise standard check
+  if (dbUser.isFirstLogin) {
+    if (!dbUser.activationCode || !password || dbUser.activationCode.toUpperCase() !== password.toUpperCase()) {
+      throw new Error("Invalid initial activation code.");
+    }
+  } else {
+    if (dbUser.passwordHash && password && dbUser.passwordHash !== await hashPassword(password)) {
+      throw new Error("Invalid Security PIN/Password.");
+    }
+    // Backfill missing passwordHash for legacy documents on next successful login
+    if (!dbUser.passwordHash && password) {
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { passwordHash: await hashPassword(password) },
+      });
+    }
   }
 
   finalOrgId = org.id;
@@ -368,6 +430,17 @@ export async function loginUser(formData: FormData | any) {
   cookies().set("userId", dbUser!.id, cookieOptions);
   cookies().set("userName", `${dbUser!.firstName} ${dbUser!.lastName}`, cookieOptions);
 
+  if (dbUser.isFirstLogin) {
+    cookies().set("isFirstLogin", "true", cookieOptions);
+    redirect("/initialize-password");
+  }
+
+  // isTempPassword guard — admin-mediated password reset requires immediate change
+  if (dbUser.isTempPassword) {
+    cookies().set("isTempPassword", "true", cookieOptions);
+    redirect("/change-password");
+  }
+
   const roleStr = normalizeHealthcareRole(role as string);
   if (ADMIN_ROLES.includes(roleStr as any)) redirect("/admin/dashboard");
   if (CLINICAL_ROLES.includes(roleStr as any)) redirect("/doctor/dashboard");
@@ -384,6 +457,69 @@ export async function logoutUser() {
   cookies().delete("organizationId");
   cookies().delete("userId");
   cookies().delete("userName");
+  cookies().delete("isFirstLogin");
+  cookies().delete("isTempPassword");
   redirect("/");
+}
+
+export async function finalizeAccountPassword(newPassword: string) {
+  try {
+    const cookieStore = cookies();
+    const userId = cookieStore.get("userId")?.value;
+    if (!userId) {
+      throw new Error("Unauthorized: No active session found.");
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      throw new Error("Password must be at least 8 characters long.");
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: userId }
+    });
+
+    if (!user) {
+      throw new Error("User not found.");
+    }
+
+    if (!user.isFirstLogin) {
+      throw new Error("Account has already been initialized.");
+    }
+
+    const hashed = await hashPassword(newPassword);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: {
+        passwordHash: hashed,
+        isFirstLogin: false,
+        activationCode: null,
+      }
+    });
+
+    // Clear first login cookie
+    cookieStore.delete("isFirstLogin");
+
+    // Redirect to matching role dashboard view
+    const roleStr = normalizeHealthcareRole(user.role as string);
+    let destination = "/login";
+    if (ADMIN_ROLES.includes(roleStr as any)) destination = "/admin/dashboard";
+    else if (CLINICAL_ROLES.includes(roleStr as any)) destination = "/doctor/dashboard";
+    else if (TRIAGE_ROLES.includes(roleStr as any)) destination = "/triage";
+    else if (LAB_ROLES.includes(roleStr as any)) destination = "/lab";
+    else if (PHARMACY_ROLES.includes(roleStr as any)) destination = "/pharmacy";
+    else if (REGISTRATION_ROLES.includes(roleStr as any)) destination = "/register";
+
+    redirect(destination);
+  } catch (error: any) {
+    if (error.digest?.startsWith("NEXT_REDIRECT")) {
+      throw error;
+    }
+    console.error("❌ Finalize password error:", error);
+    return {
+      success: false,
+      error: error.message || "Failed to initialize password."
+    };
+  }
 }
 

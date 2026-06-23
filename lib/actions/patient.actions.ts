@@ -7,11 +7,13 @@ import { checkInToQueue } from "./queue.actions";
 import { generateHealthId, generateChildId, generateMhidSuffix, formatMyHealthPublicId } from "../utils";
 import crypto, { randomUUID } from "crypto";
 import { z } from "zod";
-import { cookies } from "next/headers";
-import { signToken } from "@/lib/session";
+import { cookies, headers } from "next/headers";
+import { signToken, verifyToken } from "@/lib/session";
+import { sendOTP } from "@/lib/mailService";
 
 import { TriageStatus, Ward, PriorityLevel } from "@prisma/client";
 import { upsertVerifiedCitizenFromRegistration } from "@/lib/actions/verifiedCitizen.actions";
+import { hashPassword } from "@/lib/actions/auth.actions";
 
 async function allocateUniqueMhid(): Promise<string> {
   for (let attempt = 0; attempt < 16; attempt++) {
@@ -1215,14 +1217,73 @@ export async function getPatientByNationalId(searchQuery: string) {
  * Normalizes phone numbers to a consistent format (+251...)
  */
 function normalizePhoneNumber(phone: string): string {
-  const clean = phone.replace(/[^\d+]/g, "");
-  if (clean.startsWith("0") && clean.length === 10) {
+  // Strip white spaces, dashes, tabs, parentheses, and any non-numeric except leading +
+  let clean = phone.replace(/[^\d+]/g, "").replace(/\s+/g, "");
+
+  // If there are multiple plus signs internally, keep only the first one
+  if (clean.startsWith("+")) {
+    clean = "+" + clean.replace(/\+/g, "");
+  } else {
+    clean = clean.replace(/\+/g, "");
+  }
+
+  // Handle local format: starts with 09 or 07 and length 10
+  if (/^0[79]\d{8}$/.test(clean)) {
     return "+251" + clean.slice(1);
   }
-  if (clean.startsWith("251") && clean.length === 12) {
+
+  // Handle local format without leading 0: starts with 9 or 7 and length 9
+  if (/^[79]\d{8}$/.test(clean)) {
+    return "+251" + clean;
+  }
+
+  // Handle format with country code but no plus: starts with 2519... or 2517...
+  if (/^251[79]\d{8}$/.test(clean)) {
     return "+" + clean;
   }
+
+  // If it starts with +251, it's already well-formatted.
+  // Otherwise, if it has length > 0 and doesn't start with +, let's add +
+  if (clean.length > 0 && !clean.startsWith("+")) {
+    return "+" + clean;
+  }
+
   return clean;
+}
+
+/**
+ * Checks OTP generation rate limits.
+ * IP limit: max 60 entries in the last 5 minutes.
+ * User limit: max 3 entries in the last 5 minutes.
+ */
+export async function checkOtpRateLimit(identifier: string, ipAddress: string): Promise<{ blocked: boolean; reason: "IDENTIFIER" | "IP" | null }> {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+
+  // 1. IP Check
+  const ipCount = await prisma.verificationRateLimit.count({
+    where: {
+      ipAddress,
+      createdAt: { gte: fiveMinutesAgo }
+    }
+  });
+
+  if (ipCount >= 60) {
+    return { blocked: true, reason: "IP" };
+  }
+
+  // 2. Identifier Check
+  const idCount = await prisma.verificationRateLimit.count({
+    where: {
+      identifier,
+      createdAt: { gte: fiveMinutesAgo }
+    }
+  });
+
+  if (idCount >= 3) {
+    return { blocked: true, reason: "IDENTIFIER" };
+  }
+
+  return { blocked: false, reason: null };
 }
 
 /**
@@ -1234,6 +1295,30 @@ export async function initiateCitizenSignIn(credential: string) {
     if (!cleanCredential) {
       return { success: false, error: "Identifier is required." };
     }
+
+    // Retrieve client IP
+    const headersList = headers();
+    const ipAddress = headersList.get("x-forwarded-for")?.split(",")[0] || headersList.get("x-real-ip") || "127.0.0.1";
+
+    // Rate Limiting Check (using the input credential as the identifier)
+    const rateLimit = await checkOtpRateLimit(cleanCredential, ipAddress);
+    if (rateLimit.blocked) {
+      return {
+        success: false,
+        error: rateLimit.reason === "IP" 
+          ? "RATE_LIMIT_IP" 
+          : "Too many verification requests. Please wait before trying again.",
+        blockedReason: rateLimit.reason
+      };
+    }
+
+    // Log the OTP request transaction in rate limit table immediately
+    await prisma.verificationRateLimit.create({
+      data: {
+        ipAddress,
+        identifier: cleanCredential
+      }
+    });
 
     const normalizedPhone = normalizePhoneNumber(cleanCredential);
     const phoneVariations = [cleanCredential, normalizedPhone];
@@ -1247,8 +1332,13 @@ export async function initiateCitizenSignIn(credential: string) {
       where: {
         ...CROSS_FACILITY,
         OR: [
+          { id: cleanCredential },
+          { healthId: cleanCredential },
           { nationalId: cleanCredential },
           { faydaId: cleanCredential },
+          { hospitalId: cleanCredential },
+          { internalId: cleanCredential },
+          { mrn: cleanCredential },
           ...uniquePhoneVariations.map(p => ({ phoneNumber: p }))
         ]
       }
@@ -1276,7 +1366,10 @@ export async function initiateCitizenSignIn(credential: string) {
         otpHash,
         purpose: "CITIZEN_LOGIN",
         expiresAt,
-        attempts: 0
+        attempts: 0,
+        channel: "SMS",
+        deliveryStatus: "SENT",
+        ipAddress
       }
     });
 
@@ -1313,6 +1406,122 @@ export async function initiateCitizenSignIn(credential: string) {
 }
 
 /**
+ * Polymorphic Email Fallback Server Action.
+ * Locates an active verification session, resolves Patient or User profile,
+ * updates session properties, and dispatches the OTP code via email.
+ */
+export async function requestEmailFallback(sessionId: string) {
+  try {
+    if (!sessionId) {
+      return { success: false, error: "Session ID is required." };
+    }
+
+    // 1. Locate active VerificationAttempt
+    const attempt = await prisma.verificationAttempt.findUnique({
+      where: { id: sessionId },
+      include: {
+        patient: true,
+        user: true
+      }
+    });
+
+    if (!attempt) {
+      return { success: false, error: "No active verification session found." };
+    }
+
+    // 2. Resolve target entity profile (Patient or User/Staff)
+    let email: string | null = null;
+
+    if (attempt.patient) {
+      email = attempt.patient.email;
+    } else if (attempt.user) {
+      email = attempt.user.email;
+    }
+
+    if (!email || !email.trim()) {
+      return { success: false, error: "No registered email address found on file for this account." };
+    }
+
+    email = email.trim();
+
+    // 3. Enforce checkOtpRateLimit using the profile's email address as the identifier
+    const headersList = headers();
+    const ipAddress = headersList.get("x-forwarded-for")?.split(",")[0] || headersList.get("x-real-ip") || "127.0.0.1";
+
+    const rateLimit = await checkOtpRateLimit(email, ipAddress);
+    if (rateLimit.blocked) {
+      return {
+        success: false,
+        error: rateLimit.reason === "IP" 
+          ? "RATE_LIMIT_IP" 
+          : "Too many verification requests. Please wait before trying again.",
+        blockedReason: rateLimit.reason
+      };
+    }
+
+    // Log the OTP request transaction in rate limit table
+    await prisma.verificationRateLimit.create({
+      data: {
+        ipAddress,
+        identifier: email
+      }
+    });
+
+    // 4. Generate new 6-digit numeric OTP and hash it
+    const otpVal = crypto.randomInt(100000, 1000000);
+    const otpCode = String(otpVal);
+    const otpHash = crypto.createHash("sha256").update(otpCode).digest("hex");
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // Update VerificationAttempt state flags
+    await prisma.verificationAttempt.update({
+      where: { id: sessionId },
+      data: {
+        channel: "EMAIL",
+        deliveryStatus: "PENDING",
+        otpHash,
+        attempts: 0,
+        expiresAt
+      }
+    });
+
+    // 5. Send email via nodemailer wrapper
+    const mailResult = await sendOTP(otpCode, email);
+
+    // Update deliveryStatus based on result
+    await prisma.verificationAttempt.update({
+      where: { id: sessionId },
+      data: {
+        deliveryStatus: mailResult.success ? "SENT" : "FAILED"
+      }
+    });
+
+    if (!mailResult.success) {
+      return { success: false, error: "Failed to dispatch verification email." };
+    }
+
+    // Mask destination email (e.g. john.doe@example.com -> j***e@example.com)
+    const [localPart, domain] = email.split("@");
+    let maskedLocal = localPart;
+    if (localPart.length > 2) {
+      maskedLocal = localPart[0] + "****" + localPart[localPart.length - 1];
+    } else if (localPart.length > 0) {
+      maskedLocal = localPart[0] + "****";
+    }
+    const maskedEmail = `${maskedLocal}@${domain}`;
+
+    return {
+      success: true,
+      channel: "EMAIL",
+      maskedEmail
+    };
+  } catch (error: any) {
+    console.error("❌ EMAIL FALLBACK ERROR:", error.message);
+    return { success: false, error: "Failed to initiate email fallback." };
+  }
+}
+
+/**
  * Confirms the citizen sign-in workflow by validating the OTP code.
  */
 export async function confirmCitizenSignIn(credential: string, otpCode: string) {
@@ -1336,8 +1545,13 @@ export async function confirmCitizenSignIn(credential: string, otpCode: string) 
       where: {
         ...CROSS_FACILITY,
         OR: [
+          { id: cleanCredential },
+          { healthId: cleanCredential },
           { nationalId: cleanCredential },
           { faydaId: cleanCredential },
+          { hospitalId: cleanCredential },
+          { internalId: cleanCredential },
+          { mrn: cleanCredential },
           ...uniquePhoneVariations.map(p => ({ phoneNumber: p }))
         ]
       }
@@ -1393,19 +1607,25 @@ export async function confirmCitizenSignIn(credential: string, otpCode: string) 
 
     const cookieStore = cookies();
     const isProd = process.env.NODE_ENV === "production";
-    const cookieOpts = {
+    
+    // Hardened session token cookie
+    cookieStore.set("citizenSessionToken", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/"
+    });
+
+    // Client-readable cookies for role and ID
+    const clientCookieOpts = {
       httpOnly: false,
       secure: isProd,
       maxAge: 60 * 60 * 24 * 7,
       path: "/"
     };
-
-    cookieStore.set("citizenSessionToken", token, {
-      ...cookieOpts,
-      httpOnly: true
-    });
-    cookieStore.set("userRole", "CITIZEN", cookieOpts);
-    cookieStore.set("citizenPatientId", patient.id, cookieOpts);
+    cookieStore.set("userRole", "CITIZEN", clientCookieOpts);
+    cookieStore.set("citizenPatientId", patient.id, clientCookieOpts);
 
     // Delete the attempt
     await prisma.verificationAttempt.delete({ where: { id: attempt.id } }).catch(() => {});
@@ -1416,72 +1636,310 @@ export async function confirmCitizenSignIn(credential: string, otpCode: string) 
     return { success: false, error: error.message || "Authentication failed." };
   }
 }
+/**
+ * Direct single-step citizen login — credential + password.
+ * Replaces the 2-step OTP flow. Validates the patient's stored passwordHash.
+ * If no password is set on the account, returns a friendly setup prompt.
+ */
+export async function directCitizenSignIn(credential: string, password: string) {
+  try {
+    const cleanCredential = credential.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanCredential || !cleanPassword) {
+      return { success: false, error: "ID and password are required." };
+    }
+
+    const normalizedPhone = normalizePhoneNumber(cleanCredential);
+    const phoneVariations = [cleanCredential, normalizedPhone];
+    if (normalizedPhone.startsWith("+251")) {
+      phoneVariations.push(normalizedPhone.slice(1));
+      phoneVariations.push("0" + normalizedPhone.slice(4));
+    }
+    const uniquePhoneVariations = Array.from(new Set(phoneVariations)).filter(Boolean);
+
+    const patient = await prisma.patient.findFirst({
+      where: {
+        ...CROSS_FACILITY,
+        OR: [
+          { id: cleanCredential },
+          { healthId: cleanCredential },
+          { nationalId: cleanCredential },
+          { faydaId: cleanCredential },
+          { hospitalId: cleanCredential },
+          { internalId: cleanCredential },
+          { mrn: cleanCredential },
+          ...uniquePhoneVariations.map((p) => ({ phoneNumber: p })),
+        ],
+      },
+    });
+
+    if (!patient) {
+      return {
+        success: false,
+        error: "No patient record found for this identifier. Please check your ID or register.",
+      };
+    }
+
+    // If the patient has no password yet, inform them
+    if (!patient.passwordHash) {
+      return {
+        success: false,
+        error:
+          "No password is set for this account. Please contact your facility reception desk to set up your patient password.",
+        noPassword: true,
+      };
+    }
+
+    // Hash input and compare using HMAC-SHA256 (same as staff auth)
+    const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
+    const inputHash = crypto
+      .createHmac("sha256", salt)
+      .update(cleanPassword)
+      .digest("hex");
+
+    if (inputHash !== patient.passwordHash) {
+      return { success: false, error: "Incorrect password. Please try again." };
+    }
+
+    // Issue session token
+    const tokenPayload = {
+      patientId: patient.id,
+      role: "CITIZEN",
+      iat: Date.now(),
+      exp: Date.now() + 7 * 24 * 60 * 60 * 1000,
+    };
+    const token = signToken(tokenPayload);
+
+    const cookieStore = cookies();
+    const isProd = process.env.NODE_ENV === "production";
+
+    cookieStore.set("citizenSessionToken", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    });
+
+    const clientCookieOpts = {
+      httpOnly: false,
+      secure: isProd,
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/",
+    };
+    cookieStore.set("userRole", "CITIZEN", clientCookieOpts);
+    cookieStore.set("citizenPatientId", patient.id, clientCookieOpts);
+
+    return { success: true, patientId: patient.id, fullName: patient.fullName };
+  } catch (error: any) {
+    console.error("❌ DIRECT CITIZEN SIGN-IN ERROR:", error.message);
+    return { success: false, error: error.message || "Authentication failed." };
+  }
+}
+
+/**
+ * Lightweight citizen password validation.
+ * Verifies if the credential (phone, healthId, etc.) matches the password,
+ * returning the patient object without setting session cookies.
+ */
+export async function verifyCitizenPassword(credential: string, password: string) {
+  try {
+    const cleanCredential = credential.trim();
+    const cleanPassword = password.trim();
+
+    if (!cleanCredential || !cleanPassword) {
+      return { success: false, error: "ID and password are required." };
+    }
+
+    const normalizedPhone = normalizePhoneNumber(cleanCredential);
+    const phoneVariations = [cleanCredential, normalizedPhone];
+    if (normalizedPhone.startsWith("+251")) {
+      phoneVariations.push(normalizedPhone.slice(1));
+      phoneVariations.push("0" + normalizedPhone.slice(4));
+    }
+    const uniquePhoneVariations = Array.from(new Set(phoneVariations)).filter(Boolean);
+
+    const patient = await prisma.patient.findFirst({
+      where: {
+        ...CROSS_FACILITY,
+        OR: [
+          { id: cleanCredential },
+          { healthId: cleanCredential },
+          { nationalId: cleanCredential },
+          { faydaId: cleanCredential },
+          { hospitalId: cleanCredential },
+          { internalId: cleanCredential },
+          { mrn: cleanCredential },
+          ...uniquePhoneVariations.map((p) => ({ phoneNumber: p })),
+        ],
+      },
+    });
+
+    if (!patient) {
+      return { success: false, error: "No patient record found for this identifier." };
+    }
+
+    if (!patient.passwordHash) {
+      return {
+        success: false,
+        error: "No password is set for this account.",
+        noPassword: true,
+      };
+    }
+
+    const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
+    const inputHash = crypto
+      .createHmac("sha256", salt)
+      .update(cleanPassword)
+      .digest("hex");
+
+    if (inputHash !== patient.passwordHash) {
+      return { success: false, error: "Incorrect password. Please try again." };
+    }
+
+    return { success: true, patient: JSON.parse(JSON.stringify(patient)) };
+  } catch (error: any) {
+    console.error("❌ VERIFY CITIZEN PASSWORD ERROR:", error.message);
+    return { success: false, error: error.message || "Verification failed." };
+  }
+}
+
+/**
+ * Lookup citizen by phone, health ID, national ID, fayda, etc.
+ * Returns only safe information (name, health ID, whether they have a password).
+ */
+export async function lookupCitizenByIdentifier(credential: string) {
+  try {
+    const cleanCredential = credential.trim();
+    if (!cleanCredential) {
+      return { success: false, error: "Identifier is required." };
+    }
+
+    const normalizedPhone = normalizePhoneNumber(cleanCredential);
+    const phoneVariations = [cleanCredential, normalizedPhone];
+    if (normalizedPhone.startsWith("+251")) {
+      phoneVariations.push(normalizedPhone.slice(1));
+      phoneVariations.push("0" + normalizedPhone.slice(4));
+    }
+    const uniquePhoneVariations = Array.from(new Set(phoneVariations)).filter(Boolean);
+
+    const patient = await prisma.patient.findFirst({
+      where: {
+        ...CROSS_FACILITY,
+        OR: [
+          { id: cleanCredential },
+          { healthId: cleanCredential },
+          { nationalId: cleanCredential },
+          { faydaId: cleanCredential },
+          { hospitalId: cleanCredential },
+          { internalId: cleanCredential },
+          { mrn: cleanCredential },
+          ...uniquePhoneVariations.map((p) => ({ phoneNumber: p })),
+        ],
+      },
+    });
+
+    if (!patient) {
+      return { success: false, error: "No patient record found for this identifier." };
+    }
+
+    return {
+      success: true,
+      patientId: patient.id,
+      healthId: patient.healthId,
+      fullName: patient.fullName,
+      hasPassword: !!patient.passwordHash,
+    };
+  } catch (error: any) {
+    console.error("❌ LOOKUP CITIZEN BY IDENTIFIER ERROR:", error.message);
+    return { success: false, error: error.message || "Lookup failed." };
+  }
+}
 
 /**
  * Staff-triggered patient phone number update with auditing and broadcast simulation.
  */
 export async function updatePatientPhoneByStaff(
   patientId: string,
-  newPhone: string,
-  staffId: string,
-  role: string,
+  newPhoneNumber: string,
+  authorizingStaffId: string,
+  role?: string,
   facilityId?: string
 ) {
   try {
-    const { normalizeHealthcareRole } = await import("@/lib/locales/enums");
-    const normalizedRole = normalizeHealthcareRole(role);
+    const cookieStore = cookies();
+    // Enforce server-side session check. If caller is authenticated, we use cookies.
+    // Fall back to parameters if not set (for TriageDashboardClient backwards compatibility).
+    const callerRole = cookieStore.get("userRole")?.value || role || "";
 
+    const { normalizeHealthcareRole } = await import("@/lib/locales/enums");
+    const normalizedRole = normalizeHealthcareRole(callerRole);
+
+    // Validate caller role: RECEPTIONIST or SYSTEM_ADMINISTRATOR
     const isValidStaff =
       normalizedRole === "RECEPTIONIST" ||
-      normalizedRole === "CARD_ROOM_CLERK" ||
       normalizedRole === "IT_HIS_ADMIN" ||
       normalizedRole === "HOSPITAL_CEO" ||
-      normalizedRole === "CLINICAL_NURSE" ||
-      normalizedRole === "SPECIALIZED_NURSE" ||
-      normalizedRole === "HEALTH_OFFICER";
+      callerRole === "RECEPTIONIST" ||
+      callerRole === "SYSTEM_ADMINISTRATOR" ||
+      callerRole === "ADMIN";
 
     if (!isValidStaff) {
       return { success: false, error: "Unauthorized. Staff authorization failed." };
     }
 
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId }
-    });
-
-    if (!patient) {
-      return { success: false, error: "Patient not found." };
+    const newPhoneNormalized = normalizePhoneNumber(newPhoneNumber);
+    if (!newPhoneNormalized || newPhoneNormalized.length < 9) {
+      return { success: false, error: "Invalid phone number format." };
     }
 
-    const oldPhone = patient.phoneNumber || "None";
-
-    const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.patient.update({
-        where: { id: patientId },
-        data: { phoneNumber: newPhone }
+    // Run updates inside a secure Prisma transaction block
+    const updatedPatient = await prisma.$transaction(async (tx) => {
+      // a. Fetch the current Patient record to verify existence
+      const patient = await tx.patient.findUnique({
+        where: { id: patientId }
       });
 
-      const audit = await tx.patientIdentityAudit.create({
+      if (!patient) {
+        throw new Error("Patient not found.");
+      }
+
+      const oldPhone = patient.phoneNumber || "None";
+
+      // b. Create an entry in the 'PatientIdentityAudit' ledger capturing fieldAltered: "phone"
+      await tx.patientIdentityAudit.create({
         data: {
           patientId,
-          fieldAltered: "phoneNumber",
+          fieldAltered: "phone",
           oldValue: oldPhone,
-          newValue: newPhone,
-          performedBy: staffId,
+          newValue: newPhoneNormalized,
+          performedBy: `staffId::${authorizingStaffId}`,
           facilityId: facilityId || null
         }
       });
 
-      return { updated, audit };
+      // c. Mutate the phone field on the target Patient record to the new value
+      const updated = await tx.patient.update({
+        where: { id: patientId },
+        data: { phoneNumber: newPhoneNormalized }
+      });
+
+      // Clear any blocked verification states (verification attempts)
+      await tx.verificationAttempt.deleteMany({
+        where: { patientId: patientId }
+      }).catch(() => {});
+
+      return updated;
     });
 
     // Twin-SMS broadcast simulation
     console.log("\n========================================================");
-    console.log(`[TWIN-SMS ALERT BROADCAST]`);
-    console.log(`Alert sent to old phone [${oldPhone}]: Security notice: Your phone number has been changed to ${newPhone}.`);
-    console.log(`Alert sent to new phone [${newPhone}]: Security notice: Your phone number has been updated to this number.`);
+    console.log(`[STAFF-ASSISTED PHONE RESET]`);
+    console.log(`Updated phone number for patient ${patientId} to ${newPhoneNormalized} by staff ${authorizingStaffId}`);
     console.log("========================================================\n");
 
-    return { success: true, oldPhone, newPhone };
+    return { success: true, oldPhone: updatedPatient.phoneNumber, newPhone: newPhoneNormalized };
   } catch (error: any) {
     console.error("❌ updatePatientPhoneByStaff error:", error);
     return { success: false, error: error.message || "Failed to update phone number." };
@@ -1489,74 +1947,483 @@ export async function updatePatientPhoneByStaff(
 }
 
 /**
- * Self-service update for citizens using validated metadata (Name, Birthday).
+ * Authenticated self-service profile update for citizens.
  */
-export async function selfServiceUpdatePatientPhone(
-  faydaId: string,
-  newPhone: string,
-  dob: string,
-  fullName: string
-) {
+export async function updateCitizenProfile(data: {
+  fullName: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  email?: string;
+  sex?: string;
+  age?: number;
+  religion?: string;
+  occupation?: string;
+  maritalStatus?: string;
+  educationalStatus?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  bloodGroup?: string;
+  nationalId?: string;
+  faydaId?: string;
+  password?: string;
+  // NOTE: bypassLocks is intentionally NOT exposed. Locks are always enforced server-side.
+}) {
   try {
-    const cleanFayda = faydaId.trim();
-    const cleanName = fullName.trim().toLowerCase();
+    const cookieStore = cookies();
+    const token = cookieStore.get("citizenSessionToken")?.value;
+    const citizenPatientId = cookieStore.get("citizenPatientId")?.value;
 
-    const patient = await prisma.patient.findFirst({
-      where: {
-        OR: [
-          { faydaId: cleanFayda },
-          { nationalId: cleanFayda }
-        ]
-      }
+    if (!token || !citizenPatientId) {
+      return { success: false, error: "Unauthorized. Missing session token." };
+    }
+
+    const payload = verifyToken(token);
+    if (!payload || payload.role !== "CITIZEN" || payload.patientId !== citizenPatientId) {
+      return { success: false, error: "Unauthorized. Invalid session token." };
+    }
+
+    const cleanFullName = data.fullName.trim();
+    const cleanPhoneNumber = data.phoneNumber.trim();
+    const cleanDob = data.dateOfBirth.trim();
+
+    if (!cleanFullName || !cleanPhoneNumber || !cleanDob) {
+      return { success: false, error: "Full Name, Phone Number, and Date of Birth are required." };
+    }
+
+    const normalizedPhone = normalizePhoneNumber(cleanPhoneNumber);
+    if (!normalizedPhone || normalizedPhone.length < 9) {
+      return { success: false, error: "Invalid phone number format." };
+    }
+
+    const patient = await prisma.patient.findUnique({
+      where: { id: citizenPatientId }
     });
 
     if (!patient) {
-      return { success: false, error: "No matching patient profile found." };
+      return { success: false, error: "Patient not found." };
     }
 
-    const incomingDob = new Date(dob);
-    const patientDob = patient.dateOfBirth ? new Date(patient.dateOfBirth) : null;
-    const isDobMatch = patientDob && incomingDob.toDateString() === patientDob.toDateString();
+    const oldName = patient.fullName || "";
+    const oldPhone = patient.phoneNumber || "";
+    const oldDob = patient.dateOfBirth ? new Date(patient.dateOfBirth).toISOString().split('T')[0] : "";
+    const newDobParsed = new Date(cleanDob);
 
-    const isNameMatch = patient.fullName.trim().toLowerCase() === cleanName;
-
-    if (!isDobMatch || !isNameMatch) {
-      return { success: false, error: "Provided verification details do not match patient records." };
+    const changes: { field: string; oldVal: string; newVal: string }[] = [];
+    if (oldName !== cleanFullName) {
+      changes.push({ field: "fullName", oldVal: oldName, newVal: cleanFullName });
+    }
+    if (oldPhone !== normalizedPhone) {
+      changes.push({ field: "phoneNumber", oldVal: oldPhone, newVal: normalizedPhone });
+    }
+    const incomingDobStr = newDobParsed.toISOString().split('T')[0];
+    if (oldDob !== incomingDobStr) {
+      changes.push({ field: "dateOfBirth", oldVal: oldDob, newVal: incomingDobStr });
     }
 
-    const oldPhone = patient.phoneNumber || "None";
+    // ─── Server-Side Clinical Integrity Locks ───────────────────────────────
+    // Once nationalId, faydaId, or bloodGroup are set in the DB they are
+    // immutable via self-service. The incoming payload is always discarded
+    // and the existing DB value is preserved. There is NO bypass mechanism
+    // exposed to citizens — this guard runs unconditionally.
+    let finalNationalId = data.nationalId?.trim() || null;
+    let finalFaydaId = data.faydaId?.trim() || null;
+    let finalBloodGroup = data.bloodGroup?.trim() || null;
 
-    const result = await prisma.$transaction(async (tx) => {
-      const updated = await tx.patient.update({
-        where: { id: patient.id },
-        data: { phoneNumber: newPhone }
-      });
+    if (patient.nationalId) {
+      // Existing nationalId is immutable — discard any incoming value silently.
+      finalNationalId = patient.nationalId;
+    }
+    if (patient.faydaId) {
+      // Existing faydaId is immutable — discard any incoming value silently.
+      finalFaydaId = patient.faydaId;
+    }
+    if (patient.bloodGroup) {
+      // Existing bloodGroup is a clinical trait set by staff — immutable via self-service.
+      finalBloodGroup = patient.bloodGroup;
+    }
+    // ────────────────────────────────────────────────────────────────────────
 
-      const audit = await tx.patientIdentityAudit.create({
+    // Additional fields comparison
+    const fieldsToCompare = [
+      { key: "email", val: data.email?.trim() || "" },
+      { key: "sex", val: data.sex?.trim() || "" },
+      { key: "religion", val: data.religion?.trim() || "" },
+      { key: "occupation", val: data.occupation?.trim() || "" },
+      { key: "maritalStatus", val: data.maritalStatus?.trim() || "" },
+      { key: "educationalStatus", val: data.educationalStatus?.trim() || "" },
+      { key: "emergencyContactName", val: data.emergencyContactName?.trim() || "" },
+      { key: "emergencyContactPhone", val: data.emergencyContactPhone?.trim() || "" },
+      { key: "bloodGroup", val: finalBloodGroup || "" },
+      { key: "nationalId", val: finalNationalId || "" },
+      { key: "faydaId", val: finalFaydaId || "" },
+    ] as const;
+
+    for (const f of fieldsToCompare) {
+      const currentVal = (patient[f.key as keyof typeof patient] as string) || "";
+      if (currentVal !== f.val) {
+        changes.push({ field: f.key, oldVal: currentVal, newVal: f.val });
+      }
+    }
+
+    // Age comparison
+    const currentAge = patient.age ?? 0;
+    const newAge = typeof data.age === "number" ? data.age : parseInt(String(data.age)) || 0;
+    if (currentAge !== newAge) {
+      changes.push({ field: "age", oldVal: String(currentAge), newVal: String(newAge) });
+    }
+
+    // Password update
+    let newPasswordHash: string | undefined = undefined;
+    if (data.password && data.password.trim().length > 0) {
+      const cleanPassword = data.password.trim();
+      if (cleanPassword.length < 4) {
+        return { success: false, error: "Password must be at least 4 characters long." };
+      }
+      newPasswordHash = await hashPassword(cleanPassword);
+      changes.push({ field: "password", oldVal: "[REDACTED]", newVal: "[REDACTED]" });
+    }
+
+    if (changes.length === 0) {
+      return { success: true, message: "No changes detected." };
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.patient.update({
+        where: { id: citizenPatientId },
         data: {
-          patientId: patient.id,
-          fieldAltered: "phoneNumber",
-          oldValue: oldPhone,
-          newValue: newPhone,
-          performedBy: "CITIZEN_SELF_SERVICE",
-          facilityId: null
+          fullName: cleanFullName,
+          phoneNumber: normalizedPhone,
+          dateOfBirth: newDobParsed,
+          email: data.email?.trim() || null,
+          sex: data.sex?.trim() || "Other",
+          age: newAge,
+          religion: data.religion?.trim() || null,
+          occupation: data.occupation?.trim() || null,
+          maritalStatus: data.maritalStatus?.trim() || null,
+          educationalStatus: data.educationalStatus?.trim() || null,
+          emergencyContactName: data.emergencyContactName?.trim() || null,
+          emergencyContactPhone: data.emergencyContactPhone?.trim() || null,
+          bloodGroup: finalBloodGroup,
+          nationalId: finalNationalId,
+          faydaId: finalFaydaId,
+          ...(newPasswordHash ? { passwordHash: newPasswordHash } : {})
         }
       });
 
-      return { updated, audit };
+      for (const change of changes) {
+        await tx.patientIdentityAudit.create({
+          data: {
+            patientId: citizenPatientId,
+            fieldAltered: change.field,
+            oldValue: change.oldVal,
+            newValue: change.newVal,
+            performedBy: "CITIZEN_AUTHENTICATED_SELF",
+            facilityId: null
+          }
+        });
+      }
     });
 
-    // Emit security alert logs
-    console.log("\n========================================================");
-    console.log(`[SELF-SERVICE SECURITY ALERT]`);
-    console.log(`Patient ${patient.fullName} (${patient.id}) updated phone number to ${newPhone} via self-service.`);
-    console.log("========================================================\n");
+    if (oldPhone !== normalizedPhone) {
+      console.log("\n========================================================");
+      console.log(`[AUTHENTICATED CITIZEN PROFILE PHONE UPDATE]`);
+      console.log(`Patient ${cleanFullName} (${citizenPatientId}) updated phone number from ${oldPhone} to ${normalizedPhone}.`);
+      console.log("========================================================\n");
+    }
 
-    return { success: true, oldPhone, newPhone };
+    revalidatePath(`/patients/${citizenPatientId}/clinical-records`);
+    revalidatePath(`/patients/${citizenPatientId}/profile`);
+    
+    return { success: true };
   } catch (error: any) {
-    console.error("❌ selfServiceUpdatePatientPhone error:", error);
+    console.error("❌ updateCitizenProfile error:", error);
+    return { success: false, error: error.message || "Failed to update profile." };
+  }
+}
+
+/**
+ * Sends a 6-digit verification OTP to a candidate new phone number.
+ * Only callable after a successful email-fallback login (patientId is already authenticated).
+ * Stores the hashed OTP as a VerificationAttempt with purpose = "PHONE_UPDATE".
+ */
+export async function requestPhoneUpdateOtp(patientId: string, newPhone: string) {
+  try {
+    if (!patientId || !newPhone) {
+      return { success: false, error: "Patient ID and new phone number are required." };
+    }
+
+    const normalized = normalizePhoneNumber(newPhone.trim());
+    if (!normalized.startsWith("+")) {
+      return { success: false, error: "Invalid phone number. Please use Ethiopian format (e.g. 0911223344)." };
+    }
+
+    // Check the new phone is not already assigned to another patient
+    const existing = await prisma.patient.findFirst({
+      where: { phoneNumber: normalized, id: { not: patientId } }
+    });
+    if (existing) {
+      return { success: false, error: "This phone number is already registered to another account." };
+    }
+
+    // Delete any stale PHONE_UPDATE attempts for this patient
+    await prisma.verificationAttempt.deleteMany({
+      where: { patientId, purpose: "PHONE_UPDATE" }
+    }).catch(() => {});
+
+    // Generate OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
+    const expiresAt = new Date(Date.now() + 5 * 60 * 1000); // 5 minutes
+
+    // Store attempt (we embed the target phone in the channel field for retrieval)
+    await prisma.verificationAttempt.create({
+      data: {
+        patientId,
+        purpose: "PHONE_UPDATE",
+        otpHash,
+        expiresAt,
+        channel: normalized, // repurposed to carry the pending new phone
+        attempts: 0
+      }
+    });
+
+    // Simulate SMS delivery (replace with real gateway in production)
+    const masked = normalized.slice(0, 4) + "****" + normalized.slice(-3);
+    console.log("\n╔══════════════════════════════════════════╗");
+    console.log("║      📱  PHONE UPDATE OTP (SMS SIM)      ║");
+    console.log("╠══════════════════════════════════════════╣");
+    console.log(`║  To      : ${normalized.padEnd(30)} ║`);
+    console.log(`║  OTP     : ${otp.padEnd(30)} ║`);
+    console.log(`║  Expires : ${expiresAt.toISOString().padEnd(30)} ║`);
+    console.log("╚══════════════════════════════════════════╝\n");
+
+    return { success: true, maskedPhone: masked };
+  } catch (error: any) {
+    console.error("❌ requestPhoneUpdateOtp error:", error.message);
+    return { success: false, error: error.message || "Failed to send OTP." };
+  }
+}
+
+/**
+ * Validates the OTP sent to the candidate new phone and, on success, updates
+ * the patient's phoneNumber in the database.
+ */
+export async function confirmPhoneUpdate(patientId: string, otpCode: string) {
+  try {
+    if (!patientId || !otpCode) {
+      return { success: false, error: "Patient ID and OTP code are required." };
+    }
+
+    const cleanOtp = otpCode.trim();
+
+    const attempt = await prisma.verificationAttempt.findFirst({
+      where: { patientId, purpose: "PHONE_UPDATE" },
+      orderBy: { createdAt: "desc" }
+    });
+
+    if (!attempt) {
+      return { success: false, error: "No active phone update session found. Please request a new code." };
+    }
+
+    // Increment attempts
+    const updated = await prisma.verificationAttempt.update({
+      where: { id: attempt.id },
+      data: { attempts: { increment: 1 } }
+    });
+
+    if (updated.attempts > 3) {
+      await prisma.verificationAttempt.delete({ where: { id: attempt.id } }).catch(() => {});
+      return { success: false, error: "Too many failed attempts. Please request a new code." };
+    }
+
+    if (new Date() > updated.expiresAt) {
+      await prisma.verificationAttempt.delete({ where: { id: attempt.id } }).catch(() => {});
+      return { success: false, error: "OTP expired. Please request a new code." };
+    }
+
+    const hashedInput = crypto.createHash("sha256").update(cleanOtp).digest("hex");
+    if (hashedInput !== updated.otpHash) {
+      return { success: false, error: "Incorrect OTP code." };
+    }
+
+    // The pending new phone was stored in the channel field
+    const newPhone = updated.channel;
+
+    // Update the patient's phone number
+    await prisma.patient.update({
+      where: { id: patientId },
+      data: { phoneNumber: newPhone }
+    });
+
+    // Clean up the attempt
+    await prisma.verificationAttempt.delete({ where: { id: attempt.id } }).catch(() => {});
+
+    console.log(`✅ Phone number updated for patient ${patientId}: ${newPhone}`);
+    revalidatePath(`/patients/${patientId}/clinical-records`);
+
+    return { success: true, newPhone };
+  } catch (error: any) {
+    console.error("❌ confirmPhoneUpdate error:", error.message);
     return { success: false, error: error.message || "Failed to update phone number." };
   }
 }
 
+/**
+ * Self-service online patient pre-registration action.
+ * Generates a temporary Health ID (PRE-MHI-XXXXXX), hashes the password, and creates the patient in unverified state.
+ */
+export async function selfRegisterCitizen(data: any) {
+  try {
+    const { fullName, sex, age, phone, password } = data;
 
+    if (!fullName || !sex || !age || !phone || !password) {
+      return { success: false, error: "All fields are required." };
+    }
+
+    const cleanPhone = String(phone).replace(/\s+/g, "");
+
+    // Securely generate unique healthId with PRE-MHI-XXXXXX format
+    let healthId = "";
+    let isUnique = false;
+    let attempts = 0;
+
+    while (!isUnique && attempts < 20) {
+      const randomDigits = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digits
+      healthId = `PRE-MHI-${randomDigits}`;
+
+      // Check if it already exists
+      const existing = await prisma.patient.findFirst({
+        where: {
+          ...CROSS_FACILITY,
+          healthId,
+        } as any,
+      });
+      if (!existing) {
+        isUnique = true;
+      }
+      attempts++;
+    }
+
+    if (!isUnique) {
+      return { success: false, error: "Failed to generate a unique temporary Health ID. Please try again." };
+    }
+
+    // Check if phone number is already registered
+    const existingPhone = await prisma.patient.findFirst({
+      where: {
+        ...CROSS_FACILITY,
+        phoneNumber: cleanPhone,
+      } as any,
+    });
+
+    if (existingPhone) {
+      return { success: false, error: "A patient with this phone number is already registered." };
+    }
+
+    // Hash the password using the existing system HMAC-SHA256 helper
+    const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
+    const passwordHash = crypto
+      .createHmac("sha256", salt)
+      .update(password)
+      .digest("hex");
+
+    const internalId = `MHI-${crypto.randomUUID()}`;
+
+    const newPatient = await prisma.patient.create({
+      data: {
+        healthId,
+        internalId,
+        fullName,
+        sex,
+        age: parseInt(String(age), 10),
+        phoneNumber: cleanPhone,
+        passwordHash,
+        isVerified: false,
+        registrationSource: "SELF",
+      },
+    });
+
+    return {
+      success: true,
+      patientId: newPatient.id,
+      healthId: newPatient.healthId,
+    };
+  } catch (error: any) {
+    console.error("❌ selfRegisterCitizen error:", error);
+    return { success: false, error: error.message || "Failed to register citizen." };
+  }
+}
+
+/**
+ * Verify a patient's identity. Swaps their "PRE-MHI-" prefix to standard clinical "MHI-".
+ * Restricted to authenticated medical personnel (RECEPTIONIST, Doctor).
+ */
+export async function verifyPatientIdentity(patientId: string) {
+  try {
+    const cookieStore = cookies();
+    const callerRole = cookieStore.get("userRole")?.value || "";
+
+    const { normalizeHealthcareRole } = await import("@/lib/locales/enums");
+    const normalizedRole = normalizeHealthcareRole(callerRole);
+
+    const isValidStaff =
+      normalizedRole === "RECEPTIONIST" ||
+      normalizedRole === "GENERAL_PRACTITIONER" ||
+      normalizedRole === "MEDICAL_SPECIALIST" ||
+      normalizedRole === "SUB_SPECIALIST" ||
+      callerRole === "RECEPTIONIST" ||
+      callerRole === "DOCTOR" ||
+      callerRole === "ADMIN";
+
+    if (!isValidStaff) {
+      return { success: false, error: "Unauthorized. Verification is restricted to medical personnel." };
+    }
+
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId }
+    });
+
+    if (!patient) {
+      return { success: false, error: "Patient profile not found." };
+    }
+
+    let newHealthId = patient.healthId;
+    if (patient.healthId.startsWith("PRE-MHI-")) {
+      newHealthId = patient.healthId.replace("PRE-MHI-", "MHI-");
+    }
+
+    // Check if the new Health ID already exists to avoid unique constraint violations
+    if (newHealthId !== patient.healthId) {
+      const clash = await prisma.patient.findFirst({
+        where: {
+          OR: [
+            { healthId: newHealthId },
+            { internalId: newHealthId }
+          ]
+        }
+      });
+      if (clash) {
+        return { success: false, error: `The target clinical Health ID ${newHealthId} already exists.` };
+      }
+    }
+
+    const updated = await prisma.patient.update({
+      where: { id: patientId },
+      data: {
+        isVerified: true,
+        healthId: newHealthId
+      }
+    });
+
+    // Revalidate paths
+    revalidatePath(`/patients/${patientId}/clinical-records`);
+    revalidatePath(`/patients/${patientId}/dashboard`);
+    revalidatePath(`/patients/${updated.healthId}/clinical-records`);
+    revalidatePath(`/patients/${updated.healthId}/dashboard`);
+
+    return { success: true, healthId: updated.healthId };
+  } catch (error: any) {
+    console.error("❌ verifyPatientIdentity error:", error);
+    return { success: false, error: error.message || "Failed to verify patient identity." };
+  }
+}

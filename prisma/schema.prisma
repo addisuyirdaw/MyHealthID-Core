@@ -96,6 +96,15 @@ model User {
   canManageUsers     Boolean @default(false)
   canViewReports     Boolean @default(false)
 
+  // ── Password reset workflow ──────────────────────────────────────────────
+  isTempPassword    Boolean   @default(false)
+  resetRequestCode  String?
+  passwordChangedAt DateTime?
+
+  // ── First-time login password initialization ──────────────────────────────
+  isFirstLogin      Boolean   @default(true)
+  activationCode    String?
+
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
@@ -106,6 +115,7 @@ model User {
   medicalAuditLogs      MedicalAuditLog[]
   diagnosticOrdersReferred DiagnosticOrder[]
   referralSummaries     ReferralSummary[]
+  verificationAttempts  VerificationAttempt[]
 }
 
 enum Ward {
@@ -170,6 +180,9 @@ model Patient {
   parentFaydaId String? @map("parent_fayda_id")
   isSynced      Boolean @default(false)
   email         String?
+  passwordHash  String?   // Direct password auth (set at registration or via reset)
+  isVerified    Boolean   @default(true)
+  registrationSource String @default("RECEPTION")
   otpCode       String?
   otpExpiresAt  DateTime? // OTP is valid for 5 minutes from generation
 
@@ -850,18 +863,35 @@ model RateLimit {
 }
 
 model VerificationAttempt {
-  id        String   @id @default(uuid()) @map("_id")
-  patientId String   @map("patient_id")
-  otpHash   String   @map("otp_hash")
-  purpose   String   @default("CITIZEN_LOGIN")
-  expiresAt DateTime @map("expires_at")
-  attempts  Int      @default(0)
-  createdAt DateTime @default(now()) @map("created_at")
+  id             String   @id @default(uuid()) @map("_id")
+  patientId      String?  @map("patient_id")
+  userId         String?  @map("user_id")
+  otpHash        String   @map("otp_hash")
+  purpose        String   @default("CITIZEN_LOGIN")
+  expiresAt      DateTime @map("expires_at")
+  attempts       Int      @default(0)
+  createdAt      DateTime @default(now()) @map("created_at")
+  channel        String   @default("SMS")
+  deliveryStatus String   @default("PENDING")
+  ipAddress      String?  @map("ip_address")
 
-  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient Patient? @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  user    User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([patientId])
+  @@index([userId])
   @@map("verification_attempts")
+}
+
+model VerificationRateLimit {
+  id         String   @id @default(uuid()) @map("_id")
+  ipAddress  String   @map("ip_address")
+  identifier String   @map("identifier")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([ipAddress, createdAt])
+  @@index([identifier, createdAt])
+  @@map("verification_rate_limits")
 }
 
 model PatientIdentityAudit {
@@ -877,6 +907,25 @@ model PatientIdentityAudit {
 
   @@index([patientId])
   @@map("patient_identity_audits")
+}
+
+// ─── Landing Page Media ─────────────────────────────────────────────────────
+// Administrator-managed image carousel shown on the public landing page.
+// Images are stored as URLs (cloud storage / public path).
+model LandingMedia {
+  id           String   @id @default(uuid()) @map("_id")
+  imageUrl     String   @map("image_url")
+  altText      String   @map("alt_text")
+  title        String?
+  description  String?
+  displayOrder Int      @default(0) @map("display_order")
+  isActive     Boolean  @default(true) @map("is_active")
+  uploadedBy   String?  @map("uploaded_by")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([isActive, displayOrder])
+  @@map("landing_media")
 }
 
 

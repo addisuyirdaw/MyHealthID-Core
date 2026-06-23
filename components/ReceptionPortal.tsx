@@ -12,6 +12,8 @@ import {
   Activity, Plus, Phone, MapPin, User, Heart, Calendar, 
   Clock, AlertTriangle, ArrowRight, ShieldAlert, BadgeInfo, Check, ChevronRight, UserPlus
 } from "lucide-react";
+import { updatePatientPhoneByStaff } from "@/lib/actions/patient.actions";
+import { normalizeHealthcareRole } from "@/lib/locales/enums";
 
 interface Patient {
   id: string;
@@ -61,7 +63,7 @@ interface Toast {
   message: string;
 }
 
-export function ReceptionPortal() {
+export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: string; userId?: string }) {
   // System states
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
@@ -85,6 +87,52 @@ export function ReceptionPortal() {
   const [searchQuery, setSearchQuery] = useState("");
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  // Phone reset modal state
+  const [isPhoneResetOpen, setIsPhoneResetOpen] = useState(false);
+  const [selectedPatientForReset, setSelectedPatientForReset] = useState<Patient | null>(null);
+  const [newPhoneNumberVal, setNewPhoneNumberVal] = useState("");
+  const [resetLoading, setResetLoading] = useState(false);
+
+  const normalizedRole = normalizeHealthcareRole(userRole);
+  const isAuthorizedToReset =
+    normalizedRole === "RECEPTIONIST" ||
+    normalizedRole === "IT_HIS_ADMIN" ||
+    normalizedRole === "HOSPITAL_CEO" ||
+    userRole === "RECEPTIONIST" ||
+    userRole === "SYSTEM_ADMINISTRATOR" ||
+    userRole === "ADMIN";
+
+  const handlePhoneReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedPatientForReset) return;
+    if (!newPhoneNumberVal.trim()) {
+      showToast("error", "Validation Alert", "New phone number is required.");
+      return;
+    }
+
+    setResetLoading(true);
+    try {
+      const res = await updatePatientPhoneByStaff(
+        selectedPatientForReset.id,
+        newPhoneNumberVal.trim(),
+        userId
+      );
+      if (res.success) {
+        showToast("success", "Success", "Patient verification phone number updated successfully!");
+        setIsPhoneResetOpen(false);
+        setNewPhoneNumberVal("");
+        setSelectedPatientForReset(null);
+        fetchDashboardData(true);
+      } else {
+        showToast("error", "Action Failed", res.error || "Failed to update phone number.");
+      }
+    } catch (err: any) {
+      showToast("error", "Error", err.message || "An unexpected error occurred.");
+    } finally {
+      setResetLoading(false);
+    }
+  };
 
   // Form Collapsible Sections States
   const [expandedSection, setExpandedSection] = useState<"id" | "address" | "contact" | "medical">("id");
@@ -1064,6 +1112,7 @@ export function ReceptionPortal() {
                         <th className="p-4">Contact Phone</th>
                         <th className="p-4">Region/Address</th>
                         <th className="p-4">Triage Status</th>
+                        {isAuthorizedToReset && <th className="p-4 text-right">Actions</th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800/80">
@@ -1110,6 +1159,22 @@ export function ReceptionPortal() {
                                   </span>
                                 )}
                               </td>
+                              {isAuthorizedToReset && (
+                                <td className="p-4 text-right">
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setSelectedPatientForReset(patient);
+                                      setNewPhoneNumberVal(patient.phoneNumber || "");
+                                      setIsPhoneResetOpen(true);
+                                    }}
+                                    className="bg-neutral-800 hover:bg-neutral-700 text-neutral-300 hover:text-white border-neutral-700/60 text-xs font-semibold"
+                                  >
+                                    Update Verification Phone
+                                  </Button>
+                                </td>
+                              )}
                             </tr>
                           );
                         })
@@ -1288,6 +1353,71 @@ export function ReceptionPortal() {
         </div>
 
       </div>
+
+      {/* Update Verification Phone Modal */}
+      <Dialog open={isPhoneResetOpen} onOpenChange={setIsPhoneResetOpen}>
+        <DialogContent className="bg-neutral-900 border-neutral-800 text-neutral-100 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-white flex items-center gap-2">
+              <Phone className="w-5 h-5 text-blue-400" />
+              Update Verification Phone
+            </DialogTitle>
+            <DialogDescription className="text-neutral-400 text-xs mt-1">
+              Correct the patient's phone number to allow verification code delivery.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedPatientForReset && (
+            <form onSubmit={handlePhoneReset} className="space-y-4 pt-2">
+              <div className="space-y-1.5">
+                <Label className="text-neutral-400 text-xs uppercase tracking-wider">Patient Name</Label>
+                <div className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm font-semibold text-white">
+                  {selectedPatientForReset.fullName}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-neutral-400 text-xs uppercase tracking-wider">Patient ID</Label>
+                <div className="bg-neutral-950 border border-neutral-800 rounded-xl px-4 py-2.5 text-sm font-mono text-neutral-300">
+                  {selectedPatientForReset.healthId}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label htmlFor="newPhoneNumber" className="text-neutral-300 text-xs font-semibold">New Phone Number</Label>
+                <Input
+                  id="newPhoneNumber"
+                  type="text"
+                  value={newPhoneNumberVal}
+                  onChange={(e) => setNewPhoneNumberVal(e.target.value)}
+                  placeholder="e.g. +251912345678"
+                  required
+                  className="bg-neutral-950 border-neutral-800 text-white focus:border-blue-500/50 focus:ring-blue-500/30"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4 border-t border-neutral-800/60">
+                <Button
+                  type="submit"
+                  disabled={resetLoading}
+                  className="flex-1 bg-blue-600 hover:bg-blue-500 text-white font-bold"
+                >
+                  {resetLoading ? "Updating..." : "Update Phone"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsPhoneResetOpen(false)}
+                  disabled={resetLoading}
+                  className="flex-1 bg-neutral-800 hover:bg-neutral-700 text-neutral-300 border-neutral-700/60"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

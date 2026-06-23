@@ -12,6 +12,8 @@ import {
   ArrowRight,
   Stethoscope,
   Users,
+  HelpCircle,
+  ArrowLeft,
 } from "lucide-react";
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
@@ -29,6 +31,7 @@ function LoginForm() {
   const [emailOrUsername, setEmailOrUsername] = useState("");
   const [password, setPassword] = useState("");
   const [sessionCleared, setSessionCleared] = useState(false);
+  const [forgotMode, setForgotMode] = useState(false);
 
   // Clear session on mount
   useEffect(() => {
@@ -276,20 +279,54 @@ function LoginForm() {
                 </form>
 
                 {/* Footer links */}
-                <div className="flex flex-col gap-2 pt-2 border-t border-slate-800 text-center">
-                  <p className="text-[11px] text-slate-500">
-                    No account?{" "}
-                    <Link href="/register-staff" className="text-emerald-400 hover:underline font-semibold">
-                      Register as Healthcare Staff
-                    </Link>
-                  </p>
-                  <p className="text-[11px] text-slate-500">
-                    New facility?{" "}
-                    <Link href="/register-facility" className="text-blue-400 hover:underline font-semibold">
-                      Register your Hospital
-                    </Link>
-                  </p>
-                </div>
+                {forgotMode ? (
+                  <div className="mt-2 rounded-2xl border border-amber-500/20 bg-amber-950/20 p-5 flex flex-col gap-4">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-xl bg-amber-500/15 border border-amber-500/25 flex items-center justify-center shrink-0">
+                        <HelpCircle className="w-4 h-4 text-amber-400" />
+                      </div>
+                      <p className="text-sm font-black text-amber-200">Account Recovery</p>
+                    </div>
+                    <p className="text-xs text-amber-200/70 leading-relaxed">
+                      Please coordinate with your hospital&apos;s IT department or Hospital Administrator to verify your identity in person.
+                      Provide them with your account email or license number to receive a temporary recovery passkey.
+                    </p>
+                    <p className="text-xs text-amber-200/50 leading-relaxed">
+                      Once you have the passkey, log in with it and you will be prompted to set a new permanent password immediately.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setForgotMode(false)}
+                      className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-slate-200 transition mt-1"
+                    >
+                      <ArrowLeft className="w-3.5 h-3.5" />
+                      Back to Sign In
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 pt-2 border-t border-slate-800 text-center">
+                    <p className="text-[11px] text-slate-500">
+                      No account?{" "}
+                      <Link href="/register-staff" className="text-emerald-400 hover:underline font-semibold">
+                        Register as Healthcare Staff
+                      </Link>
+                    </p>
+                    <p className="text-[11px] text-slate-500">
+                      New facility?{" "}
+                      <Link href="/register-facility" className="text-blue-400 hover:underline font-semibold">
+                        Register your Hospital
+                      </Link>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setForgotMode(true)}
+                      id="forgot-password-link"
+                      className="text-[11px] text-amber-500 hover:text-amber-400 hover:underline font-semibold transition mt-0.5"
+                    >
+                      Forgot Password / Locked Account?
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>

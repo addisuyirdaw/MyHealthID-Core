@@ -80,17 +80,20 @@ export const TRANSLATIONS = {
       backButton: "Back to Login",
       otpSentTo: "Verification code sent to {phone}",
       invalidOtp: "The verification code is invalid or expired.",
-      tooManyAttempts: "Too many failed attempts. Session blocked.",
-      syncAnchor: "Phone number outdated or wrong? Synchronize your identity",
-      syncTitle: "Identity Synchronization",
-      syncSubtitle: "Verify your identity using your official details to update your contact phone number.",
-      syncFaydaLabel: "Fayda ID / National ID",
-      syncFullNameLabel: "Full Name (matches registration)",
-      syncDobLabel: "Date of Birth",
-      syncNewPhoneLabel: "New Phone Number",
-      syncSubmitButton: "Synchronize Identity Parameters",
-      syncSuccess: "Identity synchronized! Your phone number is now updated. You can close this and sign in.",
-      syncError: "Failed to synchronize parameters. Please verify your details."
+      tooManyAttempts: "Too many failed attempts. Session blocked."
+    },
+    profile: {
+      title: "Citizen Profile Self-Management",
+      subtitle: "Update your contact and identification details securely.",
+      editButton: "Edit Profile",
+      saveButton: "Save Changes",
+      cancelButton: "Cancel",
+      fullNameLabel: "Full Name",
+      phoneLabel: "Phone Number",
+      dobLabel: "Date of Birth",
+      successMessage: "Profile updated successfully!",
+      errorMessage: "Failed to update profile. Please try again.",
+      backToRecords: "Back to Clinical Records"
     },
     privacy: {
       title: "Privacy & Data Control",
@@ -194,17 +197,20 @@ export const TRANSLATIONS = {
       backButton: "ወደ መግቢያ ተመለስ",
       otpSentTo: "የማረጋገጫ ኮድ ወደ {phone} ተልኳል",
       invalidOtp: "የማረጋገጫ ኮዱ ትክክል አይደለም ወይም ጊዜው አልፏል።",
-      tooManyAttempts: "ብዙ ሙከራዎች ተደርገዋል። መዳረሻው ታግዷል።",
-      syncAnchor: "ስልክ ቁጥርዎ ተቀይሯል ወይስ ስህተት ነው? መታወቂያዎን ያመሳስሉ",
-      syncTitle: "የማንነት ማመሳሰል",
-      syncSubtitle: "የእውቂያ ስልክ ቁጥርዎን ለማዘመን የእርስዎን ይፋዊ ዝርዝሮች በመጠቀም ማንነትዎን ያረጋግጡ።",
-      syncFaydaLabel: "ፋይዳ መታወቂያ / ብሔራዊ መታወቂያ",
-      syncFullNameLabel: "ሙሉ ስም (ከምዝገባው ጋር የሚዛመድ)",
-      syncDobLabel: "የትውልድ ቀን",
-      syncNewPhoneLabel: "አዲስ ስልክ ቁጥር",
-      syncSubmitButton: "የማንነት መለኪያዎችን ያመሳስሉ",
-      syncSuccess: "ማንነት ተመሳስሏል! የእርስዎ ስልክ ቁጥር አሁን ተዘምኗል። ይህንን ዘግተው መግባት ይችላሉ።",
-      syncError: "መለኪያዎችን ማመሳሰል አልተሳካም። እባክዎ ዝርዝሮችዎን ያረጋግጡ።"
+      tooManyAttempts: "ብዙ ሙከራዎች ተደርገዋል። መዳረሻው ታግዷል።"
+    },
+    profile: {
+      title: "የዜጎች መገለጫ ራስ-አስተዳደር",
+      subtitle: "የመገናኛ እና የማንነት ዝርዝሮችዎን በአስተማማኝ ሁኔታ ያዘምኑ።",
+      editButton: "መገለጫ አርትዕ",
+      saveButton: "ለውጦችን አስቀምጥ",
+      cancelButton: "ሰርዝ",
+      fullNameLabel: "ሙሉ ስም",
+      phoneLabel: "ስልክ ቁጥር",
+      dobLabel: "የትውልድ ቀን",
+      successMessage: "መገለጫው በተሳካ ሁኔታ ተዘምኗል!",
+      errorMessage: "መገለጫውን ማዘመን አልተሳካም። እባክዎ እንደገና ይሞክሩ።",
+      backToRecords: "ወደ ክሊኒካዊ መዝገቦች ተመለስ"
     },
     privacy: {
       title: "ግላዊነት እና የዳታ ቁጥጥር",
