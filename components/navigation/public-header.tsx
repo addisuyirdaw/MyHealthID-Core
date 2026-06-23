@@ -29,7 +29,7 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
 
   // Dynamic Login / Dashboard Button Logic
   let loginButtonLabel = language === "EN" ? "Portal Login" : "ፖርታል ግባ";
-  let loginButtonHref = "/portal";
+  let loginButtonHref = "/login";
   let LoginIcon = ShieldCheck;
 
   if (userRole) {
