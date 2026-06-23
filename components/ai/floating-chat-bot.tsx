@@ -178,7 +178,7 @@ export function FloatingChatBot() {
   return (
     <div
       id="floating-chatbot-widget"
-      className="fixed bottom-6 right-6 md:bottom-8 md:right-8 z-[9999] flex flex-col items-end"
+      className="fixed left-6 bottom-6 z-[9999] flex flex-col items-start"
       style={{ fontFamily: "Inter, sans-serif" }}
     >
       {/* ── Chat Window ── */}

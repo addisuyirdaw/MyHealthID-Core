@@ -73,7 +73,7 @@ export default async function Home() {
       <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full bg-blue-900/5 blur-[100px]" />
 
       {/* Hero / Main Marketing Section */}
-      <section className="max-w-5xl mx-auto px-4 md:px-8 w-full relative z-10 py-16 md:py-24 text-center space-y-12">
+      <section className="max-w-7xl mx-auto px-4 md:px-8 w-full relative z-10 py-16 md:py-24 text-center space-y-12">
         
         {/* Hero headline & badge */}
         <div className="space-y-6 max-w-3xl mx-auto">
@@ -89,41 +89,31 @@ export default async function Home() {
           </p>
         </div>
 
-        {/* Live patient counter statistics */}
-        <div className="bg-neutral-900/40 border border-neutral-900 backdrop-blur-xl rounded-3xl p-6 max-w-sm mx-auto shadow-2xl ring-1 ring-white/5">
-          <div className="flex items-center justify-center gap-1.5 text-[10px] font-bold text-emerald-400 uppercase tracking-widest mb-3">
-            <Activity className="w-3.5 h-3.5" /> Live National Impact
-          </div>
-          <div className="flex flex-col items-center">
-            <span className="text-6xl font-black text-white tracking-tighter tabular-nums">
-              {patientCount.toLocaleString()}
-            </span>
-            <span className="text-neutral-400 font-semibold mt-2.5 flex items-center gap-1.5 text-sm">
-              <ShieldCheck className="w-4 h-4 text-emerald-500 shrink-0" />
-              Citizens Digitized on MyHealthID
-            </span>
-          </div>
-        </div>
-
-        {/* Interactive Image Carousel */}
-        <div className="my-10 max-w-3xl mx-auto">
-          <LandingCarousel items={carouselItems} />
-        </div>
-
-        {/* Hero Actions (Primary: Register, Secondary: Learn More) */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-md mx-auto">
+        {/* Unified System Actions Button Group */}
+        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-3xl mx-auto pt-2 pb-6">
           <Link href="/register" className="w-full sm:w-auto">
-            <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2 text-sm font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition-all shadow-lg shadow-blue-900/30 hover:scale-[1.02] active:scale-[0.98] cursor-pointer">
-              <Users className="w-4.5 h-4.5" />
+            <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900 border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-lg active:scale-95 cursor-pointer">
+              <Users className="w-4.5 h-4.5 text-blue-500" />
               <LocalizedText tKey="landing.registerCitizen" />
             </button>
           </Link>
-          <a href="#about" className="w-full sm:w-auto">
-            <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2 text-sm font-semibold border border-neutral-800 hover:border-neutral-600 text-neutral-300 hover:text-white hover:bg-neutral-900/40 rounded-xl transition-all active:scale-[0.98] cursor-pointer">
-              Learn More
-              <ArrowRight className="w-4 h-4 text-blue-400" />
+          <Link href="/login" className="w-full sm:w-auto">
+            <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900 border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-lg active:scale-95 cursor-pointer">
+              <ShieldCheck className="w-4.5 h-4.5 text-emerald-500" />
+              Portal Sign In
             </button>
-          </a>
+          </Link>
+          <Link href="/register-facility" className="w-full sm:w-auto">
+            <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900 border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-lg active:scale-95 cursor-pointer">
+              <Building className="w-4.5 h-4.5 text-purple-500" />
+              Onboard Hospital
+            </button>
+          </Link>
+        </div>
+
+        {/* Interactive Image Carousel */}
+        <div className="my-10 w-full max-w-6xl md:max-w-7xl mx-auto">
+          <LandingCarousel items={carouselItems} />
         </div>
 
         {/* Trust badges */}
@@ -250,54 +240,90 @@ export default async function Home() {
           </div>
         </section>
 
+        {/* System Scope Section */}
+        <section id="scope" className="max-w-5xl mx-auto px-4 md:px-8 py-20 md:py-28 border-t border-neutral-900/60 scroll-mt-16">
+          <div className="text-center space-y-4 mb-16">
+            <h2 className="text-xs font-bold text-blue-500 uppercase tracking-widest">System Scope</h2>
+            <h3 className="text-3xl sm:text-4xl font-black text-white tracking-tight">Integrated Clinical Ecosystem</h3>
+            <p className="text-neutral-400 max-w-xl mx-auto text-sm leading-relaxed">
+              A comprehensive look at our internal platform layers designed to digitize the entire healthcare journey.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Triage Management */}
+            <div className="bg-neutral-900/30 hover:bg-neutral-900/50 border border-neutral-900 hover:border-blue-500/30 rounded-3xl p-8 transition duration-300 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-blue-500/5 blur-2xl group-hover:bg-blue-500/10 transition duration-500" />
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center mb-6 group-hover:bg-blue-500/25 transition">
+                <Activity className="w-6 h-6 text-blue-400 animate-pulse" />
+              </div>
+              <h4 className="text-xl font-bold text-white mb-3">Triage Management & Vital Signs Log</h4>
+              <p className="text-sm text-neutral-400 leading-relaxed">
+                Facilitates immediate citizen arrival check-ins, automated clinical queue assignment, and precise vital signs logging. Enables healthcare workers to prioritize critical cases through real-time triage status updates.
+              </p>
+            </div>
+
+            {/* Doctor Clinical Diagnostic Console */}
+            <div className="bg-neutral-900/30 hover:bg-neutral-900/50 border border-neutral-900 hover:border-emerald-500/30 rounded-3xl p-8 transition duration-300 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-emerald-500/5 blur-2xl group-hover:bg-emerald-500/10 transition duration-500" />
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center mb-6 group-hover:bg-emerald-500/25 transition">
+                <HeartPulse className="w-6 h-6 text-emerald-400" />
+              </div>
+              <h4 className="text-xl font-bold text-white mb-3">Doctor Clinical Diagnostic Console & Patient Timeline</h4>
+              <p className="text-sm text-neutral-400 leading-relaxed">
+                Empowers physicians with an interactive, longitudinal medical history console. View historical diagnoses, past clinical notes, allergy alerts, and referral pathways in a single, high-security diagnostic environment.
+              </p>
+            </div>
+
+            {/* Laboratory Panels */}
+            <div className="bg-neutral-900/30 hover:bg-neutral-900/50 border border-neutral-900 hover:border-purple-500/30 rounded-3xl p-8 transition duration-300 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-purple-500/5 blur-2xl group-hover:bg-purple-500/10 transition duration-500" />
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center mb-6 group-hover:bg-purple-500/25 transition">
+                <FlaskConical className="w-6 h-6 text-purple-400" />
+              </div>
+              <h4 className="text-xl font-bold text-white mb-3">Laboratory Panels & Biometric Sync</h4>
+              <p className="text-sm text-neutral-400 leading-relaxed">
+                Bridges the gap between clinical orders and laboratory execution. Syncs diagnostic test panels, hematology/biochemistry reports, and lab results directly back to the patient’s unified digital identification profile.
+              </p>
+            </div>
+
+            {/* Automated Pharmacy */}
+            <div className="bg-neutral-900/30 hover:bg-neutral-900/50 border border-neutral-900 hover:border-amber-500/30 rounded-3xl p-8 transition duration-300 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-amber-500/5 blur-2xl group-hover:bg-amber-500/10 transition duration-500" />
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mb-6 group-hover:bg-amber-500/25 transition">
+                <Pill className="w-6 h-6 text-amber-400" />
+              </div>
+              <h4 className="text-xl font-bold text-white mb-3">Automated Pharmacy Prescription Fulfilment</h4>
+              <p className="text-sm text-neutral-400 leading-relaxed">
+                Secures the dispensing pipeline with end-to-end digital prescription tracking. Minimizes dosage errors and provides pharmacists with real-time verification mechanisms to issue medication and record patient adherence.
+              </p>
+            </div>
+          </div>
+        </section>
+
         {/* Contact Section */}
-        <section id="contact" className="max-w-5xl mx-auto px-4 md:px-8 py-20 md:py-28 border-t border-neutral-900/60 scroll-mt-16">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-            
-            <div className="space-y-6">
-              <h2 className="text-xs font-bold text-blue-500 uppercase tracking-widest">Contact & Support</h2>
-              <h3 className="text-3xl font-black text-white tracking-tight">We are here to assist you</h3>
-              <p className="text-neutral-400 text-sm leading-relaxed">
-                If you are a citizen looking to update your health records, a healthcare professional facing portal access issues, or a clinic administrator hoping to register a new facility, please contact our support team.
-              </p>
-              
-              <div className="space-y-4 pt-2">
-                <div className="flex items-center gap-3">
-                  <Phone className="w-5 h-5 text-blue-400 shrink-0" />
-                  <span className="text-sm font-semibold text-neutral-300">+251 11 123 4567</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <Mail className="w-5 h-5 text-emerald-400 shrink-0" />
-                  <span className="text-sm font-semibold text-neutral-300">support@myhealthid.gov.et</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <MapPin className="w-5 h-5 text-purple-400 shrink-0" />
-                  <span className="text-sm font-semibold text-neutral-300">Ministry of Health, Addis Ababa, Ethiopia</span>
-                </div>
-              </div>
+        <section id="contact" className="max-w-3xl mx-auto px-4 md:px-8 py-20 md:py-28 border-t border-neutral-900/60 scroll-mt-16 text-center space-y-8">
+          <div className="space-y-4">
+            <h2 className="text-xs font-bold text-blue-500 uppercase tracking-widest">Contact & Support</h2>
+            <h3 className="text-3xl font-black text-white tracking-tight">We are here to assist you</h3>
+            <p className="text-neutral-400 text-sm leading-relaxed max-w-xl mx-auto">
+              If you are a citizen looking to update your health records, a healthcare professional facing portal access issues, or a clinic administrator hoping to register a new facility, please contact our support team.
+            </p>
+          </div>
+          
+          <div className="flex flex-col md:flex-row items-center justify-center gap-6 pt-4">
+            <div className="flex items-center gap-3 bg-neutral-900/30 border border-neutral-900/60 rounded-2xl px-5 py-4 w-full md:w-auto">
+              <Phone className="w-5 h-5 text-blue-400 shrink-0" />
+              <span className="text-sm font-semibold text-neutral-300">+251 11 123 4567</span>
             </div>
-
-            <div className="bg-neutral-900/40 border border-neutral-900 rounded-3xl p-8 shadow-2xl flex flex-col justify-center space-y-6">
-              <div className="flex items-center gap-3.5">
-                <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center">
-                  <Building className="w-5 h-5 text-blue-400" />
-                </div>
-                <div>
-                  <h4 className="font-bold text-white text-base">Facility Setup</h4>
-                  <p className="text-xs text-neutral-500 mt-0.5">Connect your hospital to the network.</p>
-                </div>
-              </div>
-              <p className="text-xs text-neutral-400 leading-relaxed">
-                Hospital administrators can launch registration for their facility and generate administrative credentials. To onboard your regional hospital or referral center, register your facility using our secure portal.
-              </p>
-              <Link href="/register-facility">
-                <button className="w-full h-11 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-800 text-white border border-neutral-800 hover:border-neutral-700 font-bold rounded-xl transition text-xs cursor-pointer">
-                  <Building className="w-4 h-4 text-blue-400" />
-                  Onboard Your Hospital
-                </button>
-              </Link>
+            <div className="flex items-center gap-3 bg-neutral-900/30 border border-neutral-900/60 rounded-2xl px-5 py-4 w-full md:w-auto">
+              <Mail className="w-5 h-5 text-emerald-400 shrink-0" />
+              <span className="text-sm font-semibold text-neutral-300">support@myhealthid.gov.et</span>
             </div>
-
+            <div className="flex items-center gap-3 bg-neutral-900/30 border border-neutral-900/60 rounded-2xl px-5 py-4 w-full md:w-auto">
+              <MapPin className="w-5 h-5 text-purple-400 shrink-0" />
+              <span className="text-sm font-semibold text-neutral-300">Ministry of Health, Addis Ababa</span>
+            </div>
           </div>
         </section>
 

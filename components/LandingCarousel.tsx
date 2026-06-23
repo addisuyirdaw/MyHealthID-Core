@@ -59,7 +59,7 @@ export default function LandingCarousel({ items }: LandingCarouselProps) {
 
   return (
     <div
-      className="w-full max-w-3xl mx-auto rounded-3xl overflow-hidden border border-neutral-800 shadow-2xl relative group bg-neutral-950 aspect-[16/9] md:aspect-[21/9]"
+      className="w-full max-w-6xl md:max-w-7xl mx-auto rounded-2xl shadow-2xl aspect-[16/8] md:aspect-[21/9] object-cover overflow-hidden border border-neutral-800 relative group bg-neutral-950"
       onMouseEnter={stopTimer}
       onMouseLeave={startTimer}
     >

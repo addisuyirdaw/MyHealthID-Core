@@ -24,6 +24,7 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
     { label: language === "EN" ? "Home" : "መነሻ", href: "/" },
     { label: language === "EN" ? "About" : "ስለ እኛ", href: "/#about" },
     { label: language === "EN" ? "Our Services" : "አገልግሎቶቻችን", href: "/#services" },
+    { label: language === "EN" ? "System Scope" : "የስርዓት ይዘት", href: "/#scope" },
     { label: language === "EN" ? "Contact" : "እውቂያ", href: "/#contact" },
   ];
 
@@ -108,12 +109,24 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
             AI Assistant
           </button>
 
-          <Link href={loginButtonHref}>
-            <button className="flex items-center gap-1.5 px-4 py-2 text-xs font-bold bg-blue-600 hover:bg-blue-500 text-white rounded-lg transition-all shadow-md active:scale-95 cursor-pointer">
-              <LoginIcon className="w-3.5 h-3.5" />
-              {loginButtonLabel}
-            </button>
-          </Link>
+          {/* Unified System Actions Button Group */}
+          <div className="flex bg-neutral-900 border border-neutral-800 p-0.5 rounded-lg gap-1">
+            <Link href="/register">
+              <button className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-transparent text-neutral-400 hover:text-white hover:bg-neutral-800 transition-all cursor-pointer">
+                Register Citizen
+              </button>
+            </Link>
+            <Link href="/register-facility">
+              <button className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-transparent text-neutral-400 hover:text-white hover:bg-neutral-800 transition-all cursor-pointer">
+                Onboard Hospital
+              </button>
+            </Link>
+            <Link href={loginButtonHref}>
+              <button className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-transparent text-neutral-400 hover:text-white hover:bg-neutral-800 transition-all cursor-pointer">
+                {loginButtonLabel}
+              </button>
+            </Link>
+          </div>
         </div>
 
         {/* Mobile Hamburger Toggle */}
@@ -186,12 +199,24 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
               {language === "EN" ? "AI Assistant" : "AI ረዳት"}
             </button>
 
-            <Link href={loginButtonHref} onClick={() => setIsOpen(false)}>
-              <button className="w-full h-12 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition shadow-lg shadow-blue-900/20">
-                <LoginIcon className="w-4 h-4" />
-                {loginButtonLabel}
-              </button>
-            </Link>
+            <div className="flex flex-col gap-2">
+              <Link href="/register" onClick={() => setIsOpen(false)}>
+                <button className="w-full h-12 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-850 text-white font-bold rounded-xl border border-neutral-800 transition cursor-pointer">
+                  Register Citizen
+                </button>
+              </Link>
+              <Link href="/register-facility" onClick={() => setIsOpen(false)}>
+                <button className="w-full h-12 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-850 text-white font-bold rounded-xl border border-neutral-800 transition cursor-pointer">
+                  Onboard Hospital
+                </button>
+              </Link>
+              <Link href={loginButtonHref} onClick={() => setIsOpen(false)}>
+                <button className="w-full h-12 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition cursor-pointer">
+                  <LoginIcon className="w-4 h-4 text-white" />
+                  {loginButtonLabel}
+                </button>
+              </Link>
+            </div>
           </div>
         </div>
       </div>
