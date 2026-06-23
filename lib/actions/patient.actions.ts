@@ -521,6 +521,17 @@ export async function recordVitals(data: {
       },
     });
 
+    // Transition associated ARRIVED appointment to TRIAGED
+    await prisma.appointment.updateMany({
+      where: {
+        patientId: data.patientId,
+        status: "ARRIVED",
+      },
+      data: {
+        status: "TRIAGED",
+      },
+    });
+
     revalidatePath(`/manage/${data.patientId}`);
     revalidatePath(`/doctor/patient/${data.patientId}`);
 
@@ -647,6 +658,17 @@ export async function processTriage(
       });
     }
 
+    // Transition associated ARRIVED appointment to TRIAGED (fallback)
+    await prisma.appointment.updateMany({
+      where: {
+        patientId: patientId,
+        status: "ARRIVED",
+      },
+      data: {
+        status: "TRIAGED",
+      },
+    });
+
     revalidatePath(`/manage/${patientId}`);
     revalidatePath(`/doctor/patient/${patientId}`);
 
@@ -704,20 +726,40 @@ export async function getActivePatientsForFacility() {
         investigations: { orderBy: { createdAt: "desc" }, take: 5 },
         prescriptions: { orderBy: { createdAt: "desc" }, take: 5 },
         clinicalExam: true,
+        appointments: {
+          where: {
+            status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION"] }
+          },
+          orderBy: { dateTime: "desc" },
+          take: 1,
+          include: {
+            assignedWard: true
+          }
+        }
       },
     });
 
-    const priorityWeight: Record<string, number> = {
-      RED: 1,
-      YELLOW: 2,
-      GREEN: 3,
-      WAITING_FOR_TRIAGE: 4,
-    };
-
     patients.sort((a, b) => {
-      const weightA = priorityWeight[a.triageStatus] || 99;
-      const weightB = priorityWeight[b.triageStatus] || 99;
-      return weightA - weightB;
+      // 1. Primary sort: Clinical Acuity Score (descending)
+      const getAcuityScore = (p: any) => {
+        let base = 0;
+        if (p.triageStatus === "RED" || p.priorityLevel === "EMERGENCY") base = 1000;
+        else if (p.triageStatus === "YELLOW" || p.priorityLevel === "URGENT") base = 500;
+        else if (p.triageStatus === "GREEN" || p.priorityLevel === "ROUTINE") base = 100;
+        return base + (p.aiPriorityScore ?? 0);
+      };
+
+      const scoreA = getAcuityScore(a);
+      const scoreB = getAcuityScore(b);
+
+      if (scoreA !== scoreB) {
+        return scoreB - scoreA; // Descending: higher acuity first
+      }
+
+      // 2. Secondary sort: Chronological wait time (ascending)
+      const timeA = new Date(a.createdAt).getTime();
+      const timeB = new Date(b.createdAt).getTime();
+      return timeA - timeB; // Ascending: oldest check-in first
     });
 
     return JSON.parse(JSON.stringify(patients));

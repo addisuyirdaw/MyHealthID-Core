@@ -10,9 +10,11 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { 
   CheckCircle2, AlertCircle, Loader2, Users, Search, Hospital, 
   Activity, Plus, Phone, MapPin, User, Heart, Calendar, 
-  Clock, AlertTriangle, ArrowRight, ShieldAlert, BadgeInfo, Check, ChevronRight, UserPlus
+  Clock, AlertTriangle, ArrowRight, ShieldAlert, BadgeInfo, Check, ChevronRight, UserPlus,
+  Stethoscope, Filter, BadgeCheck, MessageSquare
 } from "lucide-react";
 import { updatePatientPhoneByStaff } from "@/lib/actions/patient.actions";
+import { updateAppointmentStatus } from "@/lib/actions/appointment.actions";
 import { normalizeHealthcareRole } from "@/lib/locales/enums";
 
 interface Patient {
@@ -47,7 +49,12 @@ interface Appointment {
   appointmentTime: string;
   requestedService: string;
   status: string;
+  chiefComplaints?: string;
+  queuePosition?: number;
+  assignedWardId?: string;
+  assignedWard?: { id: string; name: string; code: string } | null;
   patient: {
+    id: string;
     fullName: string;
     healthId: string;
     sex: string;
@@ -85,6 +92,8 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
   
   // Search & filter
   const [searchQuery, setSearchQuery] = useState("");
+  const [appointmentWardFilter, setAppointmentWardFilter] = useState<string>("ALL");
+  const [checkingInId, setCheckingInId] = useState<string | null>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -212,6 +221,25 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, 5000);
+  };
+
+  // Check-in an appointment from the reception desk
+  const handleCheckIn = async (appointmentId: string) => {
+    setCheckingInId(appointmentId);
+    try {
+      const res = await updateAppointmentStatus(appointmentId, "ARRIVED");
+      if (!res.success) {
+        showToast("error", "Check-In Failed", res.error || "Failed to check in patient.");
+      } else {
+        setAppointments((prev) => prev.filter((a) => a.id !== appointmentId));
+        showToast("success", "Patient Checked In", "Patient has been added to the live triage queue.");
+        fetchDashboardData(true);
+      }
+    } catch (err: any) {
+      showToast("error", "Error", err.message || "An unexpected error occurred.");
+    } finally {
+      setCheckingInId(null);
+    }
   };
 
   // DOB Age Calculation
@@ -362,11 +390,16 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
 
   const filteredAppointments = appointments.filter((a) => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesSearch = (
       a.patient.fullName.toLowerCase().includes(query) ||
       a.patient.healthId.toLowerCase().includes(query) ||
-      a.requestedService.toLowerCase().includes(query)
+      a.requestedService.toLowerCase().includes(query) ||
+      (a.chiefComplaints || "").toLowerCase().includes(query)
     );
+    const matchesWard =
+      appointmentWardFilter === "ALL" ||
+      (a.assignedWard?.code === appointmentWardFilter);
+    return matchesSearch && matchesWard;
   });
 
   // Visual avatar color matcher based on name
@@ -1188,17 +1221,41 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
             {/* TAB CONTENT: APPOINTMENTS LIST */}
             {activeTab === "appointments" && (
               <Card className="bg-neutral-900 border-neutral-800 shadow-2xl overflow-hidden">
+                {/* Ward Filter Bar */}
+                <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-neutral-800">
+                  <Filter className="w-3.5 h-3.5 text-pink-400 shrink-0" />
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-neutral-500">Filter by Ward:</span>
+                  <div className="flex gap-2 flex-wrap">
+                    {["ALL", "GEN_MED", "PED", "CARD"].map((code) => {
+                      const label = code === "ALL" ? "All Wards" : code === "GEN_MED" ? "General Medicine" : code === "PED" ? "Pediatrics" : "Cardiology";
+                      return (
+                        <button
+                          key={code}
+                          onClick={() => setAppointmentWardFilter(code)}
+                          className={`px-3 py-1 rounded-full text-[10px] font-bold transition-all border ${
+                            appointmentWardFilter === code
+                              ? "bg-pink-500 border-pink-400 text-white shadow"
+                              : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:text-white hover:border-neutral-600"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <span className="ml-auto text-[10px] text-neutral-600">{filteredAppointments.length} shown</span>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs border-collapse">
                     <thead>
                       <tr className="bg-neutral-950/80 border-b border-neutral-800 text-neutral-400 font-bold uppercase tracking-wider">
+                        <th className="p-4">#</th>
                         <th className="p-4">Time Slot</th>
                         <th className="p-4">Patient Name</th>
-                        <th className="p-4">Health ID</th>
                         <th className="p-4">Age/Sex</th>
-                        <th className="p-4">Department / Service</th>
-                        <th className="p-4">Contact Phone</th>
-                        <th className="p-4">Status</th>
+                        <th className="p-4">Ward / Service</th>
+                        <th className="p-4">Chief Complaints</th>
+                        <th className="p-4">Action</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-neutral-800/80">
@@ -1218,18 +1275,59 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
                       ) : (
                         filteredAppointments.map((app) => (
                           <tr key={app.id} className="hover:bg-neutral-850/60 transition-colors">
-                            <td className="p-4 font-mono font-bold text-pink-400 text-sm flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5" /> {app.appointmentTime}
-                            </td>
-                            <td className="p-4 font-bold text-white">{app.patient.fullName}</td>
-                            <td className="p-4 font-mono text-neutral-400">{app.patient.healthId}</td>
-                            <td className="p-4 text-neutral-300">{app.patient.age} / {app.patient.sex}</td>
-                            <td className="p-4 font-medium text-neutral-200">{app.requestedService}</td>
-                            <td className="p-4 font-mono text-neutral-400">{app.patient.phoneNumber || "—"}</td>
+                            {/* Queue position badge */}
                             <td className="p-4">
-                              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded-full font-semibold uppercase tracking-wider text-[9px]">
-                                {app.status}
+                              <span className="w-8 h-8 rounded-xl bg-pink-500/10 border border-pink-500/30 text-pink-400 font-black text-sm flex items-center justify-center">
+                                #{app.queuePosition ?? "—"}
                               </span>
+                            </td>
+                            {/* Time Slot */}
+                            <td className="p-4 font-mono font-bold text-pink-400 text-sm">
+                              <div className="flex items-center gap-1.5">
+                                <Clock className="w-3.5 h-3.5" /> {app.appointmentTime}
+                              </div>
+                            </td>
+                            {/* Patient Name + Health ID */}
+                            <td className="p-4">
+                              <div className="font-bold text-white text-sm">{app.patient.fullName}</div>
+                              <div className="font-mono text-[10px] text-neutral-500 mt-0.5">{app.patient.healthId}</div>
+                            </td>
+                            {/* Age / Sex */}
+                            <td className="p-4 text-neutral-300">{app.patient.age} / {app.patient.sex}</td>
+                            {/* Ward / Service */}
+                            <td className="p-4">
+                              <div className="font-medium text-neutral-200">{app.assignedWard?.name || app.requestedService}</div>
+                              {app.assignedWard && (
+                                <div className="text-[9px] font-mono text-neutral-600 mt-0.5 uppercase">{app.assignedWard.code}</div>
+                              )}
+                            </td>
+                            {/* Chief Complaints snippet */}
+                            <td className="p-4 max-w-[200px]">
+                              {app.chiefComplaints ? (
+                                <div className="flex items-start gap-1.5">
+                                  <MessageSquare className="w-3 h-3 text-neutral-500 mt-0.5 shrink-0" />
+                                  <span className="text-neutral-400 line-clamp-2 leading-relaxed">
+                                    {app.chiefComplaints.slice(0, 80)}{app.chiefComplaints.length > 80 ? "…" : ""}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-neutral-600 italic">No complaints filed</span>
+                              )}
+                            </td>
+                            {/* Check-In Action */}
+                            <td className="p-4">
+                              <button
+                                onClick={() => handleCheckIn(app.id)}
+                                disabled={checkingInId !== null}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow shadow-emerald-900/30"
+                              >
+                                {checkingInId === app.id ? (
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                ) : (
+                                  <BadgeCheck className="w-3 h-3" />
+                                )}
+                                Check In
+                              </button>
                             </td>
                           </tr>
                         ))

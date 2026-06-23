@@ -13,6 +13,7 @@ export default async function DoctorDashboardPage() {
   const role = userRole || "UNKNOWN";
   const orgId = cookieStore.get("organizationId")?.value;
   const userName = cookieStore.get("userName")?.value || "Clinician";
+  const userId = cookieStore.get("userId")?.value || "";
 
   if (!userRole) {
     redirect("/login");
@@ -42,6 +43,7 @@ export default async function DoctorDashboardPage() {
       role={role}
       facilityName={facilityName}
       userName={userName}
+      currentUserId={userId}
     />
   );
 }

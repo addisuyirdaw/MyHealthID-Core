@@ -11,9 +11,10 @@ import {
   AlertTriangle, Droplet, Activity, Thermometer,
   Wind, Scale, Brain, Save, ExternalLink, Clock,
   FileText, Microscope, Scan, TestTubeDiagonal,
-  Sparkles, Shield, Lock, X, Info
+  Sparkles, Shield, Lock, X, Info, MessageSquare, Import
 } from "lucide-react";
 import { saveClinicalExam, saveDoctorAssessment } from "@/lib/actions/patient.actions";
+import { transitionToConsultation } from "@/lib/actions/appointment.actions";
 import { createLabOrder } from "@/lib/actions/investigation.actions";
 import { generateClinicalContextStream } from "@/lib/actions/ai.actions";
 import { OrderTestModal } from "@/components/OrderTestModal";
@@ -150,7 +151,7 @@ function VitalCard({ icon: Icon, label, value, unit, color }: {
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────
-export default function DoctorPatientChart({ patient }: { patient: any }) {
+export default function DoctorPatientChart({ patient, currentUserId }: { patient: any; currentUserId?: string }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("identification");
 
@@ -364,6 +365,41 @@ export default function DoctorPatientChart({ patient }: { patient: any }) {
                     <AlertTriangle className="w-3 h-3" /> ALLERGY: {patient.allergyInformation}
                   </div>
                 )}
+                {/* Chief Complaints Banner from pre-booked intake */}
+                {(() => {
+                  const intake = patient.appointments?.[0];
+                  if (!intake?.chiefComplaints) return null;
+                  return (
+                    <div className="mt-2 flex items-start gap-2 bg-indigo-950/40 border border-indigo-500/30 rounded-xl px-3 py-2 max-w-xl">
+                      <MessageSquare className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold mb-0.5">Patient Self-Reported Intake Complaint</p>
+                        <p className="text-xs text-indigo-200 leading-relaxed italic line-clamp-2">
+                          &ldquo;{intake.chiefComplaints}&rdquo;
+                        </p>
+                      </div>
+                      <button
+                        onClick={async () => {
+                          setHistoryData(prev => ({ ...prev, clinicalNotes: intake.chiefComplaints || prev.clinicalNotes }));
+                          setAssessmentData(prev => ({ ...prev, chiefAssessment: intake.chiefComplaints || prev.chiefAssessment }));
+                          setActiveTab("assessment");
+                          if (intake?.id && currentUserId) {
+                            try {
+                              await transitionToConsultation(intake.id, currentUserId);
+                            } catch (err) {
+                              console.error("Failed to transition appointment status:", err);
+                            }
+                          }
+                        }}
+                        className="shrink-0 flex items-center gap-1 text-[9px] font-bold bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-500/40 text-indigo-300 hover:text-white px-2 py-1 rounded-lg transition-all"
+                        title="Import complaint into Clinical Notes & Chief Assessment"
+                      >
+                        <Import className="w-3 h-3" />
+                        Import
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

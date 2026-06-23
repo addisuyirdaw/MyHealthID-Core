@@ -36,11 +36,12 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [registeredId, setRegisteredId] = useState<string | null>(null);
+  const [registeredPatientId, setRegisteredPatientId] = useState<string | null>(null);
 
   // Unified Registration Goal & Security Verification State
-  const [registrationGoal, setRegistrationGoal] = useState<"PROFILE_ONLY" | "PROFILE_AND_APPOINTMENT">("PROFILE_ONLY");
   const [showSecurityVerification, setShowSecurityVerification] = useState(false);
   const [faydaId, setFaydaId] = useState("");
+
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,18 +74,15 @@ export default function SignUpPage() {
         password,
       });
 
-      if (result.success && result.healthId) {
-        if (registrationGoal === "PROFILE_AND_APPOINTMENT") {
-          // Log them in immediately so the appointment page can access the session token
-          const loginResult = await directCitizenSignIn(phone.trim(), password);
-          if (loginResult.success) {
-            router.push(`/citizen/appointments?newPatient=true&healthId=${result.healthId}`);
-          } else {
-            setError(loginResult.error || "Auto sign-in failed. Please sign in manually.");
-            setLoading(false);
-          }
-        } else {
+      if (result.success && result.healthId && result.patientId) {
+        // Auto-login citizen to retrieve session cookies immediately
+        const loginResult = await directCitizenSignIn(phone.trim(), password);
+        if (loginResult.success && loginResult.patientId) {
+          setRegisteredPatientId(loginResult.patientId);
           setRegisteredId(result.healthId);
+        } else {
+          setError(loginResult.error || "Auto sign-in failed. Please sign in manually.");
+          setLoading(false);
         }
       } else {
         setError(result.error || "Registration failed.");
@@ -103,44 +101,80 @@ export default function SignUpPage() {
         <div className="pointer-events-none absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-emerald-600/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-24 w-[400px] h-[400px] rounded-full bg-emerald-800/10 blur-3xl" />
 
-        <div className="w-full max-w-lg relative z-10">
+        <div className="w-full max-w-2xl relative z-10">
           <div className="bg-neutral-900/80 border border-neutral-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl ring-1 ring-white/5 text-center space-y-6">
             <div className="mx-auto w-20 h-20 rounded-full bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center">
               <CheckCircle2 className="w-10 h-10 text-emerald-400" />
             </div>
 
             <div className="space-y-2">
-              <h1 className="text-2xl font-black text-white tracking-tight">
-                Pre-Registration Successful!
+              <h1 className="text-2xl font-black text-white tracking-tight animate-pulse">
+                Registration Successful!
               </h1>
               <p className="text-neutral-400 text-sm max-w-sm mx-auto">
-                Your profile has been created. Use your new Temporary Health ID and password to sign in.
+                Your patient profile has been created. Choose your next step below to proceed.
               </p>
             </div>
 
             {/* Health ID card style */}
-            <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-5 font-mono text-center space-y-2">
-              <p className="text-[10px] text-neutral-500 uppercase tracking-widest font-bold">Temporary Health ID</p>
-              <p className="text-2xl font-black text-emerald-400 select-all">{registeredId}</p>
+            <div className="bg-neutral-950 border border-neutral-800 rounded-2xl p-4 font-mono text-center space-y-1 max-w-xs mx-auto">
+              <p className="text-[9px] text-neutral-500 uppercase tracking-widest font-bold">Temporary Health ID</p>
+              <p className="text-xl font-black text-emerald-450 select-all">{registeredId}</p>
             </div>
 
-            <div className="bg-amber-950/20 border border-amber-900/35 rounded-2xl p-5 text-left flex gap-3.5">
-              <Info className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
-              <div className="text-xs text-amber-200/80 space-y-1">
-                <p className="font-bold text-amber-300">Identity Verification Required</p>
-                <p className="leading-relaxed">
-                  To unlock your full clinical records timeline and medical history sync, please present this ID `[{registeredId}]` to a front-desk receptionist during your next visit.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-2">
-              <Link
-                href="/signin"
-                className="w-full h-14 flex items-center justify-center gap-2 text-base font-bold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition-all shadow-lg shadow-emerald-900/30 active:scale-[0.98]"
+            {/* Split UI card with exactly two options */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+              {/* Option A: Complete Registration Only */}
+              <button
+                type="button"
+                onClick={() => {
+                  router.push(`/patients/${registeredPatientId}/dashboard`);
+                }}
+                className="group relative flex flex-col justify-between text-left p-6 rounded-2xl border border-neutral-800 bg-neutral-950/40 hover:bg-neutral-950 hover:border-emerald-500/40 transition-all duration-300 shadow-lg active:scale-[0.98] cursor-pointer"
               >
-                Proceed to Sign In <ArrowRight className="w-5 h-5" />
-              </Link>
+                <div className="space-y-4">
+                  <div className="w-10 h-10 rounded-xl bg-neutral-900 border border-neutral-800 flex items-center justify-center text-neutral-400 group-hover:scale-110 group-hover:text-emerald-400 group-hover:bg-emerald-950/20 group-hover:border-emerald-500/30 transition-all duration-300">
+                    <User className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-neutral-200 group-hover:text-white transition-colors">
+                      Complete Registration Only
+                    </h3>
+                    <p className="text-xs text-neutral-400 mt-1 leading-relaxed">
+                      Go directly to your Citizen Dashboard to view profile details, tracking code, and medical records.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 text-neutral-400 group-hover:text-emerald-450 font-bold text-xs mt-6 group-hover:translate-x-1 transition-all">
+                  Go to Dashboard <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </button>
+
+              {/* Option B: Schedule an Appointment */}
+              <button
+                type="button"
+                onClick={() => {
+                  router.push("/portal/appointments/intake");
+                }}
+                className="group relative flex flex-col justify-between text-left p-6 rounded-2xl border border-blue-900/30 bg-blue-950/5 hover:bg-blue-950/15 hover:border-blue-500/50 transition-all duration-300 shadow-lg active:scale-[0.98] cursor-pointer"
+              >
+                <div className="space-y-4">
+                  <div className="w-10 h-10 rounded-xl bg-blue-600/10 border border-blue-500/20 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                    <Calendar className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-blue-200 group-hover:text-blue-100 transition-colors">
+                      Schedule an Appointment
+                    </h3>
+                    <p className="text-xs text-blue-450 mt-1 leading-relaxed">
+                      Begin a new outpatient check-in request and book an appointment slot at a registered hospital.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5 text-blue-400 font-bold text-xs mt-6 group-hover:translate-x-1 transition-transform">
+                  Book Appointment <ArrowRight className="w-3.5 h-3.5" />
+                </div>
+              </button>
             </div>
           </div>
         </div>
@@ -199,37 +233,6 @@ export default function SignUpPage() {
 
           {/* Form */}
           <form onSubmit={handleSignUp} className="space-y-4">
-            {/* Registration Goal Segmented Control */}
-            <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-blue-400">
-                Select Registration Goal
-              </label>
-              <div className="grid grid-cols-2 p-1 bg-neutral-950 border border-neutral-800 rounded-xl">
-                <button
-                  type="button"
-                  onClick={() => setRegistrationGoal("PROFILE_ONLY")}
-                  className={`py-2 px-3 text-xs font-semibold rounded-lg transition-all ${
-                    registrationGoal === "PROFILE_ONLY"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  Create Profile Only
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRegistrationGoal("PROFILE_AND_APPOINTMENT")}
-                  className={`py-2 px-3 text-xs font-semibold rounded-lg transition-all ${
-                    registrationGoal === "PROFILE_AND_APPOINTMENT"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-neutral-400 hover:text-white"
-                  }`}
-                >
-                  Profile &amp; Appointment
-                </button>
-              </div>
-            </div>
-
             {/* Full Name */}
             <div className="space-y-1.5">
               <label htmlFor="signup-fullname" className="block text-[10px] font-bold uppercase tracking-widest text-blue-400">

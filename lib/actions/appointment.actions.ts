@@ -133,7 +133,7 @@ export async function getPendingAppointmentsForFacility(): Promise<{ success: bo
  * Scoped receptionist action to update appointment status.
  * Engages a sequential logic for "ARRIVED" to check-in patient to queue.
  */
-export async function updateAppointmentStatus(appointmentId: string, status: "SCHEDULED" | "CANCELLED" | "ARRIVED"): Promise<{ success: boolean; error?: string }> {
+export async function updateAppointmentStatus(appointmentId: string, status: "SCHEDULED" | "CANCELLED" | "ARRIVED" | "TRIAGED" | "IN_CONSULTATION"): Promise<{ success: boolean; error?: string }> {
   try {
     if (status === "ARRIVED") {
       // Run sequentially inside a safe transaction context
@@ -184,13 +184,13 @@ export async function updateAppointmentStatus(appointmentId: string, status: "SC
         return { success: true };
       });
     } else {
-      // Normal status update (SCHEDULED or CANCELLED)
+      // Normal status update (SCHEDULED, CANCELLED, TRIAGED, or IN_CONSULTATION)
       await prisma.appointment.update({
         where: {
           id: appointmentId,
         },
         data: {
-          status,
+          status: status as any,
         },
       });
 
@@ -199,5 +199,33 @@ export async function updateAppointmentStatus(appointmentId: string, status: "SC
   } catch (error: any) {
     console.error("[updateAppointmentStatus] Error:", error);
     return { success: false, error: error.message || "Failed to update appointment status." };
+  }
+}
+
+/**
+ * transitionToConsultation
+ * Transitions an appointment to IN_CONSULTATION and registers the doctor.
+ */
+export async function transitionToConsultation(appointmentId: string, doctorId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    if (!appointmentId || !doctorId) {
+      throw new Error("Missing appointmentId or doctorId.");
+    }
+
+    await prisma.appointment.update({
+      where: {
+        id: appointmentId,
+      },
+      data: {
+        status: "IN_CONSULTATION",
+        doctorId,
+      },
+    });
+
+    revalidatePath(`/doctor/dashboard`);
+    return { success: true };
+  } catch (error: any) {
+    console.error("[transitionToConsultation] Error:", error);
+    return { success: false, error: error.message || "Failed to transition appointment." };
   }
 }

@@ -13,9 +13,10 @@ interface CarouselItem {
 
 interface LandingCarouselProps {
   items: CarouselItem[];
+  children?: React.ReactNode;
 }
 
-export default function LandingCarousel({ items }: LandingCarouselProps) {
+export default function LandingCarousel({ items, children }: LandingCarouselProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -23,7 +24,7 @@ export default function LandingCarousel({ items }: LandingCarouselProps) {
     stopTimer();
     timerRef.current = setInterval(() => {
       setCurrentIndex((prevIndex) => (prevIndex + 1) % items.length);
-    }, 5000); // Auto-play cycle of 5 seconds
+    }, 6000); // Auto-play cycle of 6 seconds
   };
 
   const stopTimer = () => {
@@ -59,7 +60,7 @@ export default function LandingCarousel({ items }: LandingCarouselProps) {
 
   return (
     <div
-      className="w-full max-w-6xl md:max-w-7xl mx-auto rounded-2xl shadow-2xl aspect-[16/8] md:aspect-[21/9] object-cover overflow-hidden border border-neutral-800 relative group bg-neutral-950"
+      className="w-full h-[calc(100vh-4rem)] relative group bg-neutral-950 overflow-hidden"
       onMouseEnter={stopTimer}
       onMouseLeave={startTimer}
     >
@@ -74,54 +75,67 @@ export default function LandingCarousel({ items }: LandingCarouselProps) {
                 isActive ? "opacity-100 z-10" : "opacity-0 z-0"
               }`}
             >
+              {/* Slide image with slow zoom animation */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={item.imageUrl}
                 alt={item.altText}
-                className="object-cover w-full h-full"
+                className={`object-cover w-full h-full transition-transform duration-[8000ms] ease-out ${
+                  isActive ? "scale-105" : "scale-100"
+                }`}
                 onError={(e) => {
-                  // If image fails, show an icon / gradient fallback
                   (e.target as HTMLElement).style.display = "none";
                 }}
               />
 
-              {/* Gradient Overlay for Text */}
-              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950/90 via-neutral-950/20 to-transparent" />
+              {/* Overlay for text readability (clear, crisp, rich gradient) */}
+              <div className="absolute inset-0 bg-gradient-to-t from-neutral-950 via-neutral-950/20 to-transparent z-10" />
 
               {/* Text content overlay */}
-              <div className="absolute bottom-6 left-6 right-6 md:bottom-8 md:left-8 md:right-8 text-left z-20">
-                {item.title && (
-                  <h3 className="text-lg md:text-xl font-extrabold text-white mb-1.5 drop-shadow-md">
-                    {item.title}
-                  </h3>
-                )}
-                {item.description && (
-                  <p className="text-xs md:text-sm text-neutral-300 font-medium max-w-xl drop-shadow">
-                    {item.description}
-                  </p>
-                )}
+              <div className="absolute inset-x-0 bottom-44 sm:bottom-48 md:bottom-56 z-20 px-4 md:px-8 text-center flex flex-col items-center">
+                <div className={`max-w-3xl space-y-3 transition-all duration-1000 transform ${isActive ? "translate-y-0 opacity-100" : "translate-y-4 opacity-0"}`}>
+                  {item.title && (
+                    <h3 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white tracking-tight drop-shadow-lg">
+                      {item.title}
+                    </h3>
+                  )}
+                  {item.description && (
+                    <p className="text-sm sm:text-base md:text-lg text-neutral-200 max-w-2xl mx-auto font-semibold drop-shadow">
+                      {item.description}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
       </div>
 
-      {/* Navigation arrows (shown on group-hover) */}
+      {/* Children overlay for action buttons and trust badges */}
+      {children && (
+        <div className="absolute inset-x-0 bottom-12 z-20 pointer-events-none flex justify-center">
+          <div className="w-full max-w-4xl px-4 pointer-events-auto">
+            {children}
+          </div>
+        </div>
+      )}
+
+      {/* Navigation arrows */}
       {items.length > 1 && (
         <>
           <button
             onClick={handlePrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 bg-neutral-900/60 hover:bg-neutral-800 text-white p-2 rounded-full border border-neutral-800 opacity-0 group-hover:opacity-100 transition duration-300"
+            className="absolute left-6 top-1/2 -translate-y-1/2 z-30 bg-neutral-900/80 hover:bg-neutral-850 hover:text-blue-400 text-white p-3 rounded-full border border-neutral-800 opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-xl cursor-pointer"
             aria-label="Previous slide"
           >
-            <ChevronLeft className="w-4 h-4 md:w-5 md:h-5" />
+            <ChevronLeft className="w-6 h-6" />
           </button>
           <button
             onClick={handleNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 bg-neutral-900/60 hover:bg-neutral-800 text-white p-2 rounded-full border border-neutral-800 opacity-0 group-hover:opacity-100 transition duration-300"
+            className="absolute right-6 top-1/2 -translate-y-1/2 z-30 bg-neutral-900/80 hover:bg-neutral-850 hover:text-blue-400 text-white p-3 rounded-full border border-neutral-800 opacity-0 group-hover:opacity-100 transition-all duration-300 shadow-xl cursor-pointer"
             aria-label="Next slide"
           >
-            <ChevronRight className="w-4 h-4 md:w-5 md:h-5" />
+            <ChevronRight className="w-6 h-6" />
           </button>
         </>
       )}
@@ -133,9 +147,9 @@ export default function LandingCarousel({ items }: LandingCarouselProps) {
             <button
               key={index}
               onClick={() => handleDotClick(index)}
-              className={`w-2 h-2 rounded-full transition-all duration-300 ${
+              className={`w-2 h-2 rounded-full transition-all duration-300 cursor-pointer ${
                 index === currentIndex
-                  ? "bg-blue-500 w-5"
+                  ? "bg-blue-500 w-6"
                   : "bg-neutral-600 hover:bg-neutral-400"
               }`}
               aria-label={`Go to slide ${index + 1}`}

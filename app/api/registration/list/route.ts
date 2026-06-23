@@ -97,6 +97,7 @@ export async function GET(req: NextRequest) {
       include: {
         patient: {
           select: {
+            id: true,
             fullName: true,
             healthId: true,
             sex: true,
@@ -104,10 +105,12 @@ export async function GET(req: NextRequest) {
             phoneNumber: true,
           },
         },
+        assignedWard: true,
       },
     });
 
-    const upcomingAppointments = rawUpcomingAppointments.map((app) => {
+    const upcomingAppointments = [];
+    for (const app of rawUpcomingAppointments) {
       const dateObj = new Date(app.dateTime);
       const formattedTime = dateObj.toLocaleTimeString("en-US", {
         hour: "2-digit",
@@ -115,14 +118,42 @@ export async function GET(req: NextRequest) {
         hour12: true,
       });
 
-      return {
+      let queuePosition = 1;
+      if (app.assignedWardId) {
+        const startOfDay = new Date(app.dateTime);
+        startOfDay.setUTCHours(0, 0, 0, 0);
+        const endOfDay = new Date(app.dateTime);
+        endOfDay.setUTCHours(23, 59, 59, 999);
+
+        queuePosition = await prisma.appointment.count({
+          where: {
+            assignedWardId: app.assignedWardId,
+            dateTime: {
+              gte: startOfDay,
+              lte: endOfDay,
+            },
+            status: {
+              not: "CANCELLED",
+            },
+            createdAt: {
+              lte: app.createdAt,
+            },
+          },
+        });
+      }
+
+      upcomingAppointments.push({
         id: app.id,
         appointmentTime: formattedTime,
         requestedService: app.department,
         status: app.status === "PENDING_CONFIRMATION" ? "PENDING" : app.status === "SCHEDULED" ? "CONFIRMED" : app.status,
         patient: app.patient,
-      };
-    });
+        chiefComplaints: app.chiefComplaints || "",
+        assignedWardId: app.assignedWardId,
+        assignedWard: app.assignedWard,
+        queuePosition: queuePosition || 1,
+      });
+    }
 
     return NextResponse.json({
       success: true,

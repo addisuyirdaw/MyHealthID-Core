@@ -699,17 +699,21 @@ export default function RegisterPage() {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <button
                     type="button"
-                    onClick={() => { resetIdentityState(); setEmergencyFastPath(false); setIdentityMode("FAYDA"); }}
-                    className="group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-blue-900/50 bg-blue-950/20 hover:bg-blue-950/40 hover:border-blue-500 transition-all duration-200 text-left"
+                    onClick={() => {}}
+                    className="relative group flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-blue-900/20 bg-blue-950/10 opacity-60 pointer-events-none cursor-not-allowed text-left w-full transition-all duration-200"
                   >
-                    <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center shadow-md group-hover:scale-110 transition-transform">
+                    <span className="absolute top-3 right-3 bg-slate-800 text-slate-400 border border-slate-700/55 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-md">
+                      {language === "AM" ? "በቅርቡ የሚጠበቅ" : "Coming Soon"}
+                    </span>
+                    <div className="w-12 h-12 rounded-full bg-blue-600/50 text-slate-300 flex items-center justify-center shadow-md">
                       <IdCard className="w-6 h-6" />
                     </div>
                     <div className="text-center">
-                      <p className="font-bold text-blue-200">{t.registration.faydaIdTitle}</p>
-                      <p className="text-xs text-blue-400 mt-0.5">{t.registration.faydaIdDesc}</p>
+                      <p className="font-bold text-blue-300">{t.registration.faydaIdTitle}</p>
+                      <p className="text-xs text-blue-500 mt-0.5">{t.registration.faydaIdDesc}</p>
                     </div>
                   </button>
+
                   {allowNoId ? (
                     <button
                       type="button"

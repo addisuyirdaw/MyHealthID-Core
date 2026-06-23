@@ -2,9 +2,13 @@ import prisma from "@/lib/prisma";
 import { CROSS_FACILITY } from "@/lib/utils/tenantContext";
 import React from "react";
 import { notFound } from "next/navigation";
+import { cookies } from "next/headers";
 import DoctorPatientChart from "@/components/DoctorPatientChart";
 
 export default async function DoctorPatientView({ params }: { params: { id: string } }) {
+  const cookieStore = cookies();
+  const userId = cookieStore.get("userId")?.value || "";
+
   // CROSS_FACILITY: a doctor may open a chart for a patient who was registered
   // at a different facility (cross-facility referral / transfer scenario).
   // The CROSS_FACILITY spread injects __bypassTenantFilter: true which is
@@ -19,10 +23,16 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
       investigations: { orderBy: { createdAt: 'desc' } },
       prescriptions:  { orderBy: { createdAt: 'desc' } },
       clinicalExam:   true,
+      appointments: {
+        where: { status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION"] } },
+        orderBy: { dateTime: "desc" },
+        take: 1,
+        include: { assignedWard: true },
+      },
     }
   });
 
   if (!patient) return notFound();
 
-  return <DoctorPatientChart patient={patient} />;
+  return <DoctorPatientChart patient={patient} currentUserId={userId} />;
 }

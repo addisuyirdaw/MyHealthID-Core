@@ -40,6 +40,46 @@ function TriageBadge({ status }: { status: string }) {
   );
 }
 
+function AcuityPill({ patient }: { patient: any }) {
+  const status = patient.triageStatus;
+  const priority = patient.priorityLevel;
+  const score = patient.aiPriorityScore;
+
+  let label = "Awaiting Triage";
+  let badgeCls = "bg-neutral-800 text-neutral-400 border-neutral-700";
+  let dotCls = "bg-neutral-500";
+
+  if (status === "RED" || priority === "EMERGENCY") {
+    label = "Critical";
+    badgeCls = "bg-red-950/50 text-red-300 border-red-500/30";
+    dotCls = "bg-red-400 animate-pulse";
+  } else if (status === "YELLOW") {
+    if (priority === "URGENT" || (score !== null && score >= 50)) {
+      label = "Urgent";
+      badgeCls = "bg-orange-950/50 text-orange-300 border-orange-500/30";
+      dotCls = "bg-orange-500";
+    } else {
+      label = "Guarded";
+      badgeCls = "bg-amber-950/50 text-amber-300 border-amber-500/30";
+      dotCls = "bg-amber-400";
+    }
+  } else if (status === "GREEN" || priority === "ROUTINE") {
+    label = "Stable/Normal";
+    badgeCls = "bg-emerald-950/50 text-emerald-300 border-emerald-500/30";
+    dotCls = "bg-emerald-400";
+  }
+
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold border ${badgeCls}`}>
+      <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${dotCls}`} />
+      {label}
+      {score !== null && score !== undefined && (
+        <span className="text-[9px] opacity-70 ml-0.5 font-mono">({Math.round(score)})</span>
+      )}
+    </span>
+  );
+}
+
 function StatusBadge({ examStatus }: { examStatus: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     PENDING:              { label: "Pending",      cls: "bg-neutral-800 text-neutral-400 border-neutral-700" },
@@ -115,11 +155,13 @@ export default function DoctorDashboardClient({
   role,
   facilityName,
   userName,
+  currentUserId,
 }: {
   initialPatients: Patient[];
   role: string;
   facilityName: string;
   userName: string;
+  currentUserId?: string;
 }) {
   const router = useRouter();
   const [patients, setPatients] = useState<Patient[]>(initialPatients);
@@ -558,21 +600,36 @@ export default function DoctorDashboardClient({
               <tbody className="divide-y divide-neutral-800/40">
                 {filteredPatients.map((patient, idx) => {
                   const latestVital = patient.vitals?.[0];
-                  const cfg = TRIAGE_CONFIG[patient.triageStatus] || TRIAGE_CONFIG["WAITING_FOR_TRIAGE"];
                   const hasActiveLab = patient.investigations?.some((i: any) => i.status === "PENDING");
                   const hasResults = patient.investigations?.some((i: any) => i.status === "COMPLETED");
                   const isRed = patient.triageStatus === "RED";
 
+                  // ── Optimistic UI Lockout ─────────────────────────────────
+                  // If this patient's active appointment is IN_CONSULTATION by
+                  // a different doctor, lock the row so it cannot be claimed.
+                  const activeAppt = patient.appointments?.[0];
+                  const isLockedByOther =
+                    activeAppt?.status === "IN_CONSULTATION" &&
+                    activeAppt?.doctorId &&
+                    activeAppt.doctorId !== currentUserId;
+                  const isOwnConsultation =
+                    activeAppt?.status === "IN_CONSULTATION" &&
+                    activeAppt?.doctorId === currentUserId;
+
                   return (
                     <tr
                       key={patient.id}
-                      onClick={() => router.push(`/doctor/patient/${patient.id}`)}
-                      className={`cursor-pointer transition-colors duration-150 ${
-                        isRed
-                          ? "bg-red-950/10 border-l-2 border-l-red-500 hover:bg-red-950/20"
+                      onClick={() => !isLockedByOther && router.push(`/doctor/patient/${patient.id}`)}
+                      className={`transition-colors duration-150 ${
+                        isLockedByOther
+                          ? "opacity-50 cursor-not-allowed bg-neutral-900/60 border-l-2 border-l-neutral-700"
+                          : isOwnConsultation
+                          ? "cursor-pointer bg-blue-950/10 border-l-2 border-l-blue-500 hover:bg-blue-950/20"
+                          : isRed
+                          ? "cursor-pointer bg-red-950/10 border-l-2 border-l-red-500 hover:bg-red-950/20"
                           : patient.triageStatus === "YELLOW"
-                          ? "border-l-2 border-l-amber-500 hover:bg-amber-950/10"
-                          : "border-l-2 border-l-transparent hover:bg-neutral-800/20"
+                          ? "cursor-pointer border-l-2 border-l-amber-500 hover:bg-amber-950/10"
+                          : "cursor-pointer border-l-2 border-l-transparent hover:bg-neutral-800/20"
                       }`}
                     >
                       {/* # */}
@@ -610,9 +667,9 @@ export default function DoctorDashboardClient({
                         <span className="text-amber-300/80 text-[11px] truncate block">{patient.chiefComplaint || "—"}</span>
                       </td>
 
-                      {/* Triage */}
+                      {/* Triage — now uses AcuityPill for richer urgency levels */}
                       <td className="px-3 py-3 whitespace-nowrap">
-                        <TriageBadge status={patient.triageStatus} />
+                        <AcuityPill patient={patient} />
                       </td>
 
                       {/* Vitals */}
@@ -636,7 +693,18 @@ export default function DoctorDashboardClient({
                       {/* Status */}
                       <td className="px-3 py-3 whitespace-nowrap">
                         <div className="flex flex-col gap-1">
-                          <StatusBadge examStatus={patient.examStatus} />
+                          {/* Show IN_CONSULTATION badge when applicable */}
+                          {isLockedByOther ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-red-900/40 text-red-300 border-red-500/30">
+                              In Consultation
+                            </span>
+                          ) : isOwnConsultation ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border bg-blue-900/40 text-blue-300 border-blue-500/30 animate-pulse">
+                              Your Consultation
+                            </span>
+                          ) : (
+                            <StatusBadge examStatus={patient.examStatus} />
+                          )}
                           <div className="flex gap-1">
                             {hasActiveLab && (
                               <span className="inline-flex items-center gap-0.5 text-[9px] text-amber-400">
@@ -659,12 +727,21 @@ export default function DoctorDashboardClient({
 
                       {/* Action */}
                       <td className="px-3 py-3 whitespace-nowrap">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); router.push(`/doctor/patient/${patient.id}`); }}
-                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold rounded-lg transition-all"
-                        >
-                          Open <ChevronRight className="w-3 h-3" />
-                        </button>
+                        {isLockedByOther ? (
+                          <button
+                            disabled
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-neutral-800 text-neutral-500 text-[11px] font-semibold rounded-lg cursor-not-allowed border border-neutral-700"
+                          >
+                            🔒 Locked
+                          </button>
+                        ) : (
+                          <button
+                            onClick={(e) => { e.stopPropagation(); router.push(`/doctor/patient/${patient.id}`); }}
+                            className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-semibold rounded-lg transition-all"
+                          >
+                            Open <ChevronRight className="w-3 h-3" />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

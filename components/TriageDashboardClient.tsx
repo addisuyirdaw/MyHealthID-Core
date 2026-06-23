@@ -7,7 +7,7 @@ import {
   Stethoscope, User, AlertTriangle, CheckCircle2, ShieldAlert,
   Thermometer, Heart, Droplets, Wind, ShieldCheck,
   FlameKindling, FileText, Send, Printer, RefreshCw, X,
-  ChevronRight, Bell, Hospital, LogOut, Phone,
+  ChevronRight, Bell, Hospital, LogOut, Phone, MessageSquare,
 } from "lucide-react";
 import { processTriage, recordVitals, updatePatientPhoneByStaff } from "@/lib/actions/patient.actions";
 import { logoutUser } from "@/lib/actions/auth.actions";
@@ -872,6 +872,49 @@ export default function TriageDashboardClient({
                   </div>
                 </div>
               </section>
+
+              {/* ── A½. PATIENT REPORTED INTAKE SUMMARY ── */}
+              {(() => {
+                const intake = (selectedPatient as any)?.appointments?.[0];
+                if (!intake) return null;
+                return (
+                  <section className="bg-gradient-to-br from-indigo-950/40 to-violet-950/30 border border-indigo-500/25 rounded-xl p-4">
+                    <h3 className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 mb-3 flex items-center gap-1.5">
+                      <MessageSquare className="w-3 h-3" /> Patient Reported Intake Summary
+                    </h3>
+                    <div className="space-y-3">
+                      {intake.chiefComplaints && (
+                        <div>
+                          <p className="text-[9px] uppercase tracking-widest text-indigo-500/70 font-bold mb-1">Self-Reported Chief Complaints</p>
+                          <p className="text-xs text-indigo-100 leading-relaxed bg-indigo-950/40 border border-indigo-500/20 rounded-lg p-3 italic">
+                            "{intake.chiefComplaints}"
+                          </p>
+                        </div>
+                      )}
+                      <div className="grid grid-cols-2 gap-2 pt-1">
+                        {intake.assignedWard && (
+                          <div className="bg-indigo-950/30 border border-indigo-500/20 rounded-lg p-2.5">
+                            <p className="text-[9px] uppercase tracking-widest text-indigo-500/70 font-bold mb-0.5">Assigned Ward</p>
+                            <p className="text-xs font-bold text-indigo-200">{intake.assignedWard.name}</p>
+                            <p className="text-[9px] font-mono text-indigo-500">{intake.assignedWard.code}</p>
+                          </div>
+                        )}
+                        {intake.dateTime && (
+                          <div className="bg-indigo-950/30 border border-indigo-500/20 rounded-lg p-2.5">
+                            <p className="text-[9px] uppercase tracking-widest text-indigo-500/70 font-bold mb-0.5">Appointment Time</p>
+                            <p className="text-xs font-bold text-indigo-200">
+                              {new Date(intake.dateTime).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                            </p>
+                            <p className="text-[9px] text-indigo-500">
+                              {new Date(intake.dateTime).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </section>
+                );
+              })()}
 
               {/* ── B. VITAL SIGNS ── */}
               <section className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">

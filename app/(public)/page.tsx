@@ -4,14 +4,12 @@ export const revalidate = 0;
 import prisma from "@/lib/prisma";
 import Link from "next/link";
 import { 
-  HeartPulse, 
   ShieldCheck, 
   Users, 
   Building, 
   Mail, 
   Phone, 
-  MapPin,
-  Globe
+  MapPin
 } from "lucide-react";
 import { LocalizedText } from "@/components/LocalizedText";
 import { getLandingMedia } from "@/lib/actions/media.actions";
@@ -61,67 +59,49 @@ export default async function Home() {
   return (
     <div className="bg-neutral-950 text-neutral-100 flex flex-col justify-center relative overflow-hidden">
       
-      {/* Ambient glow blobs */}
-      <div className="pointer-events-none absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-blue-600/8 blur-[120px]" />
-      <div className="pointer-events-none absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-emerald-600/8 blur-[120px]" />
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full bg-blue-900/5 blur-[100px]" />
+      {/* Ambient glow blobs - softened and pushed back */}
+      <div className="pointer-events-none absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-blue-600/4 blur-[140px] z-0" />
+      <div className="pointer-events-none absolute -bottom-40 -right-40 w-[600px] h-[600px] rounded-full bg-emerald-600/4 blur-[140px] z-0" />
+      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[400px] rounded-full bg-blue-900/3 blur-[120px] z-0" />
 
-      {/* Hero / Main Marketing Section */}
-      <section className="max-w-7xl mx-auto px-4 md:px-8 w-full relative z-10 py-16 md:py-24 text-center space-y-12">
-        
-        {/* Hero headline & badge */}
-        <div className="space-y-6 max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-xs font-bold text-blue-400">
-            <Globe className="w-3.5 h-3.5 animate-pulse" />
-            <span>Ethiopian Digital Health Initiative</span>
+      {/* Hero / Main Marketing Section — presentation-optimised layout */}
+      <section className="w-full relative z-10">
+        <LandingCarousel items={carouselItems}>
+          {/* Unified System Actions Button Group — overlayed on the carousel */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-3xl mx-auto">
+            <Link href="/register" className="w-full sm:w-auto">
+              <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
+                <Users className="w-4.5 h-4.5 text-blue-500" />
+                <LocalizedText tKey="landing.registerCitizen" />
+              </button>
+            </Link>
+            <Link href="/login" className="w-full sm:w-auto">
+              <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
+                <ShieldCheck className="w-4.5 h-4.5 text-emerald-500" />
+                Portal Sign In
+              </button>
+            </Link>
+            <Link href="/register-facility" className="w-full sm:w-auto">
+              <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
+                <Building className="w-4.5 h-4.5 text-purple-500" />
+                Onboard Hospital
+              </button>
+            </Link>
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-none">
-            <LocalizedText tKey="landing.title" />
-          </h1>
-          <p className="text-lg md:text-xl text-neutral-400 font-medium max-w-2xl mx-auto leading-relaxed">
-            <LocalizedText tKey="landing.subtitle" />
-          </p>
-        </div>
 
-        {/* Unified System Actions Button Group */}
-        <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-3xl mx-auto pt-2 pb-6">
-          <Link href="/register" className="w-full sm:w-auto">
-            <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900 border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-lg active:scale-95 cursor-pointer">
-              <Users className="w-4.5 h-4.5 text-blue-500" />
-              <LocalizedText tKey="landing.registerCitizen" />
-            </button>
-          </Link>
-          <Link href="/login" className="w-full sm:w-auto">
-            <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900 border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-lg active:scale-95 cursor-pointer">
-              <ShieldCheck className="w-4.5 h-4.5 text-emerald-500" />
-              Portal Sign In
-            </button>
-          </Link>
-          <Link href="/register-facility" className="w-full sm:w-auto">
-            <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900 border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-lg active:scale-95 cursor-pointer">
-              <Building className="w-4.5 h-4.5 text-purple-500" />
-              Onboard Hospital
-            </button>
-          </Link>
-        </div>
-
-        {/* Interactive Image Carousel */}
-        <div className="my-10 w-full max-w-6xl md:max-w-7xl mx-auto">
-          <LandingCarousel items={carouselItems} />
-        </div>
-
-        {/* Trust badges */}
-        <div className="flex items-center justify-center gap-6 pt-4 flex-wrap">
-          {[
-            { label: "Fayda-Integrated", color: "text-blue-400" },
-            { label: "HIPAA-Aligned", color: "text-emerald-400" },
-            { label: "Multi-Lingual", color: "text-purple-400" },
-          ].map(({ label, color }) => (
-            <span key={label} className={`text-[11px] font-bold ${color} flex items-center gap-1`}>
-              <ShieldCheck className="w-3.5 h-3.5" /> {label}
-            </span>
-          ))}
-        </div>
+          {/* Trust badges */}
+          <div className="flex items-center justify-center gap-6 pt-5 flex-wrap">
+            {[
+              { label: "Fayda-Integrated", color: "text-blue-400" },
+              { label: "HIPAA-Aligned", color: "text-emerald-400" },
+              { label: "Multi-Lingual", color: "text-purple-400" },
+            ].map(({ label, color }) => (
+              <span key={label} className={`text-[11px] font-bold ${color} flex items-center gap-1 bg-neutral-950/60 backdrop-blur-sm px-3 py-1 rounded-full border border-neutral-800/40`}>
+                <ShieldCheck className="w-3.5 h-3.5" /> {label}
+              </span>
+            ))}
+          </div>
+        </LandingCarousel>
       </section>
 
       {/* Below-the-fold Content Sections */}
