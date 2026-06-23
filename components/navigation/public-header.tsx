@@ -1,11 +1,20 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { Menu, X, ShieldCheck, LayoutDashboard, UserCheck, BotMessageSquare } from "lucide-react";
+import { 
+  ChevronDown, 
+  Globe, 
+  Menu, 
+  X, 
+  ShieldCheck, 
+  LayoutDashboard, 
+  UserCheck, 
+  Building,
+  Users
+} from "lucide-react";
 import { LogoIcon } from "@/components/LogoIcon";
 import { useLanguage } from "@/components/LanguageProvider";
-import { useChatContext } from "@/components/ai/chat-context";
 
 interface PublicHeaderProps {
   userRole?: string;
@@ -14,22 +23,34 @@ interface PublicHeaderProps {
 
 export default function PublicHeader({ userRole, citizenPatientId }: PublicHeaderProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isMobileAccordionOpen, setIsMobileAccordionOpen] = useState(false);
+  
   const { language, setLanguage } = useLanguage();
-  const { openChat } = useChatContext();
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const toggleMenu = () => setIsOpen(!isOpen);
+
+  // Close dropdown on click outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   // Localized navigation items
   const navItems = [
     { label: language === "EN" ? "Home" : "መነሻ", href: "/" },
-    { label: language === "EN" ? "About" : "ስለ እኛ", href: "/#about" },
-    { label: language === "EN" ? "Our Services" : "አገልግሎቶቻችን", href: "/#services" },
-    { label: language === "EN" ? "System Scope" : "የስርዓት ይዘት", href: "/#scope" },
-    { label: language === "EN" ? "Contact" : "እውቂያ", href: "/#contact" },
+    { label: language === "EN" ? "About Us" : "ስለ እኛ", href: "/#about" },
+    { label: language === "EN" ? "Contact Us" : "እውቂያ", href: "/#contact" },
   ];
 
   // Dynamic Login / Dashboard Button Logic
-  let loginButtonLabel = language === "EN" ? "Portal Login" : "ፖርታል ግባ";
+  let loginButtonLabel = language === "EN" ? "Portal Sign In" : "ፖርታል ግባ";
   let loginButtonHref = "/login";
   let LoginIcon = ShieldCheck;
 
@@ -40,7 +61,7 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
       LoginIcon = UserCheck;
     } else {
       loginButtonLabel = language === "EN" ? "Dashboard" : "ዳሽቦርድ";
-      loginButtonHref = "/portal"; // Staff lands on portal, then picks their login
+      loginButtonHref = "/portal";
       LoginIcon = LayoutDashboard;
     }
   }
@@ -59,7 +80,7 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
           </span>
         </Link>
 
-        {/* Desktop Navigation Links */}
+        {/* Desktop Navigation links & Portal dropdown */}
         <nav className="hidden md:flex items-center gap-8">
           {navItems.map((item) => (
             <Link
@@ -70,11 +91,50 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
               {item.label}
             </Link>
           ))}
+
+          {/* Access Portals Dropdown */}
+          <div className="relative" ref={dropdownRef}>
+            <button
+              onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+              onMouseEnter={() => setIsDropdownOpen(true)}
+              className="flex items-center gap-1.5 text-sm font-semibold text-neutral-400 hover:text-white transition duration-205 cursor-pointer"
+            >
+              <span>{language === "EN" ? "Access Portals" : "ፖርታል ግባ"}</span>
+              <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+            </button>
+
+            {/* Dropdown Panel */}
+            {isDropdownOpen && (
+              <div 
+                className="absolute left-0 mt-2.5 w-56 rounded-xl bg-neutral-900 border border-neutral-800 shadow-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-205"
+                onMouseLeave={() => setIsDropdownOpen(false)}
+              >
+                <Link href="/register" className="block">
+                  <span className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer">
+                    <Users className="w-4 h-4 text-blue-500" />
+                    Register Citizen
+                  </span>
+                </Link>
+                <Link href="/register-facility" className="block">
+                  <span className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-neutral-300 hover:text-white hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer">
+                    <Building className="w-4 h-4 text-purple-500" />
+                    Onboard Hospital
+                  </span>
+                </Link>
+                <div className="border-t border-neutral-800 my-1.5" />
+                <Link href={loginButtonHref} className="block">
+                  <span className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-neutral-200 hover:text-white hover:bg-blue-600/90 rounded-lg transition-colors cursor-pointer">
+                    <LoginIcon className="w-4 h-4 text-emerald-500" />
+                    {loginButtonLabel}
+                  </span>
+                </Link>
+              </div>
+            )}
+          </div>
         </nav>
 
-        {/* Desktop Actions */}
+        {/* Desktop Language Selector */}
         <div className="hidden md:flex items-center gap-3">
-          {/* Custom Sleek Language Selector */}
           <div className="flex bg-neutral-900 border border-neutral-800 p-0.5 rounded-lg">
             <button
               onClick={() => setLanguage("EN")}
@@ -97,129 +157,84 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
               አማርኛ
             </button>
           </div>
-
-          {/* AI Assistant Header Trigger */}
-          <button
-            id="header-ai-assistant-btn"
-            onClick={openChat}
-            className="flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold bg-gradient-to-r from-violet-600 to-blue-600 hover:opacity-90 text-white rounded-lg transition-all shadow-md active:scale-95 cursor-pointer"
-            aria-label="Open AI Assistant"
-          >
-            <BotMessageSquare className="w-3.5 h-3.5" />
-            AI Assistant
-          </button>
-
-          {/* Unified System Actions Button Group */}
-          <div className="flex bg-neutral-900 border border-neutral-800 p-0.5 rounded-lg gap-1">
-            <Link href="/register">
-              <button className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-transparent text-neutral-400 hover:text-white hover:bg-neutral-800 transition-all cursor-pointer">
-                Register Citizen
-              </button>
-            </Link>
-            <Link href="/register-facility">
-              <button className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-transparent text-neutral-400 hover:text-white hover:bg-neutral-800 transition-all cursor-pointer">
-                Onboard Hospital
-              </button>
-            </Link>
-            <Link href={loginButtonHref}>
-              <button className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-transparent text-neutral-400 hover:text-white hover:bg-neutral-800 transition-all cursor-pointer">
-                {loginButtonLabel}
-              </button>
-            </Link>
-          </div>
         </div>
 
-        {/* Mobile Hamburger Toggle */}
-        <button
-          onClick={toggleMenu}
-          className="md:hidden p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-900 transition"
-          aria-label="Toggle navigation menu"
-        >
-          {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
-        </button>
+        {/* Mobile Actions Zone (Language Switcher & Hamburger) */}
+        <div className="flex items-center gap-2.5 md:hidden">
+          {/* Small Language selector for Mobile */}
+          <div className="flex bg-neutral-900 border border-neutral-800 p-0.5 rounded-md text-[9px] font-bold">
+            <button 
+              onClick={() => setLanguage(language === "EN" ? "AM" : "EN")}
+              className="px-1.5 py-0.5 text-neutral-400 hover:text-white cursor-pointer"
+            >
+              {language}
+            </button>
+          </div>
+
+          <button
+            onClick={toggleMenu}
+            className="p-2 rounded-lg text-neutral-400 hover:text-white hover:bg-neutral-900 transition cursor-pointer"
+            aria-label="Toggle navigation menu"
+          >
+            {isOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
+        </div>
+
       </div>
 
       {/* Mobile Drawer Overlay & Content */}
-      <div
-        className={`fixed inset-x-0 top-16 z-40 w-full bg-neutral-950/95 backdrop-blur-md md:hidden transition-all duration-300 ease-in-out border-b border-neutral-900 ${
-          isOpen ? "h-[calc(100vh-4rem)] opacity-100 pointer-events-auto" : "h-0 opacity-0 pointer-events-none overflow-hidden"
-        }`}
-      >
-        <div className="flex flex-col p-6 space-y-6">
-          <nav className="flex flex-col space-y-4">
-            {navItems.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                onClick={() => setIsOpen(false)}
-                className="text-lg font-bold text-neutral-300 hover:text-white transition"
-              >
-                {item.label}
-              </Link>
-            ))}
-          </nav>
+      {isOpen && (
+        <div className="fixed inset-x-0 top-16 z-40 w-full bg-neutral-950/95 backdrop-blur-md md:hidden border-b border-neutral-900 animate-in fade-in duration-200">
+          <div className="flex flex-col p-6 space-y-6">
+            <nav className="flex flex-col space-y-4">
+              {navItems.map((item) => (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  onClick={() => setIsOpen(false)}
+                  className="text-lg font-bold text-neutral-300 hover:text-white transition"
+                >
+                  {item.label}
+                </Link>
+              ))}
 
-          <div className="border-t border-neutral-900 pt-6 flex flex-col gap-4">
-            {/* Language Selector */}
-            <div className="flex justify-between items-center bg-neutral-900 border border-neutral-800 p-1.5 rounded-xl">
-              <span className="text-xs font-bold text-neutral-400">
-                {language === "EN" ? "Select Language" : "ቋንቋ ይምረጡ"}
-              </span>
-              <div className="flex gap-1.5">
+              {/* Mobile Collapsible Accordion for Portals */}
+              <div className="border-t border-neutral-900 pt-4 space-y-3">
                 <button
-                  onClick={() => setLanguage("EN")}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    language === "EN"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-neutral-400"
-                  }`}
+                  onClick={() => setIsMobileAccordionOpen(!isMobileAccordionOpen)}
+                  className="flex items-center justify-between w-full text-left text-lg font-bold text-neutral-300 hover:text-white cursor-pointer"
                 >
-                  EN
+                  <span>{language === "EN" ? "Access Portals" : "ፖርታል ግባ"}</span>
+                  <ChevronDown className={`w-5 h-5 transition-transform duration-200 ${isMobileAccordionOpen ? "rotate-180" : ""}`} />
                 </button>
-                <button
-                  onClick={() => setLanguage("AM")}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all ${
-                    language === "AM"
-                      ? "bg-blue-600 text-white shadow-sm"
-                      : "text-neutral-400"
-                  }`}
-                >
-                  አማርኛ
-                </button>
+
+                {isMobileAccordionOpen && (
+                  <div className="pl-4 flex flex-col gap-3.5 pt-2 animate-in slide-in-from-top-1 duration-200">
+                    <Link href="/register" onClick={() => setIsOpen(false)}>
+                      <span className="flex items-center gap-2.5 text-sm font-semibold text-neutral-400 hover:text-white cursor-pointer">
+                        <Users className="w-4 h-4 text-blue-500" />
+                        Register Citizen
+                      </span>
+                    </Link>
+                    <Link href="/register-facility" onClick={() => setIsOpen(false)}>
+                      <span className="flex items-center gap-2.5 text-sm font-semibold text-neutral-400 hover:text-white cursor-pointer">
+                        <Building className="w-4 h-4 text-purple-500" />
+                        Onboard Hospital
+                      </span>
+                    </Link>
+                    <Link href={loginButtonHref} onClick={() => setIsOpen(false)}>
+                      <span className="flex items-center gap-2.5 text-sm font-semibold text-neutral-200 hover:text-white cursor-pointer">
+                        <LoginIcon className="w-4 h-4 text-emerald-500" />
+                        {loginButtonLabel}
+                      </span>
+                    </Link>
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* Mobile AI Assistant Button */}
-            <button
-              id="mobile-ai-assistant-btn"
-              onClick={() => { openChat(); setIsOpen(false); }}
-              className="w-full h-12 flex items-center justify-center gap-2 bg-gradient-to-r from-violet-600 to-blue-600 text-white font-bold rounded-xl transition shadow-lg shadow-violet-900/20"
-            >
-              <BotMessageSquare className="w-4 h-4" />
-              {language === "EN" ? "AI Assistant" : "AI ረዳት"}
-            </button>
-
-            <div className="flex flex-col gap-2">
-              <Link href="/register" onClick={() => setIsOpen(false)}>
-                <button className="w-full h-12 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-850 text-white font-bold rounded-xl border border-neutral-800 transition cursor-pointer">
-                  Register Citizen
-                </button>
-              </Link>
-              <Link href="/register-facility" onClick={() => setIsOpen(false)}>
-                <button className="w-full h-12 flex items-center justify-center gap-2 bg-neutral-900 hover:bg-neutral-850 text-white font-bold rounded-xl border border-neutral-800 transition cursor-pointer">
-                  Onboard Hospital
-                </button>
-              </Link>
-              <Link href={loginButtonHref} onClick={() => setIsOpen(false)}>
-                <button className="w-full h-12 flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition cursor-pointer">
-                  <LoginIcon className="w-4 h-4 text-white" />
-                  {loginButtonLabel}
-                </button>
-              </Link>
-            </div>
+            </nav>
           </div>
         </div>
-      </div>
+      )}
     </header>
   );
 }

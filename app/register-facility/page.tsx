@@ -12,6 +12,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/LanguageProvider";
 import { FACILITY_SERVICE_TYPE_KEYS, getFacilityServiceTypeTranslation } from "@/lib/locales/enums";
+import { EscapeHatch } from "@/components/navigation/EscapeHatch";
 
 export default function RegisterFacilityPage() {
   const router = useRouter();
@@ -79,9 +80,14 @@ export default function RegisterFacilityPage() {
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
+  // True when any registration field has been touched — triggers confirm() before exit
+  const isDirty = !!(officialName || facilityType || kilil || zone || woreda || kebele);
+
   if (success) {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-6 relative overflow-hidden">
+        {/* Escape hatch — post-success: no dirty guard needed */}
+        <EscapeHatch href="/login" label="Return to Login Hub" />
         {/* Background Gradients */}
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -229,6 +235,8 @@ export default function RegisterFacilityPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center py-12 px-6 relative overflow-hidden">
+      {/* Escape hatch — guarded when any field is populated */}
+      <EscapeHatch href="/login" label="Return to Login Hub" isDirty={isDirty} />
       {/* Dynamic Ambient Background */}
       <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-indigo-600/10 rounded-full blur-[120px] pointer-events-none" />

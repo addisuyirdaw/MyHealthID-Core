@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanSearch, AlertTriangle, ShieldAlert, ArrowRight } from "lucide-react";
+import { EscapeHatch } from "@/components/navigation/EscapeHatch";
 import { useLanguage } from "@/components/LanguageProvider";
 import dynamic from "next/dynamic";
 import { parseFaydaScanPayload } from "@/lib/fayda-scan";
@@ -590,6 +591,12 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 relative overflow-hidden flex items-center justify-center p-4">
+      {/* Escape hatch — clean exit at step 0, guarded once wizard is in progress */}
+      <EscapeHatch
+        href="/login"
+        label={identityMode === null ? "Return to Login Hub" : "Cancel Registration"}
+        isDirty={identityMode !== null}
+      />
       {/* Glow circles */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/5 blur-3xl pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[45%] h-[45%] rounded-full bg-indigo-500/5 blur-3xl pointer-events-none" />
