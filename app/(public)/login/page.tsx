@@ -294,6 +294,17 @@ function LoginForm() {
                     <p className="text-xs text-amber-200/50 leading-relaxed">
                       Once you have the passkey, log in with it and you will be prompted to set a new permanent password immediately.
                     </p>
+                    <p className="text-xs text-amber-200/70 leading-relaxed border-t border-amber-500/10 pt-3">
+                      If you forgot your password, you can contact the admin on Telegram:{" "}
+                      <a
+                        href="https://t.me/adlal1"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-amber-400 hover:text-amber-300 font-semibold underline"
+                      >
+                        @adlal1
+                      </a>
+                    </p>
                     <button
                       type="button"
                       onClick={() => setForgotMode(false)}

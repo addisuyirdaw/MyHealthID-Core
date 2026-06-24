@@ -1,6 +1,8 @@
 "use server";
 
 import prisma from "@/lib/prisma";
+import { revalidatePath } from "next/cache";
+import { cookies } from "next/headers";
 
 /**
  * Self-healing DB sync: Parses existing Organization name strings
@@ -201,3 +203,145 @@ export async function getCitizenProfile(patientId: string) {
     return { success: false, error: error.message };
   }
 }
+
+/**
+ * Fetches PENDING digital intake requests submitted by citizens targeting the given facility.
+ * If organizationId is empty, resolves it from the session cookie.
+ */
+export async function getPendingDigitalIntakes(organizationId: string): Promise<{
+  success: boolean;
+  intakes?: any[];
+  error?: string;
+}> {
+  try {
+    const cookieStore = await cookies();
+    const resolvedOrgId = organizationId || cookieStore.get("organizationId")?.value || null;
+    if (!resolvedOrgId) return { success: false, error: "Facility context missing." };
+
+    const intakes = await prisma.intakeRequest.findMany({
+      where: {
+        organizationId: resolvedOrgId,
+        status: "PENDING",
+      },
+      orderBy: { createdAt: "asc" },
+    });
+
+    return { success: true, intakes: JSON.parse(JSON.stringify(intakes)) };
+  } catch (error: any) {
+    console.error("[getPendingDigitalIntakes] Error:", error);
+    return { success: false, error: error.message || "Failed to fetch digital intakes." };
+  }
+}
+
+/**
+ * Confirms a digital intake check-in:
+ *   1. Marks the IntakeRequest status as CHECKED_IN.
+ *   2. Finds the patient by Fayda/national ID and links them to the facility.
+ *   3. Inserts them into the live triage queue (Queue record).
+ * If organizationId is empty, resolves it from the session cookie.
+ */
+export async function confirmDigitalIntakeCheckIn(
+  intakeId: string,
+  organizationId: string
+): Promise<{ success: boolean; patientId?: string; error?: string }> {
+  try {
+    const cookieStore = await cookies();
+    const resolvedOrgId = organizationId || cookieStore.get("organizationId")?.value || null;
+    if (!intakeId || !resolvedOrgId) throw new Error("Missing required fields.");
+
+    // 1. Load the intake record
+    const intake = await prisma.intakeRequest.findUnique({ where: { id: intakeId } });
+    if (!intake) throw new Error("Intake request not found.");
+    if (intake.status !== "PENDING") throw new Error("This intake request has already been processed.");
+
+    // 2. Find patient by nationalId / faydaId
+    const patient = await prisma.patient.findFirst({
+      where: {
+        OR: [
+          { nationalId: intake.nationalId },
+          { faydaId: intake.nationalId },
+        ],
+      },
+    });
+
+    if (!patient) {
+      throw new Error(
+        "No registered patient found matching this Fayda ID. Ask the patient to complete full registration first."
+      );
+    }
+
+    // 3. Run everything atomically
+    await prisma.$transaction(async (tx) => {
+      // a) Mark intake as CHECKED_IN
+      await tx.intakeRequest.update({
+        where: { id: intakeId },
+        data: { status: "CHECKED_IN" },
+      });
+
+      // b) Link patient to this facility and set triage status
+      await tx.patient.update({
+        where: { id: patient.id },
+        data: {
+          organizationId: resolvedOrgId,
+          status: "ACTIVE",
+          triageStatus: "WAITING_FOR_TRIAGE" as any,
+          examStatus: "PENDING",
+          chiefComplaint: intake.notes || patient.chiefComplaint || "Digital intake check-in",
+        },
+      });
+
+      // c) Insert into triage queue (upsert to avoid duplicates)
+      const existingQueue = await tx.queue.findFirst({ where: { patientId: patient.id, status: "WAITING" } });
+      if (!existingQueue) {
+        await tx.queue.create({
+          data: {
+            patientId: patient.id,
+            status: "WAITING",
+          },
+        });
+      }
+    });
+
+    revalidatePath("/reception");
+    revalidatePath("/triage");
+    revalidatePath("/receptionist");
+
+    return { success: true, patientId: patient.id };
+  } catch (error: any) {
+    console.error("[confirmDigitalIntakeCheckIn] Error:", error);
+    return { success: false, error: error.message || "Failed to process check-in." };
+  }
+}
+
+/**
+ * Fetches active screening questions and their options for a given organizationId.
+ */
+export async function getScreeningQuestions(organizationId: string) {
+  try {
+    if (!organizationId) {
+      return { success: true, questions: [] };
+    }
+    const questions = await prisma.screeningQuestion.findMany({
+      where: {
+        organizationId,
+        isActive: true,
+      },
+      include: {
+        options: {
+          orderBy: {
+            order: "asc",
+          },
+        },
+      },
+      orderBy: {
+        order: "asc",
+      },
+    });
+    return { success: true, questions: JSON.parse(JSON.stringify(questions)) };
+  } catch (error: any) {
+    console.error("[getScreeningQuestions] Error:", error);
+    return { success: false, error: error.message || "Failed to fetch screening questions." };
+  }
+}
+
+

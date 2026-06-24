@@ -684,6 +684,8 @@ model Organization {
   referralSummariesAsDestination ReferralSummary[] @relation("ReferralSummaryDestination")
   labRequests               LabRequest[]
   labTestTemplates           LabTestTemplate[]
+  clinicalWards              ClinicalWard[]
+  screeningQuestions        ScreeningQuestion[]
 }
 
 model Appointment {
@@ -701,6 +703,7 @@ model Appointment {
   chiefComplaints String?
   assignedWardId  String?           @map("assigned_ward_id")
   assignedWard    ClinicalWard?     @relation(fields: [assignedWardId], references: [id])
+  metadata        Json?
 
   @@index([facilityId, patientId])
   @@index([facilityId, status])
@@ -711,6 +714,9 @@ model ClinicalWard {
   id           String        @id @default(uuid()) @map("_id")
   name         String
   code         String        @unique
+  facilityId   String?       @map("facility_id")
+  facility     Organization? @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  type         String?
   appointments Appointment[]
   doctors      User[]
 }
@@ -732,18 +738,62 @@ model MedicalRecord {
 }
 
 model Department {
-  id             String           @id @default(uuid()) @map("_id")
-  organizationId String           @map("organization_id")
-  organization   Organization     @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  id             String            @id @default(uuid()) @map("_id")
+  organizationId String            @map("organization_id")
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   name           String
   nameLng        BilingualContent
   description    String?
   departmentCode String?
-  isActive       Boolean          @default(true)
-  createdAt      DateTime         @default(now())
+  isActive       Boolean           @default(true)
+  createdAt      DateTime          @default(now())
+  screeningOptions ScreeningOption[]
 
   @@unique([organizationId, name])
   @@index([organizationId])
+}
+
+// ─── Pre-Booking Symptom Screening Engine ────────────────────────────────────
+// Facility-scoped wizard questions shown to citizens before department selection.
+// Multi-tenant: always scoped to organizationId.
+// Bilingual: all labels stored in both English (en) and Amharic (am).
+
+model ScreeningQuestion {
+  id             String            @id @default(uuid()) @map("_id")
+  organizationId String            @map("organization_id")
+  organization   Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  /// Presentation order within the wizard (ascending)
+  order          Int               @default(0)
+  labelEn        String            @map("label_en")
+  labelAm        String            @map("label_am")
+  isActive       Boolean           @default(true) @map("is_active")
+  createdAt      DateTime          @default(now()) @map("created_at")
+  options        ScreeningOption[]
+
+  @@index([organizationId, isActive])
+  @@index([organizationId, order])
+  @@map("screening_questions")
+}
+
+model ScreeningOption {
+  id              String             @id @default(uuid()) @map("_id")
+  questionId      String             @map("question_id")
+  question        ScreeningQuestion  @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  labelEn         String             @map("label_en")
+  labelAm         String             @map("label_am")
+  /// When true: halt the booking wizard and display the Emergency Room redirect alert.
+  isEmergencyFlag Boolean            @default(false) @map("is_emergency_flag")
+  /// When set: auto-select this department string and skip department selection step.
+  /// Must match a value from the DEPARTMENTS constant in the client (free-text string).
+  autoSelectDepartment String?       @map("auto_select_department")
+  /// Presentation order within the question (ascending)
+  order           Int                @default(0)
+  /// Optional back-reference to a Department record for admin cross-referencing.
+  departmentId    String?            @map("department_id")
+  department      Department?        @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([questionId])
+  @@map("screening_options")
 }
 
 model Service {
@@ -945,5 +995,22 @@ model LandingMedia {
   @@map("landing_media")
 }
 
+// ─── Bilingual Carousel Slides ───────────────────────────────────────────────
+// System Administrator-managed bilingual hero slides shown on the public
+// landing page. Both English and Amharic text variants are stored directly
+// in each document to enable server-side locale switching without joins.
+model CarouselSlide {
+  id         String   @id @default(uuid()) @map("_id")
+  imageUrl   String
+  headingEn  String
+  headingAm  String
+  textEn     String
+  textAm     String
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
+  @@index([sortOrder])
+  @@map("carousel_slides")
+}
 

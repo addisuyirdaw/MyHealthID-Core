@@ -141,7 +141,8 @@ export default async function AdminDashboardPage() {
     { href: "/pharmacy",          label: "Pharmacy",           icon: Pill,          color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/20" },
     { href: "/doctor/dashboard/referrals", label: "Referral Summaries", icon: Send, color: "text-orange-400", bg: "bg-orange-500/10",  border: "border-orange-500/20" },
     { href: "/dashboard/settings/staff",   label: "Staff Onboarding",   icon: Users, color: "text-blue-400",  bg: "bg-blue-500/10",    border: "border-blue-500/20" },
-    { href: "/admin/media",       label: "Landing Carousel Manager", icon: ImageIcon, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
+    { href: "/admin/media",       label: "Media Gallery",      icon: ImageIcon, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
+    { href: "/admin/carousel",    label: "Carousel Slides",    icon: ImageIcon, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/20" },
   ];
 
   return (

@@ -11,8 +11,13 @@ import { cookies } from "next/headers";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MyHealthID - Patient Registration",
-  description: "Modern Health Information System Registration",
+  title: "MyHealthID - National Digital Health ID",
+  description: "Secure, verified national digital health identification for every Ethiopian citizen.",
+  icons: {
+    icon: "/icon.png",
+    shortcut: "/favicon.ico",
+    apple: "/apple-touch-icon.png",
+  },
 };
 
 export default function RootLayout({

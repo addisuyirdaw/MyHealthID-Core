@@ -11,11 +11,13 @@ import {
   CheckCircle2, AlertCircle, Loader2, Users, Search, Hospital, 
   Activity, Plus, Phone, MapPin, User, Heart, Calendar, 
   Clock, AlertTriangle, ArrowRight, ShieldAlert, BadgeInfo, Check, ChevronRight, UserPlus,
-  Stethoscope, Filter, BadgeCheck, MessageSquare
+  Stethoscope, Filter, BadgeCheck, MessageSquare, Inbox, ClipboardCheck, RefreshCw
 } from "lucide-react";
 import { updatePatientPhoneByStaff } from "@/lib/actions/patient.actions";
 import { updateAppointmentStatus } from "@/lib/actions/appointment.actions";
 import { normalizeHealthcareRole } from "@/lib/locales/enums";
+import { getPendingDigitalIntakes, confirmDigitalIntakeCheckIn } from "@/lib/actions/hospital.actions";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface Patient {
   id: string;
@@ -71,11 +73,24 @@ interface Toast {
 }
 
 export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: string; userId?: string }) {
+  let language = "EN";
+  try {
+    const langCtx = useLanguage();
+    language = langCtx.language;
+  } catch (e) {
+    // Fallback to EN if not in provider context
+  }
+
   // System states
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [currentTime, setCurrentTime] = useState("");
-  const [activeTab, setActiveTab] = useState<"patients" | "appointments">("patients");
+  const [activeTab, setActiveTab] = useState<"patients" | "appointments" | "digital_intakes">("patients");
+
+  // Digital Intakes state
+  const [digitalIntakes, setDigitalIntakes] = useState<any[]>([]);
+  const [intakesLoading, setIntakesLoading] = useState(false);
+  const [confirmingIntakeId, setConfirmingIntakeId] = useState<string | null>(null);
   
   // Dashboard data states
   const [metrics, setMetrics] = useState({
@@ -196,10 +211,50 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
     }
   };
 
+  // Fetch Pending Digital Intakes
+  const fetchDigitalIntakes = async () => {
+    setIntakesLoading(true);
+    try {
+      const orgRes = await fetch("/api/registration/list");
+      const orgData = await orgRes.json();
+      // Derive organizationId from the current facility context via the registration list API.
+      // We call getPendingDigitalIntakes directly; organizationId comes from the user session server-side.
+      // As a client component we delegate to the Next.js server action which reads the session itself.
+      const result = await getPendingDigitalIntakes(""); // organizationId resolved server-side in the action
+      if (result.success && result.intakes) {
+        setDigitalIntakes(result.intakes);
+      }
+    } catch (err: any) {
+      console.error("[fetchDigitalIntakes]", err);
+    } finally {
+      setIntakesLoading(false);
+    }
+  };
+
+  // Handle confirming a digital intake check-in
+  const handleConfirmDigitalCheckIn = async (intakeId: string) => {
+    setConfirmingIntakeId(intakeId);
+    try {
+      const result = await confirmDigitalIntakeCheckIn(intakeId, "");
+      if (result.success) {
+        setDigitalIntakes((prev) => prev.filter((i) => i.id !== intakeId));
+        showToast("success", "Check-In Confirmed", "Patient has been added to the live triage queue.");
+        fetchDashboardData(true);
+      } else {
+        showToast("error", "Check-In Failed", result.error || "Unable to process this digital intake.");
+      }
+    } catch (err: any) {
+      showToast("error", "Error", err.message || "An unexpected error occurred.");
+    } finally {
+      setConfirmingIntakeId(null);
+    }
+  };
+
   // Setup periodic refresh & clock
   useEffect(() => {
     fetchDashboardData();
-    const interval = setInterval(() => fetchDashboardData(true), 12000);
+    fetchDigitalIntakes();
+    const interval = setInterval(() => { fetchDashboardData(true); fetchDigitalIntakes(); }, 20000);
     
     const updateClock = () => {
       const now = new Date();
@@ -291,8 +346,11 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
   // Form submission
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!validateForm()) return;
     setLoading(true);
+    if (!validateForm()) {
+      setLoading(false);
+      return;
+    }
 
     const fullConcatName = `${firstName.trim()} ${middleName.trim() ? middleName.trim() + " " : ""}${lastName.trim()}`;
     const selectedRegion = formData.region === "Other" ? formData.customRegion.trim() : formData.region;
@@ -330,6 +388,25 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
           emergencyContactPhone: formData.emergencyPhone.trim() || null,
         }),
       });
+
+      if (res.status === 400) {
+        const data = await res.json();
+        const isDuplicate = data.error && (
+          data.error.includes("already registered") ||
+          data.error.includes("Health ID") ||
+          data.error.includes("National ID") ||
+          data.error.includes("P2002")
+        );
+        if (isDuplicate) {
+          const msg = language === "AM"
+            ? "ምዝገባው አልተሳካም፡ ይህ የጤና መታወቂያ ቀድሞ ሌላ ታካሚ ላይ ተመዝግቧል።"
+            : "Submission Failed: This Health ID or National ID is already registered under another patient profile.";
+          showToast("error", "Submission Failed", msg);
+          return;
+        } else {
+          throw new Error(data.error || "Failed to register patient.");
+        }
+      }
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to register patient.");
@@ -371,7 +448,20 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
       // Refresh live lists
       fetchDashboardData();
     } catch (err: any) {
-      showToast("error", "Submission Failed", err.message || "Failed to submit registration.");
+      const isDuplicate = err.message && (
+        err.message.includes("already registered") ||
+        err.message.includes("Health ID") ||
+        err.message.includes("National ID") ||
+        err.message.includes("P2002")
+      );
+      if (isDuplicate) {
+        const msg = language === "AM"
+          ? "ምዝገባው አልተሳካም፡ ይህ የጤና መታወቂያ ቀድሞ ሌላ ታካሚ ላይ ተመዝግቧል።"
+          : "Submission Failed: This Health ID or National ID is already registered under another patient profile.";
+        showToast("error", "Submission Failed", msg);
+      } else {
+        showToast("error", "Submission Failed", err.message || "Failed to submit registration.");
+      }
     } finally {
       setLoading(false);
     }
@@ -1105,9 +1195,9 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
           {/* LEFT & CENTER PANEL (COLUMNS 1 & 2) */}
           <div className="lg:col-span-2 space-y-4">
             
-            {/* Horizontal Tabs: Registered Patients vs. Upcoming Appointments */}
+            {/* Horizontal Tabs: Registered Patients vs. Appointments vs. Digital Intakes */}
             <div className="flex items-center justify-between border-b border-neutral-800 pb-2">
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button
                   onClick={() => setActiveTab("patients")}
                   className={`px-4 py-2 text-sm font-bold transition-all border-b-2 rounded-t-lg ${
@@ -1128,7 +1218,32 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
                 >
                   Today's Appointments ({filteredAppointments.length})
                 </button>
+                <button
+                  onClick={() => { setActiveTab("digital_intakes"); fetchDigitalIntakes(); }}
+                  className={`px-4 py-2 text-sm font-bold transition-all border-b-2 rounded-t-lg flex items-center gap-2 ${
+                    activeTab === "digital_intakes" 
+                      ? "text-violet-400 border-violet-500 bg-violet-500/5" 
+                      : "text-neutral-400 border-transparent hover:text-white"
+                  }`}
+                >
+                  <Inbox className="w-4 h-4" />
+                  Digital Intakes
+                  {digitalIntakes.length > 0 && (
+                    <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-[10px] font-black bg-violet-500 text-white rounded-full animate-pulse">
+                      {digitalIntakes.length}
+                    </span>
+                  )}
+                </button>
               </div>
+              {activeTab === "digital_intakes" && (
+                <button
+                  onClick={fetchDigitalIntakes}
+                  className="text-xs text-neutral-400 hover:text-violet-400 flex items-center gap-1.5 transition-colors"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${intakesLoading ? "animate-spin" : ""}`} />
+                  Refresh
+                </button>
+              )}
             </div>
 
             {/* TAB CONTENT: TODAY INTAKES LIST */}
@@ -1337,6 +1452,158 @@ export function ReceptionPortal({ userRole = "", userId = "" }: { userRole?: str
                 </div>
               </Card>
             )}
+
+            {/* TAB CONTENT: DIGITAL INTAKES */}
+            {activeTab === "digital_intakes" && (
+              <Card className="bg-neutral-900 border-neutral-800 shadow-2xl overflow-hidden">
+                {/* Header Banner */}
+                <div className="p-5 pb-3 border-b border-neutral-800 flex items-center justify-between">
+                  <div>
+                    <h3 className="text-white text-sm font-bold uppercase tracking-wider flex items-center gap-2">
+                      <Inbox className="w-4 h-4 text-violet-400" />
+                      Pending Digital Intake Requests
+                    </h3>
+                    <p className="text-neutral-500 text-xs mt-1">
+                      Citizens who submitted an online intake request and are waiting for reception confirmation.
+                    </p>
+                  </div>
+                  {digitalIntakes.length > 0 && (
+                    <span className="bg-violet-500/10 text-violet-400 border border-violet-500/30 text-xs font-bold px-3 py-1 rounded-full">
+                      {digitalIntakes.length} Pending
+                    </span>
+                  )}
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs border-collapse">
+                    <thead>
+                      <tr className="bg-violet-950/30 border-b border-neutral-800 text-neutral-400 font-bold uppercase tracking-wider">
+                        <th className="p-4">Citizen Full Name</th>
+                        <th className="p-4">Fayda / National ID</th>
+                        <th className="p-4">Contact Phone</th>
+                        <th className="p-4">Chief Complaint</th>
+                        <th className="p-4">Submitted At</th>
+                        <th className="p-4 text-right">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-neutral-800/80">
+                      {intakesLoading ? (
+                        <tr>
+                          <td colSpan={6} className="p-8 text-center text-neutral-400">
+                            <Loader2 className="w-6 h-6 animate-spin text-violet-500 mx-auto" />
+                            <p className="mt-2 text-xs">Fetching digital intake queue...</p>
+                          </td>
+                        </tr>
+                      ) : digitalIntakes.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="p-10 text-center">
+                            <div className="flex flex-col items-center gap-3">
+                              <div className="w-14 h-14 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center">
+                                <Inbox className="w-6 h-6 text-violet-400" />
+                              </div>
+                              <p className="text-neutral-400 text-sm font-medium">No pending digital intakes</p>
+                              <p className="text-neutral-600 text-xs">
+                                Citizens who submit online intake requests will appear here for confirmation.
+                              </p>
+                            </div>
+                          </td>
+                        </tr>
+                      ) : (
+                        digitalIntakes.map((intake, idx) => {
+                          const submittedAt = new Date(intake.createdAt);
+                          const timeLabel = submittedAt.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
+                          const dateLabel = submittedAt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+                          const isConfirming = confirmingIntakeId === intake.id;
+
+                          return (
+                            <tr
+                              key={intake.id}
+                              className="hover:bg-violet-950/20 transition-colors group"
+                            >
+                              {/* Name */}
+                              <td className="p-4">
+                                <div className="flex items-center gap-2.5">
+                                  <div className="w-8 h-8 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-400 text-[10px] font-black flex items-center justify-center shrink-0">
+                                    {intake.fullName?.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase() || "??"}
+                                  </div>
+                                  <div>
+                                    <div className="font-bold text-white">{intake.fullName || "—"}</div>
+                                    <div className="text-[10px] text-violet-400/70 mt-0.5">Digital Request #{idx + 1}</div>
+                                  </div>
+                                </div>
+                              </td>
+                              {/* Fayda ID */}
+                              <td className="p-4">
+                                <span className="font-mono text-neutral-200 bg-neutral-800 px-2 py-1 rounded-lg text-[10px] tracking-wider border border-neutral-700">
+                                  {intake.nationalId || "—"}
+                                </span>
+                              </td>
+                              {/* Phone */}
+                              <td className="p-4">
+                                {intake.phoneNumber ? (
+                                  <div className="flex items-center gap-1.5 text-neutral-300">
+                                    <Phone className="w-3 h-3 text-neutral-500" />
+                                    {intake.phoneNumber}
+                                  </div>
+                                ) : (
+                                  <span className="text-neutral-600 italic">Not provided</span>
+                                )}
+                              </td>
+                              {/* Complaint */}
+                              <td className="p-4 max-w-[180px]">
+                                {intake.notes ? (
+                                  <span className="text-neutral-400 line-clamp-2 leading-relaxed">
+                                    {intake.notes.slice(0, 80)}{intake.notes.length > 80 ? "…" : ""}
+                                  </span>
+                                ) : (
+                                  <span className="text-neutral-600 italic">No complaint provided</span>
+                                )}
+                              </td>
+                              {/* Submitted At */}
+                              <td className="p-4">
+                                <div className="text-neutral-400">
+                                  <div className="font-bold">{timeLabel}</div>
+                                  <div className="text-[10px] text-neutral-600">{dateLabel}</div>
+                                </div>
+                              </td>
+                              {/* Action */}
+                              <td className="p-4 text-right">
+                                <button
+                                  onClick={() => handleConfirmDigitalCheckIn(intake.id)}
+                                  disabled={confirmingIntakeId !== null}
+                                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white text-[11px] font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-violet-900/30 group-hover:shadow-violet-700/30"
+                                >
+                                  {isConfirming ? (
+                                    <>
+                                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                      Processing…
+                                    </>
+                                  ) : (
+                                    <>
+                                      <ClipboardCheck className="w-3.5 h-3.5" />
+                                      Confirm Check-In
+                                    </>
+                                  )}
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                {/* Footer info strip */}
+                {digitalIntakes.length > 0 && (
+                  <div className="px-5 py-3 border-t border-neutral-800 bg-violet-950/20 flex items-center gap-2 text-[11px] text-violet-400/80">
+                    <BadgeInfo className="w-3.5 h-3.5 flex-shrink-0" />
+                    Confirming check-in will link this citizen to the facility's live triage queue. Ensure the Fayda ID matches a registered patient record first.
+                  </div>
+                )}
+              </Card>
+            )}
+
           </div>
 
           {/* RIGHT SIDE PANEL (COLUMN 3) */}

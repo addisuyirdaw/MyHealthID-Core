@@ -10,6 +10,7 @@ import BreakGlassClient from "@/components/BreakGlassClient";
 import { Role } from "@prisma/client";
 import { verifyToken } from "@/lib/session";
 import { verifyPatientIdentity } from "@/lib/actions/patient.actions";
+import { AIClinicalSummary } from "@/components/doctor/AIClinicalSummary";
 
 type TimelineEvent = {
   id: string;
@@ -267,6 +268,11 @@ export default async function ClinicalRecordsDashboard({
             </div>
           </div>
         </div>
+
+        {/* AI Clinical Assistant — visible to clinical & admin staff only */}
+        {isClinicalUser && (
+          <AIClinicalSummary patientId={patient.id} />
+        )}
 
         {/* Citizen controls */}
         {isCitizen && (

@@ -3,7 +3,9 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { registerPatient } from "@/lib/actions/patient.actions";
+import { QRCodeSVG } from "qrcode.react";
 import { checkInToQueue } from "@/lib/actions/queue.actions";
+import { bookAppointmentFromRegistration } from "@/lib/actions/appointment.actions";
 import { ADMIN_ROLES, REGISTRATION_ROLES } from "@/lib/locales/enums";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanSearch, AlertTriangle, ShieldAlert, ArrowRight } from "lucide-react";
+import { HeartPulse, CheckCircle2, ShieldCheck, User, IdCard, Fingerprint, ScanSearch, AlertTriangle, ShieldAlert, ArrowRight, Lock, Loader2 } from "lucide-react";
 import { EscapeHatch } from "@/components/navigation/EscapeHatch";
 import { useLanguage } from "@/components/LanguageProvider";
 import dynamic from "next/dynamic";
@@ -20,6 +22,7 @@ import { FrontIdCapture } from "@/components/FrontIdCapture";
 import { LogoIcon } from "@/components/LogoIcon";
 import { ChiefComplaintPicker } from "@/components/ChiefComplaintPicker";
 import { findTriageComplaintByLabel } from "@/lib/triage/triageList";
+import { detectHighAcuity, detectSeverity } from "@/lib/triage/acuityLexicon";
 import { isFaydaFin12, isFaydaFcn16 } from "@/lib/fayda-format";
 import { Ward, TriageStatus } from "@prisma/client";
 
@@ -91,6 +94,13 @@ export default function RegisterPage() {
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const [newPatient, setNewPatient] = useState<any | null>(null);
 
+  // Secure Portal Access State
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [passwordError, setPasswordError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [portalLoading, setPortalLoading] = useState(false);
+
   const checkDuplicate = async (nidVal?: string, phoneVal?: string) => {
     const cleanNid = (nidVal ?? nationalId).replace(/\s/g, '');
     const cleanPhone = (phoneVal ?? phone).replace(/\s/g, '');
@@ -147,6 +157,54 @@ export default function RegisterPage() {
   const [emergencyDeskName, setEmergencyDeskName] = useState("");
   const [emergencyDeskPhone, setEmergencyDeskPhone] = useState("");
 
+  // ── Booking Mode State ──────────────────────────────────────────────────────
+  type BookingMode = "PROFILE_ONLY" | "WITH_APPOINTMENT";
+  type AiSeverity = "CRITICAL" | "MODERATE" | "NORMAL";
+  type DoctorSlot = { doctorId: string; fullName: string; specialization: string | null; ward: string | null; wardId: string | null; slots: string[] };
+
+  const [bookingMode, setBookingMode] = useState<BookingMode>("PROFILE_ONLY");
+  const [symptoms, setSymptoms] = useState("");
+  const [isPregnant, setIsPregnant] = useState(false);
+  const [aiSeverity, setAiSeverity] = useState<AiSeverity | null>(null);
+  const [aiReasoning, setAiReasoning] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [availableDoctors, setAvailableDoctors] = useState<DoctorSlot[]>([]);
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  const [wardId, setWardId] = useState<string | null>(null);
+  const [wardDisplayName, setWardDisplayName] = useState("");
+  const [selectedDoctor, setSelectedDoctor] = useState<DoctorSlot | null>(null);
+  const [selectedSlot, setSelectedSlot] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split("T")[0]);
+  const [slotLockExpiry, setSlotLockExpiry] = useState<Date | null>(null);
+  const [slotCountdown, setSlotCountdown] = useState(600);
+  const [slotExpired, setSlotExpired] = useState(false);
+  const [generalPoolSelected, setGeneralPoolSelected] = useState(false);
+  const [generalPoolSlot, setGeneralPoolSlot] = useState<string | null>(null);
+  const [bookingError, setBookingError] = useState<string | null>(null);
+  const slotTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── High-Acuity Boundary Guard ─────────────────────────────────────────────
+  /**
+   * Real-time three-tier severity classification driven by the acuity lexicon.
+   * Drives the coloured border, warning banners, and emergency ward lock.
+   */
+  const [severityLevel, setSeverityLevel] = useState<"CRITICAL" | "MODERATE" | "NORMAL" | null>(null);
+  /**
+   * True when the lexicon matched one or more CRITICAL terms.
+   * Kept for backward-compatibility with the ward-lock and submission flags.
+   */
+  const [isHighAcuity, setIsHighAcuity] = useState(false);
+  /**
+   * True after the first high-acuity match. Prevents the user from manually
+   * deselecting the Emergency ward unless they explicitly clear the flag.
+   */
+  const [acuityLocked, setAcuityLocked] = useState(false);
+  /** True when the receptionist override switch is active. */
+  const [overrideAcuity, setOverrideAcuity] = useState(false);
+  /** The matched phrases shown inside the warning banner. */
+  const [acuityTerms, setAcuityTerms] = useState<string[]>([]);
+  const acuityDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const finDigitsOnly = nationalId.replace(/\s/g, "");
   const fcnDigitsOnly = fcn.replace(/\D/g, "");
   const finFormatOk = isFaydaFin12(finDigitsOnly);
@@ -161,6 +219,172 @@ export default function RegisterPage() {
       }
     }
   }, []);
+
+  // ── Slot-lock countdown timer ──────────────────────────────────────────────
+  useEffect(() => {
+    if (!slotLockExpiry) return;
+    if (slotTimerRef.current) clearInterval(slotTimerRef.current);
+    slotTimerRef.current = setInterval(() => {
+      const remaining = Math.floor((slotLockExpiry.getTime() - Date.now()) / 1000);
+      if (remaining <= 0) {
+        clearInterval(slotTimerRef.current!);
+        setSelectedDoctor(null);
+        setSelectedSlot(null);
+        setGeneralPoolSelected(false);
+        setGeneralPoolSlot(null);
+        setSlotLockExpiry(null);
+        setSlotCountdown(600);
+        setSlotExpired(true);
+      } else {
+        setSlotCountdown(remaining);
+        setSlotExpired(false);
+      }
+    }, 1000);
+    return () => { if (slotTimerRef.current) clearInterval(slotTimerRef.current); };
+  }, [slotLockExpiry]);
+
+  // ── Fetch doctor slots whenever ward or date changes in appointment mode ───
+  useEffect(() => {
+    if (bookingMode !== "WITH_APPOINTMENT" || !ward || !selectedDate) return;
+    setSlotsLoading(true);
+    setAvailableDoctors([]);
+    setWardId(null);
+    setWardDisplayName("");
+    setSelectedDoctor(null);
+    setSelectedSlot(null);
+    setGeneralPoolSelected(false);
+    setGeneralPoolSlot(null);
+    setSlotExpired(false);
+    if (slotTimerRef.current) clearInterval(slotTimerRef.current);
+    setSlotLockExpiry(null);
+    setSlotCountdown(600);
+    const fetchSlots = async () => {
+      try {
+        const res = await fetch(`/api/doctors/available-slots?ward=${encodeURIComponent(ward)}&date=${selectedDate}`);
+        const data = await res.json();
+        if (data.success) {
+          setAvailableDoctors(data.doctors || []);
+          setWardId(data.wardId || null);
+          setWardDisplayName(data.wardName || ward);
+        }
+      } catch {
+        setAvailableDoctors([]);
+      } finally {
+        setSlotsLoading(false);
+      }
+    };
+    void fetchSlots();
+  }, [bookingMode, ward, selectedDate]);
+
+  // ── Debounced AI triage analysis ──────────────────────────────────────────
+  const aiDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const runAiAnalysis = useCallback(async (text: string, currentAge: string | number, pregnant: boolean) => {
+    if (!text.trim() || text.trim().length < 4) return;
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/triage/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ symptoms: text, age: Number(currentAge) || 0, isPregnant: pregnant }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setAiSeverity(data.severity as AiSeverity);
+        setAiReasoning(data.reasoning || "");
+        if (data.severity === "CRITICAL") {
+          setWard("EMERGENCY");
+          setVisitEmergency(true);
+        }
+      }
+    } catch {
+      // silent — AI is advisory only
+    } finally {
+      setAiLoading(false);
+    }
+  }, []);
+
+  const handleSymptomsChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const val = e.target.value;
+    setSymptoms(val);
+
+    // ── 300ms deterministic severity check (runs BEFORE AI debounce) ─────────
+    if (acuityDebounceRef.current) clearTimeout(acuityDebounceRef.current);
+    acuityDebounceRef.current = setTimeout(() => {
+      // Three-tier classification (CRITICAL > MODERATE > NORMAL)
+      const level = detectSeverity(val);
+      setSeverityLevel(level);
+
+      // Keep legacy isHighAcuity driven by CRITICAL tier only
+      const isCrit = level === "CRITICAL";
+      setIsHighAcuity(isCrit);
+
+      // Refresh matched-term badges (for the CRITICAL banner detail)
+      const { terms } = detectHighAcuity(val);
+      setAcuityTerms(terms);
+
+      if (isCrit) {
+        // Force-select Emergency ward and lock it out from manual changes
+        setWard("EMERGENCY");
+        setVisitEmergency(true);
+        setAcuityLocked(true);
+      } else if (acuityLocked) {
+        // Only release the lock if the user typed something non-critical — keep
+        // acuityLocked=true until they explicitly click "Clear Flag"
+      }
+    }, 300);
+
+    // ── 800ms AI semantic analysis (advisory, runs in parallel) ───────────────
+    if (aiDebounceRef.current) clearTimeout(aiDebounceRef.current);
+    aiDebounceRef.current = setTimeout(() => {
+      const ageInput = typeof document !== "undefined" ? (document.getElementById("age") as HTMLInputElement | null) : null;
+      const ageVal = ageInput ? parseInt(ageInput.value, 10) || 0 : 0;
+      void runAiAnalysis(val, ageVal, isPregnant);
+    }, 800);
+  };
+
+  /** Allows the user to voluntarily release the acuity lock after confirmation. */
+  const clearAcuityLock = () => {
+    setIsHighAcuity(false);
+    setAcuityLocked(false);
+    setAcuityTerms([]);
+    setWard("OPD_OUTPATIENT");
+    setVisitEmergency(false);
+    setOverrideAcuity(false);
+  };
+
+  const selectSlot = (doctor: DoctorSlot, slot: string) => {
+    if (slotTimerRef.current) clearInterval(slotTimerRef.current);
+    setSelectedDoctor(doctor);
+    setSelectedSlot(slot);
+    setGeneralPoolSelected(false);
+    setGeneralPoolSlot(null);
+    setSlotExpired(false);
+    setBookingError(null);
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    setSlotLockExpiry(expiry);
+    setSlotCountdown(600);
+  };
+
+  const selectGeneralPool = (slot: string) => {
+    if (slotTimerRef.current) clearInterval(slotTimerRef.current);
+    setSelectedDoctor(null);
+    setSelectedSlot(null);
+    setGeneralPoolSelected(true);
+    setGeneralPoolSlot(slot);
+    setSlotExpired(false);
+    setBookingError(null);
+    const expiry = new Date(Date.now() + 10 * 60 * 1000);
+    setSlotLockExpiry(expiry);
+    setSlotCountdown(600);
+  };
+
+  const formatCountdown = (secs: number) => {
+    const m = Math.floor(secs / 60).toString().padStart(2, "0");
+    const s = (secs % 60).toString().padStart(2, "0");
+    return `${m}:${s}`;
+  };
+
+  const GENERAL_POOL_SLOTS = ["08:00", "09:00", "10:00", "11:00", "14:00", "15:00", "16:00", "17:00"];
 
   const analyzeSymptoms = (text: string) => {
     const lowerText = text.toLowerCase();
@@ -331,8 +555,8 @@ export default function RegisterPage() {
         triageStatus: "WAITING_FOR_TRIAGE" as any,
         generateMyHealthId: false,
       });
-      if (result?.error) {
-        if (result.error === "DUPLICATE_PATIENT_IDENTITY") {
+      if (!result || result.error || !result.id) {
+        if (result?.error === "DUPLICATE_PATIENT_IDENTITY") {
           setDuplicateWarning("DUPLICATE_PATIENT_IDENTITY");
           setScanFeedback({ 
             variant: "error", 
@@ -340,18 +564,28 @@ export default function RegisterPage() {
             detail: "An official health profile is already linked to this information. Navigate to the Sign-In panel to verify." 
           });
         } else {
-          setScanFeedback({ variant: "error", title: "Registration error", detail: result.error });
+          setScanFeedback({ variant: "error", title: "Registration error", detail: result?.error || "Unknown error" });
         }
         setLoading(false);
         isAutoSubmitting.current = false;
         return;
       }
+      const registeredId = result.id;
+      const registeredUniqueId = result.uniqueId;
+      const registeredName = result.name;
+      const registeredNationalId = result.nationalId;
+
       try {
-        await checkInToQueue(result.id);
+        await checkInToQueue(registeredId);
       } catch (e) {
         // queue checkin error
       }
-      setNewPatient({ id: result.id, name: patientFullName });
+      setNewPatient({
+        id: registeredId,
+        name: registeredName || patientFullName,
+        uniqueId: registeredUniqueId,
+        nationalId: registeredNationalId,
+      });
     } catch (err: any) {
       setScanFeedback({ variant: "error", title: "Auto-registration failed", detail: err.message || "Please try again." });
       setLoading(false);
@@ -450,20 +684,30 @@ export default function RegisterPage() {
         emergencyFlag: true,
         phoneNumber: emergencyDeskPhone.trim() || undefined,
       });
-      if (result?.error) {
-        if (result.error === "DUPLICATE_PATIENT_IDENTITY") {
+      if (!result || result.error || !result.id) {
+        if (result?.error === "DUPLICATE_PATIENT_IDENTITY") {
           setDuplicateWarning("DUPLICATE_PATIENT_IDENTITY");
         } else {
-          alert(result.error);
+          alert(result?.error || "Registration failed.");
         }
         return;
       }
+      const registeredId = result.id;
+      const registeredUniqueId = result.uniqueId;
+      const registeredName = result.name;
+      const registeredNationalId = result.nationalId;
+
       try {
-        await checkInToQueue(result.id);
+        await checkInToQueue(registeredId);
       } catch {
         /* already queued */
       }
-      setNewPatient({ id: result.id, name: name });
+      setNewPatient({
+        id: registeredId,
+        name: registeredName || name,
+        uniqueId: registeredUniqueId,
+        nationalId: registeredNationalId,
+      });
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Emergency registration failed.");
     } finally {
@@ -506,6 +750,22 @@ export default function RegisterPage() {
       return;
     }
 
+    if (identityMode && !emergencyFastPath) {
+      if (!password || password.length < 6) {
+        setPasswordError("Password must be at least 6 characters.");
+        setLoading(false);
+        isSubmitting.current = false;
+        return;
+      }
+      if (password !== confirmPassword) {
+        setPasswordError("Passwords do not match.");
+        setLoading(false);
+        isSubmitting.current = false;
+        return;
+      }
+      setPasswordError("");
+    }
+
     const data: any = {
       fullName: (formData.get("fullName") as string) || fullName,
       faydaId: (identityMode === "FAYDA" || identityMode === "MANUAL") ? (nationalIdVal || undefined) : undefined,
@@ -534,20 +794,69 @@ export default function RegisterPage() {
       preExistingConditions: "",
       allergyInformation: "",
       phoneNumber: phoneVal || null,
+      ...(identityMode && !emergencyFastPath ? { password } : {}),
     };
 
     try {
       const result = await registerPatient(data);
-      if (result && result.error) {
-        if (result.error === "DUPLICATE_PATIENT_IDENTITY") {
+      if (!result || result.error || !result.id) {
+        if (result?.error === "DUPLICATE_PATIENT_IDENTITY") {
           setDuplicateWarning("DUPLICATE_PATIENT_IDENTITY");
         } else {
-          alert(result.error);
+          alert(result?.error || "Registration failed.");
         }
         return;
       }
-      try { await checkInToQueue(result.id); } catch { /* queue already exists */ }
-      setNewPatient({ id: result.id, name: (formData.get("fullName") as string) || fullName });
+      
+      const registeredId = result.id;
+      const registeredUniqueId = result.uniqueId;
+      const registeredName = result.name;
+      const registeredNationalId = result.nationalId;
+      const registeredOrgId = result.organizationId || "";
+
+      try { await checkInToQueue(registeredId); } catch { /* queue already exists */ }
+
+      // ── If booking mode is active and a slot is selected, book appointment ──
+      if (bookingMode === "WITH_APPOINTMENT") {
+        const activeSlot = generalPoolSelected ? generalPoolSlot : selectedSlot;
+        if (activeSlot && !slotExpired) {
+          const [slotH, slotM] = activeSlot.split(":").map(Number);
+          const appointmentDate = new Date(`${selectedDate}T00:00:00.000Z`);
+          appointmentDate.setUTCHours(slotH, slotM || 0, 0, 0);
+
+          // Read facility from cookie (same pattern used in other citizen actions)
+          const facilityId = document.cookie.split("; ").find((c) => c.startsWith("organizationId="))?.split("=")[1] || "";
+
+          const bookResult = await bookAppointmentFromRegistration({
+            patientId: registeredId,
+            facilityId: facilityId || registeredOrgId,
+            department: wardDisplayName || ward,
+            dateTime: appointmentDate.toISOString(),
+            chiefComplaints: symptoms || chiefComplaint || undefined,
+            doctorId: selectedDoctor?.doctorId || null,
+            wardId: wardId || null,
+            // Pass emergency override when high-acuity terms were detected and not overridden
+            emergencyOverride: (isHighAcuity || acuityLocked) && !overrideAcuity,
+            acuityOverridden: overrideAcuity,
+          });
+
+          if (!bookResult.success) {
+            setBookingError(bookResult.error || "Appointment booking failed. Registration was successful.");
+          } else {
+            // Clear slot lock timer after successful commit
+            if (slotTimerRef.current) clearInterval(slotTimerRef.current);
+          }
+        } else if (slotExpired) {
+          setBookingError("Your selected time slot expired before submission. Registration was saved — please book your appointment separately.");
+        }
+      }
+
+      setNewPatient({
+        id: registeredId,
+        name: registeredName || (formData.get("fullName") as string) || fullName,
+        uniqueId: registeredUniqueId,
+        nationalId: registeredNationalId,
+      });
     } catch (err: any) {
       console.error(err);
       alert(err.message || "Registration failed. Please try again.");
@@ -624,6 +933,35 @@ export default function RegisterPage() {
           </CardHeader>
 
           <CardContent className="grid gap-6 pt-8 pb-4">
+            {/* ─── Mode Selector ────────────────────────────────────────────── */}
+            {!emergencyFastPath && (
+              <div className="flex gap-2 rounded-2xl p-1 bg-slate-900/80 border border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => { setBookingMode("PROFILE_ONLY"); setAiSeverity(null); setSymptoms(""); setSelectedDoctor(null); setSelectedSlot(null); setGeneralPoolSelected(false); setSlotLockExpiry(null); if (slotTimerRef.current) clearInterval(slotTimerRef.current); }}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+                    bookingMode === "PROFILE_ONLY"
+                      ? "bg-slate-700 text-white shadow-md"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                  Profile Only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBookingMode("WITH_APPOINTMENT")}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex items-center justify-center gap-2 ${
+                    bookingMode === "WITH_APPOINTMENT"
+                      ? "bg-blue-600 text-white shadow-md shadow-blue-900/40"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`}
+                >
+                  <HeartPulse className="w-4 h-4" />
+                  Registration + Appointment
+                </button>
+              </div>
+            )}
 
             <div className="rounded-2xl border border-red-500/30 bg-gradient-to-br from-red-950/40 via-red-900/10 to-red-950/40 p-4 text-white shadow-xl space-y-3">
               <div className="flex flex-wrap items-center justify-between gap-3">
@@ -1133,6 +1471,8 @@ export default function RegisterPage() {
                     value={dateOfBirth}
                     onChange={(e) => setDateOfBirth(e.target.value)}
                     disabled={identityMode === "FAYDA" && isVerified}
+                    min="1900-01-01"
+                    max={new Date().toISOString().split("T")[0]}
                     className="bg-slate-950 border-slate-800 text-slate-100"
                   />
                 </div>
@@ -1262,6 +1602,442 @@ export default function RegisterPage() {
           ) : null}
           </>
           )}
+
+            {/* ─── Booking Appointment Panel ───────────────────────────────── */}
+            {bookingMode === "WITH_APPOINTMENT" && !emergencyFastPath && identityMode && (
+              <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-400">
+                <div className="h-px bg-gradient-to-r from-transparent via-blue-500/40 to-transparent" />
+                <div className="flex items-center gap-2">
+                  <HeartPulse className="w-5 h-5 text-blue-400" />
+                  <h3 className="text-base font-bold text-blue-300">Appointment Booking</h3>
+                  <span className="ml-auto text-[10px] text-slate-500 font-mono uppercase tracking-wider">AI-Assisted Triage</span>
+                </div>
+
+                {/* ── High-Acuity Warning Banner ─────────────────────────────── */}
+                {isHighAcuity && (
+                  <div
+                    role="alert"
+                    aria-live="assertive"
+                    className="flex items-start gap-3 p-4 rounded-2xl border-2 border-red-500 bg-red-950/30 shadow-[0_0_32px_rgba(239,68,68,0.18)] animate-in fade-in slide-in-from-top-1 duration-300"
+                  >
+                    <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-red-500">
+                      <svg className="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                      </svg>
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-black text-red-200 tracking-tight">
+                        Critical high-urgency indicator detected. This record is flagged for priority emergency processing.
+                      </p>
+                      {acuityTerms.length > 0 && (
+                        <p className="mt-1.5 text-xs text-red-300/80 leading-relaxed">
+                          Matched terms:{" "}
+                          {acuityTerms.slice(0, 5).map((t, i) => (
+                            <span key={i} className="inline-block mr-1.5 mb-1 px-2 py-0.5 rounded-full bg-red-900/60 border border-red-500/40 font-mono text-[10px] text-red-200">
+                              {t}
+                            </span>
+                          ))}
+                          {acuityTerms.length > 5 && (
+                            <span className="text-red-400">+{acuityTerms.length - 5} more</span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to clear the emergency flag? Only do this if the symptom terms were entered in error.")) {
+                          clearAcuityLock();
+                        }
+                      }}
+                      className="shrink-0 text-[10px] text-red-400 hover:text-red-200 underline font-semibold transition-colors mt-0.5"
+                    >
+                      Clear flag
+                    </button>
+                  </div>
+                )}
+
+                {/* Symptoms Textarea with Multi-Tier Severity Ring */}
+                <div className={`rounded-2xl p-4 space-y-3 transition-all duration-300 ${
+                  severityLevel === "CRITICAL" || isHighAcuity
+                    ? "border-2 border-red-500 bg-red-50/30 shadow-[0_0_28px_rgba(239,68,68,0.20)]"
+                    : severityLevel === "MODERATE"
+                    ? "border-2 border-amber-500 bg-amber-50/30 shadow-[0_0_20px_rgba(245,158,11,0.15)]"
+                    : severityLevel === "NORMAL"
+                    ? "border border-green-500 bg-green-50/20"
+                    : "border border-slate-700/60 bg-slate-900/40"
+                }`}>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-400">Chief Complaint / Symptoms</label>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {isHighAcuity && (
+                        <span className="flex items-center gap-1 text-[10px] font-black text-red-200 bg-red-900/70 border border-red-500/60 px-2 py-0.5 rounded-full animate-pulse">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400" />
+                          HIGH ACUITY — Emergency locked
+                        </span>
+                      )}
+                      {!isHighAcuity && aiLoading && <span className="text-[10px] text-blue-400 animate-pulse font-mono">AI analyzing…</span>}
+                      {!isHighAcuity && !aiLoading && aiSeverity === "CRITICAL" && (
+                        <span className="flex items-center gap-1 text-[10px] font-bold text-red-300 bg-red-950/60 border border-red-500/40 px-2 py-0.5 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-red-400 animate-pulse" />
+                          CRITICAL — Emergency ward auto-selected
+                        </span>
+                      )}
+                      {!isHighAcuity && !aiLoading && aiSeverity === "MODERATE" && (
+                        <span className="text-[10px] font-bold text-amber-300 bg-amber-950/50 border border-amber-500/40 px-2 py-0.5 rounded-full">MODERATE</span>
+                      )}
+                      {!isHighAcuity && !aiLoading && aiSeverity === "NORMAL" && (
+                        <span className="text-[10px] font-bold text-emerald-300 bg-emerald-950/50 border border-emerald-500/40 px-2 py-0.5 rounded-full">ROUTINE</span>
+                      )}
+                    </div>
+                  </div>
+                  <Textarea
+                    placeholder="Describe symptoms in detail (e.g. chest pain, difficulty breathing, high fever)…"
+                    value={symptoms}
+                    onChange={handleSymptomsChange}
+                    rows={3}
+                    style={isHighAcuity ? { borderColor: "#EF4444" } : {}}
+                    className={`bg-slate-950/80 text-slate-100 placeholder-slate-600 resize-none focus:ring-1 transition-all duration-200 ${
+                      isHighAcuity
+                        ? "border-red-500 focus:ring-red-500/30 focus:border-red-400"
+                        : "border-slate-700 focus:ring-blue-500/30 focus:border-blue-500/50"
+                    }`}
+                  />
+                  {aiReasoning && (
+                    <p className={`text-xs leading-relaxed ${
+                      isHighAcuity ? "text-red-300" : aiSeverity === "CRITICAL" ? "text-red-300" : aiSeverity === "MODERATE" ? "text-amber-300" : "text-emerald-300"
+                    }`}>{aiReasoning}</p>
+                  )}
+
+                  {/* ── MODERATE Warning Banner ───────────────────────────── */}
+                  {severityLevel === "MODERATE" && !isHighAcuity && (
+                    <div
+                      role="alert"
+                      aria-live="polite"
+                      className="flex items-start gap-3 p-3 rounded-xl border border-amber-500/60 bg-amber-950/25 shadow-[0_0_16px_rgba(245,158,11,0.10)] animate-in fade-in slide-in-from-top-1 duration-300"
+                    >
+                      <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-amber-500/80">
+                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                        </svg>
+                      </span>
+                      <p className="text-xs font-semibold text-amber-200 leading-relaxed">
+                        Moderate symptom score recorded; specialized ward scheduling recommended.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* ── NORMAL Verification Indicator ────────────────────── */}
+                  {severityLevel === "NORMAL" && !isHighAcuity && (
+                    <div
+                      role="status"
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl border border-green-500/40 bg-green-950/20 animate-in fade-in duration-300"
+                    >
+                      <svg className="w-3.5 h-3.5 text-green-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <span className="text-[11px] font-medium text-green-300">
+                        Symptom profile recorded — routine triage pathway.
+                      </span>
+                    </div>
+                  )}
+                  {/* Locked Emergency Ward Indicator */}
+                  {acuityLocked && !overrideAcuity && (
+                    <div className="flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-950/30 px-3 py-2">
+                      <svg className="w-4 h-4 text-red-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      <span className="text-xs font-bold text-red-300">
+                        Department locked: <span className="font-black">Triage / Emergency Ward</span>
+                      </span>
+                      <span className="ml-auto text-[10px] text-red-400/70 italic">Cannot be changed while flag is active</span>
+                    </div>
+                  )}
+
+                  {/* Receptionist Clinical Override Toggle */}
+                  {acuityLocked && (role === "RECEPTIONIST" || role === "TRIAGE_STAFF" || role === "CARD_ROOM_CLERK" || role === "CLINICAL_NURSE" || role === "SPECIALIZED_NURSE" || role === "MIDWIFE" || role === "IT_HIS_ADMIN" || role === "HOSPITAL_CEO" || role === "ADMIN") && (
+                    <div className="flex items-center gap-3 p-3 rounded-xl border border-amber-500/30 bg-amber-950/10 mt-2">
+                      <div className="flex-1">
+                        <p className="text-xs font-semibold text-amber-200">Clinical Acuity Override</p>
+                        <p className="text-[10px] text-slate-400">Receptionist/triage override: unlock ward selection dropdown</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const nextVal = !overrideAcuity;
+                          setOverrideAcuity(nextVal);
+                          if (nextVal) {
+                            // Let the receptionist choose.
+                          } else {
+                            // Relock to EMERGENCY
+                            setWard("EMERGENCY");
+                            setWardDisplayName("Triage / Emergency");
+                          }
+                        }}
+                        className={`relative w-10 h-5 rounded-full transition-all duration-200 flex-shrink-0 ${
+                          overrideAcuity ? "bg-amber-500" : "bg-slate-700"
+                        }`}
+                      >
+                        <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow-md transition-all duration-200 ${
+                          overrideAcuity ? "left-[22px]" : "left-0.5"
+                        }`} />
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Target Department / Ward Selection Dropdown */}
+                  <div className="space-y-2">
+                    <Label htmlFor="wardSelect" className="text-xs font-semibold uppercase tracking-wider text-slate-400">Target Department / Ward</Label>
+                    <Select
+                      value={ward}
+                      disabled={acuityLocked && !overrideAcuity}
+                      onValueChange={(val) => {
+                        setWard(val);
+                        const displayNameMap: Record<string, string> = {
+                          OPD_OUTPATIENT: "OPD / Outpatient",
+                          EMERGENCY: "Triage / Emergency",
+                          GEN_MED: "General Medicine",
+                          PED: "Pediatrics",
+                          CARD: "Cardiology",
+                          MEDICAL_WARD: "Medical Ward",
+                          SURGICAL_WARD: "Surgical Ward",
+                          MATERNITY_WARD: "Maternity Ward",
+                        };
+                        setWardDisplayName(displayNameMap[val] || val);
+                      }}
+                    >
+                      <SelectTrigger id="wardSelect" className="bg-slate-950 border-slate-800 text-slate-100 w-full">
+                        <SelectValue placeholder="Select Department / Ward" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-900 border-slate-800 text-slate-100">
+                        <SelectItem value="OPD_OUTPATIENT">OPD / Outpatient</SelectItem>
+                        <SelectItem value="EMERGENCY">Triage / Emergency</SelectItem>
+                        <SelectItem value="GEN_MED">General Medicine</SelectItem>
+                        <SelectItem value="PED">Pediatrics</SelectItem>
+                        <SelectItem value="CARD">Cardiology</SelectItem>
+                        <SelectItem value="MEDICAL_WARD">Medical Ward</SelectItem>
+                        <SelectItem value="SURGICAL_WARD">Surgical Ward</SelectItem>
+                        <SelectItem value="MATERNITY_WARD">Maternity Ward</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Triage Attributes */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="flex items-center gap-3 p-4 rounded-xl border border-slate-700/60 bg-slate-900/40">
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-slate-200">Pregnancy Status</p>
+                      <p className="text-xs text-slate-500 mt-0.5">Auto-upgrades triage if pregnant</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const newVal = !isPregnant;
+                        setIsPregnant(newVal);
+                        if (symptoms.trim().length > 3) {
+                          const ageInput = typeof document !== "undefined" ? (document.getElementById("age") as HTMLInputElement | null) : null;
+                          const ageVal = ageInput ? parseInt(ageInput.value, 10) || 0 : 0;
+                          void runAiAnalysis(symptoms, ageVal, newVal);
+                        }
+                      }}
+                      className={`relative w-12 h-6 rounded-full transition-all duration-200 flex-shrink-0 ${
+                        isPregnant ? "bg-pink-500" : "bg-slate-700"
+                      }`}
+                    >
+                      <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-200 ${
+                        isPregnant ? "left-[26px]" : "left-0.5"
+                      }`} />
+                    </button>
+                  </div>
+                  <div className="p-4 rounded-xl border border-slate-700/60 bg-slate-900/40">
+                    <p className="text-xs text-slate-400 mb-1">Appointment Date</p>
+                    <input
+                      type="date"
+                      value={selectedDate}
+                      min={new Date().toISOString().split("T")[0]}
+                      max={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]}
+                      onChange={(e) => { setSelectedDate(e.target.value); setSelectedDoctor(null); setSelectedSlot(null); setGeneralPoolSelected(false); setGeneralPoolSlot(null); setSlotExpired(false); if (slotTimerRef.current) clearInterval(slotTimerRef.current); setSlotLockExpiry(null); setSlotCountdown(600); }}
+                      className="w-full bg-slate-950 border border-slate-700 rounded-xl py-2 px-3 text-slate-100 text-sm font-mono focus:outline-none focus:border-blue-500/50"
+                    />
+                  </div>
+                </div>
+
+                {/* Doctor Slot Grid */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Select Doctor &amp; Time Slot</p>
+                    {slotsLoading && <span className="text-[10px] text-blue-400 animate-pulse">Loading availability…</span>}
+                    {wardDisplayName && !slotsLoading && <span className="text-[10px] text-slate-500">{wardDisplayName}</span>}
+                  </div>
+
+                  {/* Slot expired alert */}
+                  {slotExpired && (
+                    <div className="p-3 rounded-xl border border-amber-500/40 bg-amber-950/20 text-amber-300 text-xs flex items-center gap-2">
+                      <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                      Your reserved slot expired. Please select a new time window below.
+                    </div>
+                  )}
+
+                  {/* Slot lock countdown */}
+                  {(selectedSlot || generalPoolSelected) && slotLockExpiry && !slotExpired && (
+                    <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-950/40 border border-blue-500/30">
+                      <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                      <span className="text-xs text-blue-300">Slot reserved — complete registration within</span>
+                      <span className={`font-mono font-bold text-sm ml-auto ${ slotCountdown < 60 ? "text-red-400" : "text-blue-200" }`}>
+                        {formatCountdown(slotCountdown)}
+                      </span>
+                    </div>
+                  )}
+
+                  {slotsLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[0,1].map(i => (
+                        <div key={i} className="h-28 rounded-2xl bg-slate-800/60 border border-slate-700/40 animate-pulse" />
+                      ))}
+                    </div>
+                  ) : availableDoctors.length > 0 ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {availableDoctors.map((doc) => (
+                        <div
+                          key={doc.doctorId}
+                          className={`rounded-2xl border p-4 space-y-3 transition-all duration-200 ${
+                            selectedDoctor?.doctorId === doc.doctorId
+                              ? "border-blue-500 bg-blue-950/30"
+                              : "border-slate-700/60 bg-slate-900/40 hover:border-slate-600"
+                          }`}
+                        >
+                          <div>
+                            <p className="text-sm font-bold text-slate-200">{doc.fullName}</p>
+                            <p className="text-[11px] text-slate-500">{doc.specialization || doc.ward || "General Practice"}</p>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5">
+                            {doc.slots.length === 0 ? (
+                              <span className="text-xs text-slate-500 italic">No slots available today</span>
+                            ) : (
+                              doc.slots.map((slot) => (
+                                <button
+                                  key={slot}
+                                  type="button"
+                                  onClick={() => selectSlot(doc, slot)}
+                                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-semibold transition-all duration-150 ${
+                                    selectedDoctor?.doctorId === doc.doctorId && selectedSlot === slot
+                                      ? "bg-blue-500 text-white shadow-md"
+                                      : "bg-slate-800 text-slate-300 hover:bg-slate-700 border border-slate-700"
+                                  }`}
+                                >
+                                  {slot}
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : !slotsLoading && (
+                    /* ── General Ward Pool Fallback ─────────────────────────── */
+                    <div className="rounded-2xl border border-dashed border-slate-600/60 bg-slate-900/30 p-5 space-y-4 animate-in fade-in duration-300">
+                      <div className="flex items-start gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center shrink-0">
+                          <svg className="w-5 h-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-slate-200">General Ward Pool</p>
+                          <p className="text-xs text-slate-400 mt-0.5 leading-relaxed">
+                            No doctors are currently assigned to the <span className="font-semibold text-slate-300">{wardDisplayName || ward}</span> ward.
+                            Select a preferred time window and you will be assigned to the next available clinician upon arrival.
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {GENERAL_POOL_SLOTS.map((slot) => (
+                          <button
+                            key={slot}
+                            type="button"
+                            onClick={() => selectGeneralPool(slot)}
+                            className={`px-3 py-1.5 rounded-xl text-xs font-mono font-semibold border transition-all duration-150 ${
+                              generalPoolSlot === slot && generalPoolSelected
+                                ? "bg-slate-200 text-slate-900 border-slate-200 shadow"
+                                : "bg-slate-800/80 text-slate-300 border-slate-700 hover:border-slate-500 hover:bg-slate-700"
+                            }`}
+                          >
+                            {slot}
+                          </button>
+                        ))}
+                      </div>
+                      {generalPoolSelected && generalPoolSlot && (
+                        <p className="text-xs text-slate-400 italic">Reserved: General Ward Pool · {selectedDate} {generalPoolSlot}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Booking error state (flood guard or other) */}
+                  {bookingError && (
+                    <div className="p-3 rounded-xl border border-amber-500/40 bg-amber-950/20 text-amber-300 text-xs leading-relaxed">
+                      {bookingError}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Credential Intake UI */}
+            {identityMode && !emergencyFastPath && (
+              <div className="space-y-4 pt-6 mt-6 border-t border-slate-800/60">
+                <div className="flex items-center gap-2 text-slate-200">
+                  <Lock className="w-4 h-4 text-emerald-450" />
+                  <h3 className="font-bold text-sm">Secure Portal Access Setup</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Create Password</Label>
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={showPassword ? "text" : "password"}
+                        placeholder="Min 6 characters"
+                        value={password}
+                        onChange={(e) => {
+                          setPassword(e.target.value);
+                          if (passwordError) setPasswordError("");
+                        }}
+                        className="bg-slate-950 border-slate-800 text-slate-100 placeholder:text-slate-650 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-400 hover:text-slate-200 text-xs font-semibold"
+                      >
+                        {showPassword ? "Hide" : "Show"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="confirmPassword">Confirm Password</Label>
+                    <Input
+                      id="confirmPassword"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Re-enter password"
+                      value={confirmPassword}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (passwordError) setPasswordError("");
+                      }}
+                      className="bg-slate-955 border-slate-800 text-slate-100 placeholder:text-slate-650"
+                    />
+                  </div>
+                </div>
+
+                {passwordError && (
+                  <div className="p-3 rounded-lg border border-red-500/20 bg-red-950/20 text-red-400 text-xs font-semibold flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 shrink-0" />
+                    <span>{passwordError}</span>
+                  </div>
+                )}
+              </div>
+            )}
           </CardContent>
 
           {!emergencyFastPath && (
@@ -1322,6 +2098,84 @@ export default function RegisterPage() {
                 </p>
               </div>
 
+              {/* Credential disclosure section */}
+              {newPatient.uniqueId && (
+                <div className="p-6 rounded-2xl border border-slate-800 bg-slate-955 flex flex-col md:flex-row items-center gap-6 justify-between relative overflow-hidden">
+                  <div className="space-y-3 flex-1 text-center md:text-left">
+                    <div>
+                      <span className="text-xs font-semibold text-slate-500 tracking-wider uppercase">
+                        {language === "AM" ? "የታካሚ መለያ ቁጥር" : "MYHEALTH PATIENT ID"}
+                      </span>
+                      <div className="mt-1 font-mono text-2xl font-black text-white tracking-wider bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl inline-block shadow-inner select-all">
+                        {newPatient.uniqueId}
+                      </div>
+                    </div>
+
+                    {newPatient.nationalId && (
+                      <div className="text-xs text-slate-400">
+                        <span className="font-semibold">{language === "AM" ? "ብሔራዊ መለያ፡" : "National ID:"} </span>
+                        <span className="font-mono">{newPatient.nationalId}</span>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-amber-400/90 leading-relaxed max-w-sm">
+                      ⚠️ {language === "AM" 
+                        ? "እባክዎ ይህንን የታካሚ መለያ ቁጥር ያስቀምጡ - ወደ ፖርታል ለመግባት ያስፈልግዎታል።" 
+                        : "Save your Patient ID — you'll need it to sign in."}
+                    </p>
+                  </div>
+
+                  <div className="bg-white p-3 rounded-2xl border border-slate-200 shadow-lg flex items-center justify-center shrink-0">
+                    <QRCodeSVG value={newPatient.uniqueId} size={130} />
+                  </div>
+                </div>
+              )}
+
+              {/* One-click Go Straight to My Portal Button */}
+              {newPatient.uniqueId && (
+                <button
+                  type="button"
+                  disabled={portalLoading}
+                  onClick={async () => {
+                    setPortalLoading(true);
+                    try {
+                      const res = await fetch("/api/patient/auto-login", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          patientId: newPatient.id,
+                          healthId: newPatient.uniqueId,
+                        }),
+                      });
+                      if (res.ok) {
+                        router.push("/citizen/appointments");
+                      } else {
+                        const err = await res.json();
+                        alert(err.error || "Auto-login failed");
+                        setPortalLoading(false);
+                      }
+                    } catch (e: any) {
+                      alert(e.message || "An error occurred during auto-login");
+                      setPortalLoading(false);
+                    }
+                  }}
+                  className="w-full h-14 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white font-black rounded-2xl shadow-xl hover:shadow-indigo-550/20 border border-violet-550/30 transition-all duration-300 active:scale-[0.99] flex items-center justify-center gap-3 disabled:opacity-50 disabled:pointer-events-none cursor-pointer"
+                >
+                  {portalLoading ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>{language === "AM" ? "በማገናኘት ላይ..." : "Connecting to Portal..."}</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldCheck className="w-5 h-5" />
+                      <span>{language === "AM" ? "በቀጥታ ወደ እኔ ፖርታል ሂድ" : "Go Straight to My Portal"}</span>
+                      <ArrowRight className="w-4 h-4 ml-1" />
+                    </>
+                  )}
+                </button>
+              )}
+
               {/* Two Split Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                 {/* Card 1: Clinical Pathway */}
@@ -1374,7 +2228,7 @@ export default function RegisterPage() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-xs mt-6 group-hover:translate-x-1 transition-transform">
+                  <div className="flex items-center gap-1.5 text-emerald-450 font-bold text-xs mt-6 group-hover:translate-x-1 transition-transform">
                     {language === "AM" ? "ወደ ፖርታል ይሂዱ" : "Go to Portal"} <ArrowRight className="w-3.5 h-3.5" />
                   </div>
                 </button>

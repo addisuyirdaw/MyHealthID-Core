@@ -3,11 +3,13 @@
 import { useState, useEffect, useRef } from "react";
 import { 
   Calendar, Clock, Building, Stethoscope, 
-  CheckCircle2, AlertTriangle, ArrowRight, History, Sparkles, X, AlertCircle 
+  CheckCircle2, AlertTriangle, ArrowRight, History, Sparkles, X, AlertCircle, Loader2 
 } from "lucide-react";
 import { bookAppointment } from "@/lib/actions/appointment.actions";
 import { getLiveQueueStatus } from "@/lib/actions/queue.actions";
 import { getHealthcareRoleTranslation, APPOINTMENT_STATUS_LABELS } from "@/lib/locales/enums";
+import { getScreeningQuestions } from "@/lib/actions/hospital.actions";
+import { useLanguage } from "@/components/LanguageProvider";
 
 interface Hospital {
   id: string;
@@ -44,6 +46,30 @@ const DEPARTMENTS = [
   "Internal Medicine",
   "Surgical Services"
 ];
+
+const SCREENING_STRINGS = {
+  EN: {
+    stepTitle: "Preliminary Symptom Review",
+    stepSubtitle: "Please answer a few quick questions so we can route you safely.",
+    emergencyTitle: "Urgent Care Required",
+    emergencyBody: "Based on your responses, you may need immediate medical attention. Please bypass online scheduling and proceed directly to the Emergency Room.",
+    emergencyBypass: "I understand — book a regular appointment anyway",
+    progressLabel: (cur: number, total: number) => `Question ${cur} of ${total}`,
+    nextBtn: "Next",
+    skipBtn: "Skip Screening",
+  },
+  AM: {
+    stepTitle: "የቅድሚያ ምልክት ግምገማ",
+    stepSubtitle: "እባክዎ ጥቂት ጥያቄዎችን ይመልሱ። ወደ ትክክለኛው ክፍል እንዲደረሱ ያደርጋሉ።",
+    emergencyTitle: "አሳሳቢ ሁኔታ ተገኝቷል",
+    emergencyBody: "በምላሾችዎ መሰረት፣ ወዲያውኑ ህክምና ሊያስፈልግዎ ይችላል። እባክዎ ቀጠሮ ሳይይዙ ወዲያውኑ ወደ ድንገተኛ አደጋ ክፍል ይሂዱ።",
+    emergencyBypass: "ገባኝ — ቀጠሮ ለመያዝ ቀጥል",
+    progressLabel: (cur: number, total: number) => `ጥያቄ ${cur} ከ ${total}`,
+    nextBtn: "ቀጣይ",
+    skipBtn: "ምርመራ ዝለል",
+  },
+};
+
 
 export function CitizenAppointmentsClient({
   citizenPatientId,
@@ -142,12 +168,23 @@ export function CitizenAppointmentsClient({
     return () => clearInterval(poll);
   }, [citizenPatientId, queueStatus?.inQueue]);
   
+  const { language } = useLanguage();
+
   // Wizard States
   const [step, setStep] = useState(1);
   const [selectedHospitalId, setSelectedHospitalId] = useState("");
   const [selectedDepartment, setSelectedDepartment] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+
+  // Screening States
+  const [screeningQuestions, setScreeningQuestions] = useState<any[]>([]);
+  const [screeningAnswers, setScreeningAnswers] = useState<Record<string, string>>({});
+  const [screeningStep, setScreeningStep] = useState(0);
+  const [loadingQuestions, setLoadingQuestions] = useState(false);
+  const [emergencyBlocked, setEmergencyBlocked] = useState(false);
+  const [isAutoRouted, setIsAutoRouted] = useState(false);
+  const [isScreeningCompleted, setIsScreeningCompleted] = useState(false);
   
   // UI States
   const [loading, setLoading] = useState(false);
@@ -218,6 +255,12 @@ export function CitizenAppointmentsClient({
         setSelectedDepartment("");
         setSelectedDate("");
         setSelectedTime("");
+        setScreeningQuestions([]);
+        setScreeningAnswers({});
+        setScreeningStep(0);
+        setEmergencyBlocked(false);
+        setIsAutoRouted(false);
+        setIsScreeningCompleted(false);
         setStep(1);
       }
     } catch (err: any) {
@@ -328,11 +371,25 @@ export function CitizenAppointmentsClient({
                   <Sparkles className="w-4 h-4 text-indigo-400" /> Booking Wizard
                 </h2>
                 <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-950/80 px-2.5 py-1 rounded-lg border border-slate-800">
-                  <span className={step >= 1 ? "text-indigo-400 font-bold" : ""}>Step 1</span>
+                  <span className={step === 1 ? "text-indigo-400 font-bold" : ""}>
+                    {language === "AM" ? "ተቋም" : "Facility"}
+                  </span>
                   <span>/</span>
-                  <span className={step >= 2 ? "text-indigo-400 font-bold" : ""}>Step 2</span>
+                  {screeningQuestions.length > 0 && (
+                    <>
+                      <span className={step === 2 ? "text-indigo-400 font-bold" : ""}>
+                        {language === "AM" ? "ምርመራ" : "Screening"}
+                      </span>
+                      <span>/</span>
+                    </>
+                  )}
+                  <span className={step === 3 ? "text-indigo-400 font-bold" : ""}>
+                    {language === "AM" ? "ክፍል" : "Department"}
+                  </span>
                   <span>/</span>
-                  <span className={step >= 3 ? "text-indigo-400 font-bold" : ""}>Step 3</span>
+                  <span className={step === 4 ? "text-indigo-400 font-bold" : ""}>
+                    {language === "AM" ? "ቀጠሮ" : "Schedule"}
+                  </span>
                 </div>
               </div>
 
@@ -377,13 +434,36 @@ export function CitizenAppointmentsClient({
                             <button
                               key={h.id}
                               type="button"
-                              onClick={() => {
+                              disabled={loadingQuestions}
+                              onClick={async () => {
                                 setSelectedHospitalId(h.id);
-                                setStep(2);
+                                setLoadingQuestions(true);
+                                try {
+                                  const res = await getScreeningQuestions(h.id);
+                                  if (res.success && res.questions && res.questions.length > 0) {
+                                    setScreeningQuestions(res.questions);
+                                    setScreeningAnswers({});
+                                    setScreeningStep(0);
+                                    setEmergencyBlocked(false);
+                                    setIsScreeningCompleted(false);
+                                    setStep(2);
+                                  } else {
+                                    setScreeningQuestions([]);
+                                    setIsScreeningCompleted(true);
+                                    setStep(3);
+                                  }
+                                } catch (e) {
+                                  console.error(e);
+                                  setScreeningQuestions([]);
+                                  setIsScreeningCompleted(true);
+                                  setStep(3);
+                                } finally {
+                                  setLoadingQuestions(false);
+                                }
                               }}
                               className={`w-full p-3.5 text-left text-sm hover:bg-slate-900 transition-colors flex justify-between items-center ${
                                 selectedHospitalId === h.id ? "bg-indigo-950/30 text-indigo-200 border-l-2 border-indigo-500" : "text-slate-300"
-                              }`}
+                              } ${loadingQuestions ? "opacity-60 pointer-events-none" : ""}`}
                             >
                               <div>
                                 <p className="font-semibold text-white">{h.name}</p>
@@ -391,7 +471,11 @@ export function CitizenAppointmentsClient({
                                   {h.region || "Ethiopia"} • {h.zone || "Generic Zone"}
                                 </p>
                               </div>
-                              <ArrowRight className="w-4 h-4 text-slate-600" />
+                              {loadingQuestions && selectedHospitalId === h.id ? (
+                                <Loader2 className="w-4 h-4 text-indigo-400 animate-spin" />
+                              ) : (
+                                <ArrowRight className="w-4 h-4 text-slate-600" />
+                              )}
                             </button>
                           ))
                         )}
@@ -399,63 +483,258 @@ export function CitizenAppointmentsClient({
                     </div>
                   )}
 
-                  {/* STEP 2: Select Department */}
-                  {step === 2 && (
+                  {loadingQuestions && (
+                    <div className="py-12 flex flex-col items-center justify-center space-y-3 animate-in fade-in duration-300">
+                      <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+                      <p className="text-sm text-slate-400 font-semibold">
+                        {language === "AM" ? "የህክምና ምርመራ ጥያቄዎችን በመጫን ላይ..." : "Loading clinical review questions..."}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* STEP 2: Preliminary Symptom Review */}
+                  {!loadingQuestions && step === 2 && screeningQuestions.length > 0 && !isScreeningCompleted && (
+                    <div className="space-y-4 animate-in fade-in duration-300">
+                      <div>
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                            {SCREENING_STRINGS[language].stepTitle}
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setStep(1);
+                            }}
+                            className="text-xs text-indigo-400 hover:text-indigo-300"
+                          >
+                            {language === "AM" ? "ወደ ሆስፒታሎች ይመለሱ" : "Back to facilities"}
+                          </button>
+                        </div>
+                        <p className="text-xs text-slate-400 mt-1">
+                          {SCREENING_STRINGS[language].stepSubtitle}
+                        </p>
+                      </div>
+
+                      {emergencyBlocked ? (
+                        <div className="p-5 bg-red-950/40 border border-red-500/30 rounded-2xl space-y-4 animate-in zoom-in-95 duration-200">
+                          <div className="flex items-start gap-3">
+                            <AlertCircle className="w-8 h-8 text-red-500 shrink-0 mt-0.5" />
+                            <div className="space-y-1">
+                              <h3 className="text-red-400 font-bold text-base">
+                                {SCREENING_STRINGS[language].emergencyTitle}
+                              </h3>
+                              <p className="text-red-200/90 text-sm leading-relaxed">
+                                {SCREENING_STRINGS[language].emergencyBody}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="pt-2 border-t border-red-950 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEmergencyBlocked(false);
+                                setIsAutoRouted(false);
+                                setIsScreeningCompleted(true);
+                                setStep(3);
+                              }}
+                              className="text-xs text-slate-400 hover:text-white transition-colors"
+                            >
+                              {SCREENING_STRINGS[language].emergencyBypass}
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="space-y-5">
+                          {/* Question Card */}
+                          <div className="p-5 bg-slate-950/60 border border-slate-850 rounded-2xl">
+                            <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider">
+                              {SCREENING_STRINGS[language].progressLabel(screeningStep + 1, screeningQuestions.length)}
+                            </span>
+                            <h3 className="text-white font-bold text-base mt-1">
+                              {language === "AM" 
+                                ? screeningQuestions[screeningStep].labelAm 
+                                : screeningQuestions[screeningStep].labelEn}
+                            </h3>
+
+                            <div className="grid grid-cols-1 gap-3 mt-4">
+                              {screeningQuestions[screeningStep].options.map((opt: any) => (
+                                <button
+                                  key={opt.id}
+                                  type="button"
+                                  onClick={() => {
+                                    const nextAnswers = { ...screeningAnswers, [screeningQuestions[screeningStep].id]: opt.id };
+                                    setScreeningAnswers(nextAnswers);
+                                    
+                                    if (opt.isEmergencyFlag) {
+                                      setEmergencyBlocked(true);
+                                      return;
+                                    }
+
+                                    if (opt.autoSelectDepartment) {
+                                      setSelectedDepartment(opt.autoSelectDepartment);
+                                      setIsAutoRouted(true);
+                                    }
+
+                                    if (screeningStep < screeningQuestions.length - 1) {
+                                      setScreeningStep(prev => prev + 1);
+                                    } else {
+                                      // Check if any answer along the way set a department
+                                      const hasAutoSelectedDept = Object.values(nextAnswers).some((ansId) => {
+                                        const allOpts = screeningQuestions.flatMap(q => q.options);
+                                        const optionObj = allOpts.find(o => o.id === ansId);
+                                        return optionObj?.autoSelectDepartment;
+                                      });
+
+                                      setIsScreeningCompleted(true);
+                                      if (hasAutoSelectedDept) {
+                                        setStep(4);
+                                      } else {
+                                        setStep(3);
+                                      }
+                                    }
+                                  }}
+                                  className="p-4 bg-slate-900 border border-slate-800 hover:border-indigo-500/50 hover:bg-indigo-950/10 text-left rounded-xl transition-all hover:scale-[1.01] flex justify-between items-center group"
+                                >
+                                  <span className="text-sm font-semibold text-slate-200 group-hover:text-white">
+                                    {language === "AM" ? opt.labelAm : opt.labelEn}
+                                  </span>
+                                  <ArrowRight className="w-4 h-4 text-slate-600 group-hover:text-indigo-400" />
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="flex justify-between items-center text-xs">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (screeningStep > 0) {
+                                  setScreeningStep(prev => prev - 1);
+                                } else {
+                                  setStep(1);
+                                }
+                              }}
+                              className="text-slate-400 hover:text-white"
+                            >
+                              {language === "AM" ? "ተመለስ" : "Back"}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDepartment("");
+                                setIsAutoRouted(false);
+                                setIsScreeningCompleted(true);
+                                setStep(3);
+                              }}
+                              className="text-slate-500 hover:text-slate-300"
+                            >
+                              {SCREENING_STRINGS[language].skipBtn}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* STEP 3: Select Department */}
+                  {!loadingQuestions && step === 3 && (isScreeningCompleted || screeningQuestions.length === 0) && (
                     <div className="space-y-4 animate-in fade-in duration-300">
                       <div>
                         <div className="flex justify-between items-center">
                           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            2. Select Speciality Department
+                            {language === "AM" ? "3. ልዩ ህክምና ክፍል ይምረጡ" : "3. Select Speciality Department"}
                           </label>
                           <button
                             type="button"
-                            onClick={() => setStep(1)}
+                            onClick={() => {
+                              if (screeningQuestions.length > 0) {
+                                setIsScreeningCompleted(false);
+                                setStep(2);
+                                setScreeningStep(screeningQuestions.length - 1);
+                              } else {
+                                setStep(1);
+                              }
+                            }}
                             className="text-xs text-indigo-400 hover:text-indigo-300"
                           >
-                            Back to facilities
+                            {language === "AM" ? "ወደኋላ ተመለስ" : "Back"}
                           </button>
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">Selected: {selectedHospitalName}</p>
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        {DEPARTMENTS.map((dept) => (
-                          <button
-                            key={dept}
-                            type="button"
-                            onClick={() => {
-                              setSelectedDepartment(dept);
-                              setStep(3);
-                            }}
-                            className={`p-4 rounded-xl border text-left transition-all hover:scale-[1.01] ${
-                              selectedDepartment === dept
-                                ? "bg-indigo-950/40 text-indigo-200 border-indigo-500 shadow-md shadow-indigo-900/10"
-                                : "bg-slate-950/60 border-slate-850 text-slate-300 hover:bg-slate-900"
-                            }`}
-                          >
-                            <Stethoscope className="w-5 h-5 text-indigo-400 mb-2" />
-                            <p className="font-bold text-sm text-white">{dept}</p>
-                            <p className="text-[10px] text-slate-500 mt-0.5">Available for screening &amp; triage</p>
-                          </button>
-                        ))}
-                      </div>
+                      {isAutoRouted ? (
+                        <div className="space-y-4">
+                          <div className="p-5 bg-indigo-950/20 border border-indigo-500/30 rounded-2xl flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                            <div>
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 mb-2">
+                                <Sparkles className="w-3 h-3" /> {language === "AM" ? "በምርመራ የተመረጠ" : "Auto-Routed"}
+                              </span>
+                              <h3 className="text-white font-bold text-base">{selectedDepartment}</h3>
+                              <p className="text-[11px] text-slate-400 mt-0.5">
+                                {language === "AM" 
+                                  ? "በምልክት ግምገማዎ መሰረት ይህንን ክፍል በራስ-ሰር መርጠናል።" 
+                                  : "Based on your symptom screening responses, we have auto-selected this department."}
+                              </p>
+                            </div>
+                            <div className="flex gap-3 items-center">
+                              <button
+                                type="button"
+                                onClick={() => setIsAutoRouted(false)}
+                                className="text-xs text-indigo-400 hover:text-indigo-300 underline font-semibold"
+                              >
+                                {language === "AM" ? "ክፍል ቀይር" : "Change Speciality"}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setStep(4)}
+                                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1"
+                              >
+                                {language === "AM" ? "ቀጣይ" : "Proceed"} <ArrowRight className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          {DEPARTMENTS.map((dept) => (
+                            <button
+                              key={dept}
+                              type="button"
+                              onClick={() => {
+                                setSelectedDepartment(dept);
+                                setStep(4);
+                              }}
+                              className={`p-4 rounded-xl border text-left transition-all hover:scale-[1.01] ${
+                                selectedDepartment === dept
+                                  ? "bg-indigo-950/40 text-indigo-200 border-indigo-500 shadow-md shadow-indigo-900/10"
+                                  : "bg-slate-950/60 border-slate-850 text-slate-300 hover:bg-slate-900"
+                              }`}
+                            >
+                              <Stethoscope className="w-5 h-5 text-indigo-400 mb-2" />
+                              <p className="font-bold text-sm text-white">{dept}</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">Available for screening &amp; triage</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   )}
 
-                  {/* STEP 3: Choose Date & Time */}
-                  {step === 3 && (
+                  {/* STEP 4: Choose Date & Time */}
+                  {!loadingQuestions && step === 4 && (
                     <div className="space-y-4 animate-in fade-in duration-300">
                       <div>
                         <div className="flex justify-between items-center">
                           <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                            3. Select Date and Time
+                            {language === "AM" ? "4. ቀን እና ሰዓት ይምረጡ" : "4. Select Date and Time"}
                           </label>
                           <button
                             type="button"
-                            onClick={() => setStep(2)}
+                            onClick={() => setStep(3)}
                             className="text-xs text-indigo-400 hover:text-indigo-300"
                           >
-                            Back to departments
+                            {language === "AM" ? "ወደ ክፍሎች ተመለስ" : "Back to departments"}
                           </button>
                         </div>
                         <p className="text-xs text-slate-500 mt-0.5">

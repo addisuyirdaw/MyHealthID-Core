@@ -99,6 +99,25 @@ export default function CitizenProfileClient({
     setSuccess(null);
     setError(null);
 
+    const dobDate = new Date(dob);
+    if (isNaN(dobDate.getTime())) {
+      setError("Please enter a valid date of birth.");
+      setLoading(false);
+      return;
+    }
+    const currentYear = new Date().getFullYear();
+    const dobYear = dobDate.getFullYear();
+    if (dobYear < 1900 || dobYear > currentYear) {
+      setError(`Date of birth must be a valid date between 1900 and ${currentYear}.`);
+      setLoading(false);
+      return;
+    }
+    if (dobDate > new Date()) {
+      setError("Date of birth cannot be in the future.");
+      setLoading(false);
+      return;
+    }
+
     try {
       const result = await updateCitizenProfile({
         fullName,
@@ -314,6 +333,8 @@ export default function CitizenProfileClient({
                         value={dob}
                         onChange={(e) => setDob(e.target.value)}
                         required
+                        min="1900-01-01"
+                        max={new Date().toISOString().split("T")[0]}
                         className="w-full bg-neutral-900/60 border border-neutral-800 disabled:border-neutral-800/40 disabled:text-neutral-500 rounded-2xl py-3 pl-12 pr-4 text-white placeholder-neutral-600 focus:outline-none focus:border-blue-500/50 focus:ring-1 focus:ring-blue-500/30 transition-all duration-200 text-sm font-mono disabled:cursor-not-allowed"
                       />
                     </div>

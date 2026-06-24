@@ -5,7 +5,7 @@ import {
   Calendar, Clock, Building, Stethoscope, 
   CheckCircle2, AlertTriangle, ArrowRight, History, Sparkles, X, AlertCircle 
 } from "lucide-react";
-import { bookAppointment } from "@/lib/actions/appointment.actions";
+import { bookAppointment, updateAppointmentStatus, rescheduleAppointment } from "@/lib/actions/appointment.actions";
 import { getLiveQueueStatus } from "@/lib/actions/queue.actions";
 import { getHealthcareRoleTranslation, APPOINTMENT_STATUS_LABELS } from "@/lib/locales/enums";
 
@@ -154,6 +154,83 @@ export function CitizenAppointmentsClient({
   const [errorMsg, setErrorMsg] = useState("");
   const [successMsg, setSuccessMsg] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // Reschedule & Cancel States
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [reschedulingId, setReschedulingId] = useState<string | null>(null);
+  const [newDate, setNewDate] = useState("");
+  const [newTime, setNewTime] = useState("");
+
+  const handleCancelAppointment = async (appId: string) => {
+    if (!confirm("Are you sure you want to cancel this appointment request?")) {
+      return;
+    }
+    setActionLoading(appId);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const res = await updateAppointmentStatus(appId, "CANCELLED");
+      if (res.success) {
+        setAppointments((prev) =>
+          prev.map((app) => (app.id === appId ? { ...app, status: "CANCELLED" } : app))
+        );
+        setSuccessMsg("Appointment request cancelled successfully.");
+      } else {
+        setErrorMsg(res.error || "Failed to cancel appointment.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "An unexpected error occurred.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleOpenReschedule = (app: Appointment) => {
+    setReschedulingId(app.id);
+    const dateObj = new Date(app.dateTime);
+    if (!isNaN(dateObj.getTime())) {
+      setNewDate(dateObj.toISOString().split("T")[0]);
+      setNewTime(dateObj.toTimeString().split(" ")[0].substring(0, 5));
+    } else {
+      setNewDate("");
+      setNewTime("");
+    }
+  };
+
+  const handleSaveReschedule = async (appId: string) => {
+    if (!newDate || !newTime) {
+      setErrorMsg("Please select a date and time for rescheduling.");
+      return;
+    }
+    setActionLoading(appId);
+    setErrorMsg("");
+    setSuccessMsg("");
+    try {
+      const combinedDateTime = `${newDate}T${newTime}:00`;
+      const res = await rescheduleAppointment(appId, combinedDateTime);
+      if (res.success && res.appointment) {
+        setAppointments((prev) =>
+          prev.map((app) =>
+            app.id === appId
+              ? {
+                  ...app,
+                  dateTime: res.appointment.dateTime,
+                  status: res.appointment.status,
+                }
+              : app
+          )
+        );
+        setSuccessMsg("Appointment rescheduled successfully!");
+        setReschedulingId(null);
+      } else {
+        setErrorMsg(res.error || "Failed to reschedule appointment.");
+      }
+    } catch (err: any) {
+      setErrorMsg(err.message || "An unexpected error occurred.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
   // Safeguard count check
   const activeBookingsCount = appointments.filter(
@@ -630,10 +707,71 @@ export function CitizenAppointmentsClient({
                           </span>
                         </div>
 
-                        <div className="flex items-center gap-1.5 text-xs text-slate-500 pt-1 border-t border-slate-900">
-                          <Clock className="w-3.5 h-3.5 text-slate-600" />
-                          <span>{formatDateTime(app.dateTime)}</span>
+                        <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-900">
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-slate-600" />
+                            <span>{formatDateTime(app.dateTime)}</span>
+                          </div>
                         </div>
+
+                        {reschedulingId === app.id ? (
+                          <div className="mt-2.5 p-3 bg-slate-900 border border-slate-800 rounded-xl space-y-3 animate-in slide-in-from-top-2 duration-200">
+                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Select New Date & Time</p>
+                            <div className="grid grid-cols-2 gap-2">
+                              <input
+                                type="date"
+                                value={newDate}
+                                onChange={(e) => setNewDate(e.target.value)}
+                                min={new Date().toISOString().split("T")[0]}
+                                className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                              />
+                              <input
+                                type="time"
+                                value={newTime}
+                                onChange={(e) => setNewTime(e.target.value)}
+                                className="bg-slate-950 border border-slate-800 rounded-lg p-2 text-xs text-white focus:outline-none focus:border-indigo-500"
+                              />
+                            </div>
+                            <div className="flex justify-end gap-2 pt-1">
+                              <button
+                                type="button"
+                                onClick={() => setReschedulingId(null)}
+                                className="px-2.5 py-1.5 border border-slate-800 hover:bg-slate-800 text-slate-400 rounded-lg text-[10px] font-bold transition-all"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                disabled={actionLoading === app.id || !newDate || !newTime}
+                                onClick={() => handleSaveReschedule(app.id)}
+                                className="px-2.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-[10px] font-bold transition-all"
+                              >
+                                {actionLoading === app.id ? "Saving..." : "Save"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          (app.status === "PENDING_CONFIRMATION" || app.status === "SCHEDULED") && (
+                            <div className="flex items-center gap-3 pt-2 border-t border-slate-900/60">
+                              <button
+                                type="button"
+                                onClick={() => handleOpenReschedule(app)}
+                                className="text-[11px] font-bold text-indigo-400 hover:text-indigo-300 hover:underline transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <Calendar className="w-3.5 h-3.5" /> Reschedule
+                              </button>
+                              <span className="text-slate-800 text-[10px]">•</span>
+                              <button
+                                type="button"
+                                disabled={actionLoading === app.id}
+                                onClick={() => handleCancelAppointment(app.id)}
+                                className="text-[11px] font-bold text-red-400 hover:text-red-300 hover:underline disabled:opacity-50 transition-colors flex items-center gap-1 cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" /> Cancel
+                              </button>
+                            </div>
+                          )
+                        )}
                       </div>
                     );
                   })

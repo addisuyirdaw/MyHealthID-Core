@@ -67,6 +67,7 @@ export async function registerPatient(data: {
   parentFaydaId?: string;
   /** When true, patient is flagged as urgent intake (e.g. emergency chief complaint). */
   emergencyFlag?: boolean;
+  password?: string;
 }) {
   try {
     const { 
@@ -76,10 +77,49 @@ export async function registerPatient(data: {
       addressRegion, addressZone, addressWoreda, addressKebele,
       emergencyContactName, emergencyContactPhone, chiefComplaint, detailedSituation,
       bp, pulse, temp, spO2, phoneNumber,
-      isMinor, guardianId, parentFaydaId
+      isMinor, guardianId, parentFaydaId,
+      password
     } = data;
 
-    const healthId = generateHealthId();
+    const userSuppliedHealthId = (data as any).healthId || null;
+    let healthId = "";
+
+    if (userSuppliedHealthId) {
+      // Check if it already exists (upstream check)
+      const existing = await prisma.patient.findUnique({
+        where: {
+          healthId: userSuppliedHealthId,
+          ...CROSS_FACILITY,
+        } as any,
+      });
+      if (existing) {
+        return { error: "Health ID is already registered in the system." };
+      }
+      healthId = userSuppliedHealthId;
+    } else {
+      // Auto-generated ID:
+      let generatedId = generateHealthId();
+      let isUnique = false;
+      let attempts = 0;
+      while (!isUnique && attempts < 20) {
+        const existing = await prisma.patient.findUnique({
+          where: {
+            healthId: generatedId,
+            ...CROSS_FACILITY,
+          } as any,
+        });
+        if (!existing) {
+          isUnique = true;
+        } else {
+          generatedId = generateHealthId();
+          attempts++;
+        }
+      }
+      if (!isUnique) {
+        return { error: "Failed to generate a unique Health ID after multiple attempts." };
+      }
+      healthId = generatedId;
+    }
 
     const nationalDigits = nationalId ? String(nationalId).replace(/\D/g, "") : "";
     const isFaydaUser = Boolean(
@@ -136,8 +176,18 @@ export async function registerPatient(data: {
           ? String(idValue).replace(/\D/g, "")
           : null;
 
+    let passwordHash: string | undefined = undefined;
+    if (password) {
+      const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
+      passwordHash = crypto
+        .createHmac("sha256", salt)
+        .update(password)
+        .digest("hex");
+    }
+
     const patientData = {
       fullName: fullName || "Unknown",
+      ...(passwordHash ? { passwordHash } : {}),
       age: Math.max(0, age || 0),
       sex: sex || "Not Specified",
       dateOfBirth: dateOfBirth || null,
@@ -225,30 +275,41 @@ export async function registerPatient(data: {
 
     let patient;
 
-    if (idValue !== null) {
-      const existing = await prisma.patient.findFirst({
-        where: {
-          // CROSS_FACILITY: global duplicate-check during registration — must
-          // search all facilities so we never create a second record for the
-          // same National ID at a different hospital.
-          ...CROSS_FACILITY,
-          OR: [
-            { nationalId: idValue },
-            { faydaId: idValue },
-            { hospitalId: idValue },
-          ],
-        } as any
-      });
-      if (existing) {
-        patient = await prisma.patient.update({
-          where: { id: existing.id },
-          data: {
-            ...patientData,
-            healthId: healthId, // Overwrite the temporary TMP health ID from OTP step
-            vitals: vitalsData,
-          },
-          include: { vitals: true }
+    try {
+      if (idValue !== null) {
+        const existing = await prisma.patient.findFirst({
+          where: {
+            // CROSS_FACILITY: global duplicate-check during registration — must
+            // search all facilities so we never create a second record for the
+            // same National ID at a different hospital.
+            ...CROSS_FACILITY,
+            OR: [
+              { nationalId: idValue },
+              { faydaId: idValue },
+              { hospitalId: idValue },
+            ],
+          } as any
         });
+        if (existing) {
+          patient = await prisma.patient.update({
+            where: { id: existing.id },
+            data: {
+              ...patientData,
+              healthId: healthId, // Overwrite the temporary TMP health ID from OTP step
+              vitals: vitalsData,
+            },
+            include: { vitals: true }
+          });
+        } else {
+          patient = await prisma.patient.create({
+            data: {
+              ...patientData,
+              healthId: healthId,
+              vitals: vitalsData,
+            },
+            include: { vitals: true }
+          });
+        }
       } else {
         patient = await prisma.patient.create({
           data: {
@@ -259,15 +320,17 @@ export async function registerPatient(data: {
           include: { vitals: true }
         });
       }
-    } else {
-      patient = await prisma.patient.create({
-        data: {
-          ...patientData,
-          healthId: healthId,
-          vitals: vitalsData,
-        },
-        include: { vitals: true }
-      });
+    } catch (err: any) {
+      if (err.code === "P2002") {
+        const targets = err.meta?.target || [];
+        const isHealthId = (typeof targets === "string" && targets.includes("healthId")) ||
+                           (Array.isArray(targets) && targets.includes("healthId")) ||
+                           (err.message?.includes("healthId"));
+        if (isHealthId) {
+          return { error: "Health ID is already registered in the system." };
+        }
+      }
+      throw err;
     }
 
     try {
@@ -280,14 +343,28 @@ export async function registerPatient(data: {
       console.error("[VerifiedCitizen] upsert failed:", e);
     }
 
-    return JSON.parse(JSON.stringify(patient));
+    return {
+      success: true,
+      uniqueId: patient.healthId,
+      nationalId: patient.nationalId ?? patient.faydaId ?? patient.hospitalId ?? "",
+      id: patient.id,
+      name: patient.fullName,
+      organizationId: patient.organizationId,
+    };
 
   } catch (error: any) {
     console.error("❌ DATABASE ERROR:", error.message);
-    if (error.code === 'P2002') {
+    if (error.code === "P2002") {
+      const targets = error.meta?.target || [];
+      const isHealthId = (typeof targets === "string" && targets.includes("healthId")) ||
+                         (Array.isArray(targets) && targets.includes("healthId")) ||
+                         (error.message?.includes("healthId"));
+      if (isHealthId) {
+        return { error: "Health ID is already registered in the system." };
+      }
       return { error: "A patient with this National ID is already registered." };
     }
-    if (error.name === 'ZodError') {
+    if (error.name === "ZodError") {
       return { error: error.issues?.[0]?.message || "Validation error" };
     }
     return { error: error.message || "Registration failed." };
@@ -2050,6 +2127,18 @@ export async function updateCitizenProfile(data: {
     const oldDob = patient.dateOfBirth ? new Date(patient.dateOfBirth).toISOString().split('T')[0] : "";
     const newDobParsed = new Date(cleanDob);
 
+    if (isNaN(newDobParsed.getTime())) {
+      return { success: false, error: "Invalid date of birth format." };
+    }
+    const currentYear = new Date().getFullYear();
+    const dobYear = newDobParsed.getFullYear();
+    if (dobYear < 1900 || dobYear > currentYear) {
+      return { success: false, error: `Date of birth must be a valid date between 1900 and ${currentYear}.` };
+    }
+    if (newDobParsed > new Date()) {
+      return { success: false, error: "Date of birth cannot be in the future." };
+    }
+
     const changes: { field: string; oldVal: string; newVal: string }[] = [];
     if (oldName !== cleanFullName) {
       changes.push({ field: "fullName", oldVal: oldName, newVal: cleanFullName });
@@ -2371,19 +2460,33 @@ export async function selfRegisterCitizen(data: any) {
 
     const internalId = `MHI-${crypto.randomUUID()}`;
 
-    const newPatient = await prisma.patient.create({
-      data: {
-        healthId,
-        internalId,
-        fullName,
-        sex,
-        age: parseInt(String(age), 10),
-        phoneNumber: cleanPhone,
-        passwordHash,
-        isVerified: false,
-        registrationSource: "SELF",
-      },
-    });
+    let newPatient;
+    try {
+      newPatient = await prisma.patient.create({
+        data: {
+          healthId,
+          internalId,
+          fullName,
+          sex,
+          age: parseInt(String(age), 10),
+          phoneNumber: cleanPhone,
+          passwordHash,
+          isVerified: false,
+          registrationSource: "SELF",
+        },
+      });
+    } catch (err: any) {
+      if (err.code === "P2002") {
+        const targets = err.meta?.target || [];
+        const isHealthId = (typeof targets === "string" && targets.includes("healthId")) ||
+                           (Array.isArray(targets) && targets.includes("healthId")) ||
+                           (err.message?.includes("healthId"));
+        if (isHealthId) {
+          return { success: false, error: "Health ID is already registered in the system." };
+        }
+      }
+      throw err;
+    }
 
     return {
       success: true,
@@ -2392,6 +2495,15 @@ export async function selfRegisterCitizen(data: any) {
     };
   } catch (error: any) {
     console.error("❌ selfRegisterCitizen error:", error);
+    if (error.code === "P2002") {
+      const targets = error.meta?.target || [];
+      const isHealthId = (typeof targets === "string" && targets.includes("healthId")) ||
+                         (Array.isArray(targets) && targets.includes("healthId")) ||
+                         (error.message?.includes("healthId"));
+      if (isHealthId) {
+        return { success: false, error: "Health ID is already registered in the system." };
+      }
+    }
     return { success: false, error: error.message || "Failed to register citizen." };
   }
 }
@@ -2467,5 +2579,43 @@ export async function verifyPatientIdentity(patientId: string) {
   } catch (error: any) {
     console.error("❌ verifyPatientIdentity error:", error);
     return { success: false, error: error.message || "Failed to verify patient identity." };
+  }
+}
+
+export async function loginPatientSession(data: { patientId: string; healthId: string }) {
+  try {
+    const { patientId, healthId } = data;
+    const tokenPayload = {
+      patientId,
+      role: "CITIZEN",
+      iat: Date.now(),
+      exp: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
+    };
+    const token = signToken(tokenPayload);
+
+    const cookieStore = cookies();
+    const isProd = process.env.NODE_ENV === "production";
+
+    cookieStore.set("citizenSessionToken", token, {
+      httpOnly: true,
+      secure: true,
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/"
+    });
+
+    const clientCookieOpts = {
+      httpOnly: false,
+      secure: isProd,
+      maxAge: 60 * 60 * 24 * 7,
+      path: "/"
+    };
+    cookieStore.set("userRole", "CITIZEN", clientCookieOpts);
+    cookieStore.set("citizenPatientId", patientId, clientCookieOpts);
+
+    return { success: true };
+  } catch (error: any) {
+    console.error("❌ loginPatientSession error:", error);
+    return { success: false, error: error.message || "Failed to start session." };
   }
 }

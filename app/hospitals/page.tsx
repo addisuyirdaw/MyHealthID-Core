@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Hospital, Search, Filter, ClipboardPlus, Clock, MapPin, CheckCircle, ShieldAlert, ArrowLeft, X } from "lucide-react";
+import { Hospital, Search, Filter, ClipboardPlus, Clock, MapPin, CheckCircle, ShieldAlert, ArrowLeft, X, Loader2 } from "lucide-react";
 import Link from "next/link";
 
 interface HospitalData {
@@ -48,7 +48,7 @@ export default function HospitalsDirectoryPage() {
 
   // User Citizen Session State
   const [citizenId, setCitizenId] = useState<string | null>(null);
-  const [citizenProfile, setCitizenProfile] = useState<{ fullName: string; faydaId: string | null; nationalId: string | null } | null>(null);
+  const [citizenProfile, setCitizenProfile] = useState<{ fullName: string; faydaId: string | null; nationalId: string | null; phoneNumber?: string | null } | null>(null);
 
   // Intake Requests state
   const [myRequests, setMyRequests] = useState<IntakeRequestData[]>([]);
@@ -65,6 +65,9 @@ export default function HospitalsDirectoryPage() {
   const [intakeSuccess, setIntakeSuccess] = useState(false);
   const [intakeError, setIntakeError] = useState("");
 
+  // Profile loading state
+  const [profileLoading, setProfileLoading] = useState(false);
+
   useEffect(() => {
     // 1. Fetch initial hospitals
     fetchHospitals();
@@ -79,18 +82,22 @@ export default function HospitalsDirectoryPage() {
     const cid = getCookie("citizenPatientId");
     if (cid) {
       setCitizenId(cid);
+      setProfileLoading(true);
       getCitizenProfile(cid).then((res) => {
         if (res.success && res.citizen) {
           setCitizenProfile(res.citizen);
           setIntakeName(res.citizen.fullName);
           const fId = res.citizen.faydaId || res.citizen.nationalId || "";
           setIntakeFayda(fId);
+          setIntakePhone(res.citizen.phoneNumber || "");
           setLookupFaydaId(fId);
           // Auto-fetch existing requests for logged in citizen
           if (fId) {
             fetchExistingRequests(fId);
           }
         }
+      }).finally(() => {
+        setProfileLoading(false);
       });
     }
   }, []);
@@ -161,22 +168,32 @@ export default function HospitalsDirectoryPage() {
     setIntakeSuccess(false);
 
     if (!selectedHospital) return;
-    if (!intakeName || !intakeFayda) {
+
+    // Suppress name and Fayda ID requirement check ONLY if the citizenProfile is loaded AND contains those fields.
+    const isProfileLoadedWithDetails = !!citizenProfile && (citizenProfile.fullName && (citizenProfile.faydaId || citizenProfile.nationalId));
+    
+    if (!isProfileLoadedWithDetails && (!intakeName || !intakeFayda)) {
       setIntakeError("Name and Fayda ID are required.");
       return;
     }
 
-    const cleanFayda = intakeFayda.replace(/\s/g, "");
+    const cleanFayda = (citizenProfile && (citizenProfile.faydaId || citizenProfile.nationalId))
+      ? (citizenProfile.faydaId || citizenProfile.nationalId || "").replace(/\s/g, "")
+      : intakeFayda.replace(/\s/g, "");
+
     if (cleanFayda.length !== 12 && cleanFayda.length !== 16) {
       setIntakeError("Fayda National ID must be exactly 12 or 16 digits.");
       return;
     }
 
+    const finalName = (citizenProfile && citizenProfile.fullName) ? citizenProfile.fullName : intakeName;
+    const finalPhone = (citizenProfile && citizenProfile.phoneNumber) ? citizenProfile.phoneNumber : intakePhone;
+
     setSubmittingIntake(true);
     const res = await requestIntake({
       nationalId: cleanFayda,
-      fullName: intakeName,
-      phoneNumber: intakePhone,
+      fullName: finalName,
+      phoneNumber: finalPhone,
       organizationId: selectedHospital.id,
       notes: intakeNotes,
     });
@@ -503,51 +520,61 @@ export default function HospitalsDirectoryPage() {
                       </div>
                     )}
 
-                    {/* Citizen Name */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="intakeName" className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Citizen Full Name
-                      </Label>
-                      <Input
-                        id="intakeName"
-                        value={intakeName}
-                        onChange={(e) => setIntakeName(e.target.value)}
-                        placeholder="e.g. Dawit Tadesse"
-                        className="bg-slate-950 border-slate-800 text-white rounded-xl h-11 pl-4"
-                        required
-                        disabled={!!citizenId}
-                      />
-                    </div>
+                    {profileLoading ? (
+                      <div className="space-y-4 py-4 flex flex-col items-center justify-center border border-slate-800 rounded-2xl bg-slate-950/40">
+                        <Loader2 className="w-6 h-6 text-indigo-400 animate-spin" />
+                        <p className="text-xs text-slate-400">Loading citizen profile...</p>
+                      </div>
+                    ) : (
+                      <>
+                        {/* Citizen Name */}
+                        <div className="space-y-1.5">
+                          <Label htmlFor="intakeName" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Citizen Full Name
+                          </Label>
+                          <Input
+                            id="intakeName"
+                            value={intakeName}
+                            onChange={(e) => setIntakeName(e.target.value)}
+                            placeholder="e.g. Dawit Tadesse"
+                            className="bg-slate-950 border-slate-800 text-white rounded-xl h-11 pl-4 read-only:opacity-80"
+                            required
+                            readOnly={!!citizenProfile && !!citizenProfile.fullName}
+                          />
+                        </div>
 
-                    {/* Fayda National ID */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="intakeFayda" className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Fayda National ID (FIN / FCN)
-                      </Label>
-                      <Input
-                        id="intakeFayda"
-                        value={intakeFayda}
-                        onChange={(e) => setIntakeFayda(e.target.value)}
-                        placeholder="12-digit FIN or 16-digit FCN"
-                        className="bg-slate-950 border-slate-800 text-white rounded-xl h-11 pl-4 font-mono"
-                        required
-                        disabled={!!citizenId}
-                      />
-                    </div>
+                        {/* Fayda National ID */}
+                        <div className="space-y-1.5">
+                          <Label htmlFor="intakeFayda" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Fayda National ID (FIN / FCN)
+                          </Label>
+                          <Input
+                            id="intakeFayda"
+                            value={intakeFayda}
+                            onChange={(e) => setIntakeFayda(e.target.value)}
+                            placeholder="12-digit FIN or 16-digit FCN"
+                            className="bg-slate-950 border-slate-800 text-white rounded-xl h-11 pl-4 font-mono read-only:opacity-80"
+                            required
+                            readOnly={!!citizenProfile && !!(citizenProfile.faydaId || citizenProfile.nationalId)}
+                          />
+                        </div>
 
-                    {/* Contact Phone (Optional) */}
-                    <div className="space-y-1.5">
-                      <Label htmlFor="intakePhone" className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                        Contact Phone Number (Optional)
-                      </Label>
-                      <Input
-                        id="intakePhone"
-                        value={intakePhone}
-                        onChange={(e) => setIntakePhone(e.target.value)}
-                        placeholder="e.g. +251 912 345678"
-                        className="bg-slate-950 border-slate-800 text-white rounded-xl h-11 pl-4"
-                      />
-                    </div>
+                        {/* Contact Phone (Optional) */}
+                        <div className="space-y-1.5">
+                          <Label htmlFor="intakePhone" className="text-xs font-bold uppercase tracking-wider text-slate-400">
+                            Contact Phone Number (Optional)
+                          </Label>
+                          <Input
+                            id="intakePhone"
+                            value={intakePhone}
+                            onChange={(e) => setIntakePhone(e.target.value)}
+                            placeholder="e.g. +251 912 345678"
+                            className="bg-slate-950 border-slate-800 text-white rounded-xl h-11 pl-4 read-only:opacity-80"
+                            readOnly={!!citizenProfile && !!citizenProfile.phoneNumber}
+                          />
+                        </div>
+                      </>
+                    )}
 
                     {/* Clinical Notes (Optional) */}
                     <div className="space-y-1.5">

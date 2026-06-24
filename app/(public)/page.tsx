@@ -12,7 +12,6 @@ import {
   MapPin
 } from "lucide-react";
 import { LocalizedText } from "@/components/LocalizedText";
-import { getLandingMedia } from "@/lib/actions/media.actions";
 import LandingCarousel from "@/components/LandingCarousel";
 
 export default async function Home() {
@@ -29,10 +28,12 @@ export default async function Home() {
     console.error("[Home] DB unreachable, showing fallback count:", error);
   }
 
-  // Fetch Carousel Media from Prisma (cached)
+  // Fetch Carousel Media from Prisma
   let dbCarouselItems: any[] = [];
   try {
-    dbCarouselItems = await getLandingMedia();
+    dbCarouselItems = await prisma.carouselSlide.findMany({
+      orderBy: { sortOrder: "asc" },
+    });
   } catch (error) {
     console.error("Failed to load landing media:", error);
   }
@@ -41,16 +42,20 @@ export default async function Home() {
     {
       id: "fallback-1",
       imageUrl: "/front.jpg",
-      altText: "MyHealthID Front Identification Showcase",
-      title: "National Digital Health ID",
-      description: "Securing identity and enabling health records nationwide.",
+      headingEn: "National Digital Health ID",
+      headingAm: "ሀገራዊ ዲጂታል ጤና መታወቂያ",
+      textEn: "Securing identity and enabling health records nationwide.",
+      textAm: "ለእያንዳንዱ ዜጋ ማንነትን ጥበቃ ማድረግ እና ተረጋግጦ የጤና መዝገቦችን ማንቃት።",
+      sortOrder: 0,
     },
     {
       id: "fallback-2",
       imageUrl: "/back.jpg",
-      altText: "MyHealthID Back System Information",
-      title: "Verified Health Profile",
-      description: "Clinical-integrity and administrative verification for every citizen.",
+      headingEn: "Verified Health Profile",
+      headingAm: "ተረጋግጦ የጤና መገለጫ",
+      textEn: "Clinical-integrity and administrative verification for every citizen.",
+      textAm: "ለእያንዳንዱ ታካሚ ክሊኒካዊ ትክክለኛነት እና አስተዳደራዊ ማረጋገጫ፣ በፋይዳ ውህደት የተሰጠ።",
+      sortOrder: 1,
     }
   ];
 
@@ -68,21 +73,21 @@ export default async function Home() {
       <section className="w-full relative z-10">
         <LandingCarousel items={carouselItems}>
           {/* Unified System Actions Button Group — overlayed on the carousel */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center max-w-3xl mx-auto">
+          <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center items-center max-w-3xl mx-auto">
             <Link href="/register" className="w-full sm:w-auto">
-              <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
+              <button className="w-full sm:px-8 h-11 sm:h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
                 <Users className="w-4.5 h-4.5 text-blue-500" />
                 <LocalizedText tKey="landing.registerCitizen" />
               </button>
             </Link>
             <Link href="/login" className="w-full sm:w-auto">
-              <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
+              <button className="w-full sm:px-8 h-11 sm:h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
                 <ShieldCheck className="w-4.5 h-4.5 text-emerald-500" />
                 Portal Sign In
               </button>
             </Link>
             <Link href="/register-facility" className="w-full sm:w-auto">
-              <button className="w-full sm:px-8 h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
+              <button className="w-full sm:px-8 h-11 sm:h-13 flex items-center justify-center gap-2.5 text-sm font-bold bg-neutral-900/90 backdrop-blur-sm border border-neutral-800 hover:border-blue-500 hover:bg-neutral-850 text-neutral-200 hover:text-white rounded-xl transition-all duration-300 shadow-xl active:scale-95 cursor-pointer">
                 <Building className="w-4.5 h-4.5 text-purple-500" />
                 Onboard Hospital
               </button>
@@ -90,7 +95,7 @@ export default async function Home() {
           </div>
 
           {/* Trust badges */}
-          <div className="flex items-center justify-center gap-6 pt-5 flex-wrap">
+          <div className="flex items-center justify-center gap-4 sm:gap-6 pt-3 sm:pt-5 flex-wrap">
             {[
               { label: "Fayda-Integrated", color: "text-blue-400" },
               { label: "HIPAA-Aligned", color: "text-emerald-400" },
