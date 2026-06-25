@@ -689,7 +689,7 @@ model Organization {
 }
 
 model Appointment {
-  id              String            @id @default(auto()) @map("_id") @db.ObjectId
+  id              String            @id @default(uuid()) @map("_id")
   patientId       String            @map("patient_id")
   patient         Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
   doctorId        String?           @map("doctor_id")

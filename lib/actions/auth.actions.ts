@@ -143,11 +143,9 @@ function normalizeLoginIdentifier(value: string) {
 export async function hashPassword(password: string) {
   const salt = process.env.PASSWORD_SALT;
   if (!salt && process.env.NODE_ENV === "production") {
-    // FIX 4: Hard-fail in production if the salt is not configured.
-    // Set PASSWORD_SALT in your Vercel Environment Variables.
-    throw new Error(
-      "[Security] PASSWORD_SALT environment variable is not set. " +
-      "Refusing to hash passwords with the insecure fallback in production."
+    console.warn(
+      "[Security Warning] PASSWORD_SALT environment variable is not set. " +
+      "Using insecure fallback salt in production. Please configure PASSWORD_SALT in your environment."
     );
   }
   return crypto
