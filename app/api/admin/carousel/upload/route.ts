@@ -68,29 +68,9 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Resolve extension mapping
-    const extensionMap: Record<string, string> = {
-      "image/jpeg": ".jpg",
-      "image/png": ".png",
-      "image/webp": ".webp",
-    };
-    const extension = extensionMap[file.type] || ".jpg";
-
-    // Generate unique sanitized filename
-    const uniqueHash = crypto.randomBytes(8).toString("hex");
-    const filename = `${Date.now()}-${uniqueHash}${extension}`;
-
-    // Resolve workspace output directory
-    const uploadDirectory = path.join(process.cwd(), "public", "uploads", "carousel");
-
-    // Create directories dynamically if missing
-    await fs.mkdir(uploadDirectory, { recursive: true });
-
-    // Save file on disk
-    const targetFilePath = path.join(uploadDirectory, filename);
-    await fs.writeFile(targetFilePath, buffer);
-
-    const imageUrl = `/uploads/carousel/${filename}`;
+    // Convert to Base64 data URL
+    const base64Data = buffer.toString("base64");
+    const imageUrl = `data:${file.type};base64,${base64Data}`;
 
     return NextResponse.json(
       { success: true, imageUrl },

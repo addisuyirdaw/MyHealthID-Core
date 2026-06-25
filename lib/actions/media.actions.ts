@@ -72,16 +72,8 @@ export async function uploadLandingMedia(formData: FormData) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const uploadDir = path.join(process.cwd(), "public", "uploads", "landing");
-    
-    // Ensure the folder exists
-    await fs.mkdir(uploadDir, { recursive: true });
-
-    const filename = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, "_")}`;
-    const filePath = path.join(uploadDir, filename);
-    await fs.writeFile(filePath, buffer);
-
-    imageUrl = `/uploads/landing/${filename}`;
+    const base64Data = buffer.toString("base64");
+    imageUrl = `data:${file.type};base64,${base64Data}`;
   } else if (directImageUrl) {
     imageUrl = directImageUrl;
   } else {
