@@ -68,6 +68,13 @@ enum AppointmentPriority {
   EMERGENCY
 }
 
+// ─── Facility Onboarding Application Status ───────────────────────────────────
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 type BilingualContent {
   en String
   am String
@@ -647,12 +654,65 @@ model Screening {
   @@map("screenings")
 }
 
+// ─── Facility Onboarding Application ────────────────────────────────────────
+// Applicants (authenticated users) submit this before a facility is created.
+// A SYSTEM_ADMINISTRATOR reviews and either approves (creating the Organization
+// and linking the registeredBy user as initial admin) or rejects it.
+// The metadata Json field intentionally stores all flexible verification
+// artefacts so the core schema never needs additional columns for new
+// document types (e.g. license_url, physician_lead_name, etc.).
+model FacilityApplication {
+  id                    String            @id @default(uuid()) @map("_id")
+  status                ApplicationStatus @default(PENDING)
+
+  // Business identity — unique per application
+  businessLicenseNumber String            @unique @map("business_license_number")
+  contactEmail          String            @map("contact_email")
+
+  // Submitter — references User.id (not a Prisma relation to avoid cascade issues)
+  registeredBy          String            @map("registered_by")
+
+  // Facility details captured at apply-time
+  officialName          String            @map("official_name")
+  facilityType          String            @map("facility_type")   // FacilityServiceType string
+  ownershipType         String?           @map("ownership_type")  // FacilityOwnershipType string
+  region                String?
+  zone                  String?
+  woreda                String?
+  kebele                String?
+
+  // Flexible verification payload — store document links & extra fields here:
+  // {
+  //   license_url:           string,   // URL to uploaded business licence scan
+  //   representative_id_type: string,  // e.g. "Passport", "Kebele ID"
+  //   representative_id_url:  string,  // URL to uploaded representative ID scan
+  //   physician_lead_name:   string,   // Name of the lead physician/director
+  //   notes:                 string,   // Free-text applicant notes
+  // }
+  metadata              Json
+
+  // Populated on approval
+  approvedFacilityId    String?           @map("approved_facility_id")
+  approvedAt            DateTime?         @map("approved_at")
+  approvedBy            String?           @map("approved_by")
+
+  // Populated on rejection
+  rejectionReason       String?           @map("rejection_reason")
+
+  createdAt             DateTime          @default(now()) @map("created_at")
+
+  @@index([status, createdAt])
+  @@index([registeredBy])
+  @@map("facility_applications")
+}
+
 model Organization {
   id             String                @id @default(uuid()) @map("_id")
   name           String
   nameLng        BilingualContent
   code           String                @unique
   registrationId String                @unique
+  licenseNumber  String?
   ownershipType  FacilityOwnershipType
   serviceType    FacilityServiceType
 

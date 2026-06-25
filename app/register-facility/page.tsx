@@ -29,6 +29,7 @@ export default function RegisterFacilityPage() {
   // Form Fields State
   const [officialName, setOfficialName] = useState("");
   const [facilityType, setFacilityType] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
   const [kilil, setKilil] = useState("");
   const [zone, setZone] = useState("");
   const [woreda, setWoreda] = useState("");
@@ -36,7 +37,7 @@ export default function RegisterFacilityPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!officialName || !facilityType || !kilil || !zone || !woreda || !kebele) {
+    if (!officialName || !facilityType || !licenseNumber || !kilil || !zone || !woreda || !kebele) {
       alert("Please fill in all the required fields.");
       return;
     }
@@ -46,6 +47,7 @@ export default function RegisterFacilityPage() {
       const res = await registerOrganization({
         officialName,
         facilityType,
+        licenseNumber,
         kilil,
         zone,
         woreda,
@@ -81,7 +83,7 @@ export default function RegisterFacilityPage() {
   };
 
   // True when any registration field has been touched — triggers confirm() before exit
-  const isDirty = !!(officialName || facilityType || kilil || zone || woreda || kebele);
+  const isDirty = !!(officialName || facilityType || licenseNumber || kilil || zone || woreda || kebele);
 
   if (success) {
     return (
@@ -166,50 +168,47 @@ export default function RegisterFacilityPage() {
           </div>
 
           {/* Step-by-step next actions */}
-          <div className="bg-slate-900/60 border border-slate-700/60 rounded-2xl p-5 mb-7 space-y-4">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3">What to do next</h3>
+          <div className="bg-slate-900/60 border border-slate-700/60 rounded-2xl p-6 mb-7 space-y-6">
+            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 border-b border-slate-800 pb-2">
+              Action Checklist
+            </h3>
 
             {/* Step 1 */}
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-                <span className="text-xs font-black text-blue-400">1</span>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-sm">
+                1
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Log in as Facility Administrator</p>
-                <p className="text-xs text-slate-400 mt-0.5">Use the License Number + Activation Code above along with the Organization ID on the login page.</p>
+                <p className="text-sm font-bold text-white">Secure Your Credentials</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Make sure to copy and save the <span className="text-emerald-400 font-semibold">Organization ID</span> and the <span className="text-amber-300 font-semibold">One-Time Activation Code</span> shown above. They are required to log in.
+                </p>
               </div>
             </div>
 
             {/* Step 2 */}
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-                <span className="text-xs font-black text-blue-400">2</span>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-sm">
+                2
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Set Your Permanent Password</p>
-                <p className="text-xs text-slate-400 mt-0.5">You will be automatically redirected to set a permanent admin password on first login.</p>
+                <p className="text-sm font-bold text-white">Activate Admin Account</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Use the action button below to go to the login portal. Log in with your admin license number and one-time code to initialize your password.
+                </p>
               </div>
             </div>
 
             {/* Step 3 */}
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-blue-500/20 border border-blue-500/30 flex items-center justify-center">
-                <span className="text-xs font-black text-blue-400">3</span>
+            <div className="flex items-start gap-4">
+              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-sm">
+                3
               </div>
               <div>
-                <p className="text-sm font-bold text-white">Onboard Your Staff</p>
-                <p className="text-xs text-slate-400 mt-0.5">From the Admin Dashboard, add doctors, nurses, receptionists, lab staff, and pharmacists.</p>
-              </div>
-            </div>
-
-            {/* Step 4 */}
-            <div className="flex items-start gap-3">
-              <div className="flex-shrink-0 w-7 h-7 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center">
-                <span className="text-xs font-black text-emerald-400">4</span>
-              </div>
-              <div>
-                <p className="text-sm font-bold text-white">Staff Can Now Login</p>
-                <p className="text-xs text-slate-400 mt-0.5">Each staff member logs in with their license number + PIN + Organization ID.</p>
+                <p className="text-sm font-bold text-white">Invite Your Staff</p>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Provide your clinical staff with your Organization ID and the self-registration link so they can register their own accounts.
+                </p>
               </div>
             </div>
           </div>
@@ -297,6 +296,21 @@ export default function RegisterFacilityPage() {
                     ))}
                   </SelectContent>
                 </Select>
+              </div>
+
+              {/* MOH License Number */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="licenseNumber" className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Ministry of Health (MOH) License Number
+                </Label>
+                <Input
+                  id="licenseNumber"
+                  value={licenseNumber}
+                  onChange={(e) => setLicenseNumber(e.target.value)}
+                  placeholder="e.g. MOH-ETH-2024-99999"
+                  className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-12 focus:ring-2 focus:ring-blue-500/40"
+                  required
+                />
               </div>
 
               {/* Region / Kilil */}

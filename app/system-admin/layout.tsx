@@ -4,7 +4,7 @@ import { SYSTEM_ADMIN_ROLES } from "@/lib/locales/enums";
 import Link from "next/link";
 import {
   ShieldAlert, LayoutDashboard, Building2, Users,
-  ClipboardList, LogOut,
+  ClipboardList, LogOut, FilePlus2,
 } from "lucide-react";
 import { logoutUser } from "@/lib/actions/auth.actions";
 
@@ -22,10 +22,11 @@ export default function SystemAdminLayout({
   }
 
   const navLinks = [
-    { href: "/system-admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { href: "/system-admin/facilities", label: "Facilities", icon: Building2 },
-    { href: "/system-admin/users", label: "Users", icon: Users },
-    { href: "/system-admin/audit-logs", label: "Audit Logs", icon: ClipboardList },
+    { href: "/system-admin/dashboard",     label: "Dashboard",    icon: LayoutDashboard },
+    { href: "/system-admin/facilities",    label: "Facilities",   icon: Building2 },
+    { href: "/system-admin/applications",  label: "Applications", icon: FilePlus2 },
+    { href: "/system-admin/users",         label: "Users",        icon: Users },
+    { href: "/system-admin/audit-logs",    label: "Audit Logs",   icon: ClipboardList },
   ];
 
   return (

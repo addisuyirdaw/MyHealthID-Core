@@ -25,11 +25,23 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
   const [isOpen, setIsOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isMobileAccordionOpen, setIsMobileAccordionOpen] = useState(false);
+  const [isScrolled, setIsScrolled] = useState(false);
   
   const { language, setLanguage } = useLanguage();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const toggleMenu = () => setIsOpen(!isOpen);
+
+  // Scroll handler to make the header background solid and add shadow on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 0);
+    };
+    
+    handleScroll();
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -67,7 +79,11 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
   }
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b border-neutral-900 bg-neutral-950/80 backdrop-blur-md">
+    <header className={`fixed top-0 left-0 z-50 w-full border-b border-neutral-900 transition-all duration-200 ${
+      isScrolled 
+        ? "bg-neutral-950 shadow-md" 
+        : "bg-neutral-950/80 backdrop-blur-md"
+    }`}>
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
         
         {/* Brand Logo */}

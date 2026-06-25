@@ -20,7 +20,7 @@ export default function PublicLayout({
         <PublicHeader userRole={userRole} citizenPatientId={citizenPatientId} />
         
         {/* Main Content Area */}
-        <main className="flex-1 w-full relative">
+        <main className="flex-1 w-full relative pt-16">
           {children}
         </main>
         

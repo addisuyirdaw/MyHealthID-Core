@@ -18,12 +18,13 @@ function guardSysAdmin() {
 async function logAudit(opts: {
   actorId: string; actorName: string; actorRole: string;
   action: string; targetType: string; targetId: string; targetName?: string;
+  metadata?: any;
 }) {
   try {
     const h = headers();
     const ip = h.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
     await prisma.auditLog.create({
-      data: { ...opts, ipAddress: ip, metadata: {} },
+      data: { ...opts, ipAddress: ip, metadata: opts.metadata ?? {} },
     });
   } catch { /* non-fatal */ }
 }
@@ -62,11 +63,9 @@ export async function DELETE(
       }, { status: 409 });
     }
 
+    // Cascade-delete staff members (safe — no patients exist at this point)
     if (userCount > 0) {
-      return NextResponse.json({
-        error: `Cannot delete — ${userCount} staff member(s) exist. Remove all staff first.`,
-        blocked: true,
-      }, { status: 409 });
+      await prisma.user.deleteMany({ where: { organizationId: id } });
     }
 
     await prisma.organization.delete({ where: { id } });
@@ -79,6 +78,7 @@ export async function DELETE(
       targetType: "FACILITY",
       targetId: id,
       targetName: facility.name,
+      metadata: userCount > 0 ? { staffDeleted: userCount } : undefined,
     });
 
     return NextResponse.json({ success: true });

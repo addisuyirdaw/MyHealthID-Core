@@ -232,10 +232,15 @@ function DeleteConfirmModal({
             <span>👥 {facility._count.users} staff</span>
             <span>🏥 {facility._count.patients} patients</span>
           </div>
-          {facility._count.patients > 0 || facility._count.users > 0 ? (
+          {facility._count.patients > 0 ? (
+            <div className="mt-3 flex items-center gap-2 bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm">
+              <AlertTriangle className="w-4 h-4 shrink-0" />
+              Cannot delete — this facility has {facility._count.patients} patient record(s). Deactivate it instead.
+            </div>
+          ) : facility._count.users > 0 ? (
             <div className="mt-3 flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-3 text-amber-400 text-sm">
               <AlertTriangle className="w-4 h-4 shrink-0" />
-              This facility has linked records — deletion will be blocked.
+              {facility._count.users} staff account{facility._count.users !== 1 ? "s" : ""} will be permanently removed along with this facility.
             </div>
           ) : null}
           {error && (
@@ -250,8 +255,8 @@ function DeleteConfirmModal({
             className="flex-1 px-4 py-2.5 rounded-xl border border-neutral-700 text-sm font-semibold text-neutral-400 hover:text-white transition">
             Cancel
           </button>
-          <button onClick={handleDelete} disabled={isPending}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition disabled:opacity-60 flex items-center justify-center gap-2">
+          <button onClick={handleDelete} disabled={isPending || facility._count.patients > 0}
+            className="flex-1 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold transition disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
             {isPending ? <><Loader2 className="w-4 h-4 animate-spin" /> Deleting...</> : "Delete"}
           </button>
         </div>

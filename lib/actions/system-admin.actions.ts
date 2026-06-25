@@ -84,6 +84,7 @@ export async function getSysAdminDashboardStats() {
     activeUsers,
     totalPatients,
     recentAuditLogs,
+    pendingApplications,
   ] = await Promise.all([
     prisma.organization.count(),
     prisma.organization.count({ where: { isActive: true } }),
@@ -94,6 +95,7 @@ export async function getSysAdminDashboardStats() {
       take: 10,
       orderBy: { createdAt: "desc" },
     }),
+    prisma.facilityApplication.count({ where: { status: "PENDING" } }),
   ]);
 
   return {
@@ -102,6 +104,7 @@ export async function getSysAdminDashboardStats() {
     totalUsers,
     activeUsers,
     totalPatients,
+    pendingApplications,
     recentAuditLogs: JSON.parse(JSON.stringify(recentAuditLogs)),
   };
 }
@@ -217,12 +220,9 @@ export async function deleteFacility(
     };
   }
 
+  // Cascade-delete staff members (safe — no patients exist at this point)
   if (userCount > 0) {
-    return {
-      success: false,
-      blocked: true,
-      error: `Cannot delete "${facility.name}" — it has ${userCount} registered staff member(s). Remove all staff before deleting.`,
-    };
+    await prisma.user.deleteMany({ where: { organizationId: facilityId } });
   }
 
   await prisma.organization.delete({ where: { id: facilityId } });
@@ -235,6 +235,7 @@ export async function deleteFacility(
     targetType: "FACILITY",
     targetId: facilityId,
     targetName: facility.name,
+    metadata: userCount > 0 ? { staffDeleted: userCount } : undefined,
   });
 
   revalidatePath("/system-admin/facilities");

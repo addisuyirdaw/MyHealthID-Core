@@ -45,6 +45,7 @@ export async function registerOrganization(data: {
   zone: string;
   woreda: string;
   kebele: string;
+  licenseNumber?: string;
 }) {
   try {
     // Memorable dynamic Organization ID generation logic
@@ -72,6 +73,7 @@ export async function registerOrganization(data: {
         nameLng: { en: data.officialName, am: data.officialName },
         code: orgId,
         registrationId: orgId,
+        licenseNumber: data.licenseNumber,
         ownershipType: "PUBLIC",
         serviceType: normalizedFacilityType as any,
       }
@@ -284,6 +286,7 @@ export async function registerHealthcareProfessional(data: {
         hospitalName,
         organizationId: org.id,
         nationalId,
+        isFirstLogin: false,
       }
     });
 
@@ -390,14 +393,22 @@ export async function loginUser(formData: FormData | any) {
     return { error: "This account has been suspended by your facility administrator. Please contact your system administrator." };
   }
 
-  // Password check – check activationCode if first login, otherwise standard check
-  if (dbUser.isFirstLogin) {
-    if (!dbUser.activationCode || !password || dbUser.activationCode.toUpperCase() !== password.toUpperCase()) {
+  // Password check – check activationCode if first login with an activation code, otherwise standard check
+  if (dbUser.isFirstLogin && dbUser.activationCode) {
+    if (!password || dbUser.activationCode.toUpperCase() !== password.toUpperCase()) {
       return { error: "Invalid initial activation code." };
     }
   } else {
     if (dbUser.passwordHash && password && dbUser.passwordHash !== await hashPassword(password)) {
       return { error: "Invalid Security PIN/Password." };
+    }
+    // Auto-fix isFirstLogin for self-registered users who logged in successfully with passwordHash
+    if (dbUser.isFirstLogin) {
+      await prisma.user.update({
+        where: { id: dbUser.id },
+        data: { isFirstLogin: false },
+      });
+      dbUser.isFirstLogin = false;
     }
     // Backfill missing passwordHash for legacy documents on next successful login
     if (!dbUser.passwordHash && password) {
