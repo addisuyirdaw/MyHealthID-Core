@@ -34,6 +34,7 @@ enum Role {
   AMBULANCE_DRIVER
   SECURITY_GUARD
   CLEANER
+  SYSTEM_ADMINISTRATOR
 }
 
 enum FacilityOwnershipType {
@@ -1014,3 +1015,23 @@ model CarouselSlide {
   @@map("carousel_slides")
 }
 
+// ─── System Administrator Audit Log ─────────────────────────────────────────
+// Append-only log of all privileged actions performed by SYSTEM_ADMINISTRATOR.
+model AuditLog {
+  id          String   @id @default(uuid()) @map("_id")
+  actorId     String   @map("actor_id")
+  actorName   String   @map("actor_name")
+  actorRole   String   @map("actor_role")
+  action      String
+  targetType  String   @map("target_type")
+  targetId    String   @map("target_id")
+  targetName  String?  @map("target_name")
+  metadata    Json?
+  ipAddress   String?  @map("ip_address")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([actorId, createdAt])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}

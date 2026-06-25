@@ -364,7 +364,7 @@ export async function loginUser(formData: FormData | any) {
   let finalOrgId: string;
 
   if (!hospitalIdCode) {
-    throw new Error("Hospital/Facility ID Code is required.");
+    return { error: "Hospital/Facility ID Code is required." };
   }
 
   // Verify Organisation exists
@@ -372,32 +372,32 @@ export async function loginUser(formData: FormData | any) {
     where: { id: hospitalIdCode }
   });
   if (!org) {
-    throw new Error("Invalid Hospital/Facility ID Code. Organisation not found.");
+    return { error: "Invalid Hospital/Facility ID Code. Organisation not found." };
   }
 
   // Unknown identifier → reject. New staff must be registered by a facility
   // admin via /register-staff or the admin onboarding flow.
   if (!dbUser) {
-    throw new Error("Account not found. Please contact your facility administrator to register your account.");
+    return { error: "Account not found. Please contact your facility administrator to register your account." };
   }
 
   if (dbUser.organizationId !== org.id) {
-    throw new Error("This account is not registered under this facility. Check your Organisation ID.");
+    return { error: "This account is not registered under this facility. Check your Organisation ID." };
   }
 
   // Deactivation guard – admin can suspend accounts via /admin/users
   if (!dbUser.isActive) {
-    throw new Error("This account has been suspended by your facility administrator. Please contact your system administrator.");
+    return { error: "This account has been suspended by your facility administrator. Please contact your system administrator." };
   }
 
   // Password check – check activationCode if first login, otherwise standard check
   if (dbUser.isFirstLogin) {
     if (!dbUser.activationCode || !password || dbUser.activationCode.toUpperCase() !== password.toUpperCase()) {
-      throw new Error("Invalid initial activation code.");
+      return { error: "Invalid initial activation code." };
     }
   } else {
     if (dbUser.passwordHash && password && dbUser.passwordHash !== await hashPassword(password)) {
-      throw new Error("Invalid Security PIN/Password.");
+      return { error: "Invalid Security PIN/Password." };
     }
     // Backfill missing passwordHash for legacy documents on next successful login
     if (!dbUser.passwordHash && password) {

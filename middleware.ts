@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import {
   ADMIN_ROLES,
+  SYSTEM_ADMIN_ROLES,
   CLINICAL_ROLES,
   TRIAGE_ROLES,
   LAB_ROLES,
@@ -20,6 +21,7 @@ function deny(request: NextRequest, reason: string) {
 /** Helper – redirect logged-in user to their home dashboard. */
 function toDashboard(request: NextRequest, role: string) {
   const normalizedRole = normalizeHealthcareRole(role);
+  if (SYSTEM_ADMIN_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/system-admin/dashboard", request.url));
   if (ADMIN_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/admin/dashboard", request.url));
   if (CLINICAL_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/doctor/dashboard", request.url));
   if (TRIAGE_ROLES.includes(normalizedRole as any)) return NextResponse.redirect(new URL("/triage", request.url));
@@ -73,7 +75,7 @@ export function middleware(request: NextRequest) {
   /* ── Unauthenticated users: protect all staff-only routes ── */
   if (!userRole) {
     const protectedPrefixes = [
-      "/admin", "/doctor", "/lab", "/pharmacy",
+      "/admin", "/system-admin", "/doctor", "/lab", "/pharmacy",
       "/manage", "/triage", "/screening",
       "/dashboard/settings",
     ];
@@ -89,7 +91,12 @@ export function middleware(request: NextRequest) {
 
   /* ── Authenticated users: hard role checks ── */
 
-  // ── /admin/* → ADMIN only
+  // ── /system-admin/* → SYSTEM_ADMINISTRATOR only
+  if (path.startsWith("/system-admin") && !SYSTEM_ADMIN_ROLES.includes(userRole as any)) {
+    return deny(request, "System Administrator role required.");
+  }
+
+  // ── /admin/* → ADMIN only (facility-level)
   if (path.startsWith("/admin") && !ADMIN_ROLES.includes(userRole as any)) {
     return deny(request, "Admin role required.");
   }
@@ -173,6 +180,7 @@ export function middleware(request: NextRequest) {
 
 export const config = {
   matcher: [
+    "/system-admin/:path*",
     "/admin/:path*",
     "/doctor/:path*",
     "/lab/:path*",

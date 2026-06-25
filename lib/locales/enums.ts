@@ -158,6 +158,12 @@ export const HEALTHCARE_ROLES = {
     shortEn: "Cleaner",
     shortAm: "ዝናብ ሰራተኛ",
   },
+  SYSTEM_ADMINISTRATOR: {
+    en: "System Administrator",
+    am: "ስርዓት አስተዳዳሪ",
+    shortEn: "Sys Admin",
+    shortAm: "ስርዓት አስተዳዳሪ",
+  },
 } as const;
 
 // ═════════════════════════════════════════════════════════════════════════════
@@ -337,6 +343,8 @@ export const PHARMACY_ROLES = ["PHARMACIST"] as const;
 export const REGISTRATION_ROLES = ["RECEPTIONIST", "CARD_ROOM_CLERK"] as const;
 
 export const ADMIN_ROLES = ["IT_HIS_ADMIN", "HOSPITAL_CEO"] as const;
+
+export const SYSTEM_ADMIN_ROLES = ["SYSTEM_ADMINISTRATOR"] as const;
 
 export const LEGACY_ROLE_MAP: Record<string, keyof typeof HEALTHCARE_ROLES> = {
   ADMIN: "HOSPITAL_CEO",
