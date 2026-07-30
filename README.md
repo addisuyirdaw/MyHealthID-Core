@@ -9,8 +9,19 @@
 
 ---
 
+## 🚀 Blueprint Hackathon Edition (July 2026 Release)
+
+This release packages the core features of the MyHealthID platform optimized for the Blueprint Hackathon:
+
+* **💳 Localized Healthcare Payment Gateway**: Fully integrated **Chapa Payment Gateway** to handle secure clinic billing, client consultations, and mobile transactions.
+* **🧠 Grounded AI Clinical Assistant**: A live AI-powered patient summary and command widget integrated into the Doctor Dashboard header, leveraging **Gemini 1.5 Flash** with context-aware clinical data streaming.
+* **🔒 Multi-Tenant Role-Based Isolation**: Enhanced data boundaries and strict tenant isolation rules, along with clinical onboarding and appointment intake wizard routing fixes.
+
+---
+
 ## 📋 Table of Contents
 
+- [Blueprint Hackathon Edition (July 2026 Release)](#-blueprint-hackathon-edition-july-2026-release)
 - [Overview](#overview)
 - [Features](#features)
 - [Tech Stack](#tech-stack)
