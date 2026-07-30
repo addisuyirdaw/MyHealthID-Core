@@ -15,6 +15,7 @@ This release packages the core features of the MyHealthID platform optimized for
 
 * **💳 Localized Healthcare Payment Gateway**: Fully integrated **Chapa Payment Gateway** to handle secure clinic billing, client consultations, and mobile transactions.
 * **🧠 Grounded AI Clinical Assistant**: A live AI-powered patient summary and command widget integrated into the Doctor Dashboard header, leveraging **Gemini 1.5 Flash** with context-aware clinical data streaming.
+  > 🔒 **Privacy First**: All patient context passed to the AI Clinical Assistant pipeline is anonymized and sanitized prior to model inference to comply with medical data privacy guidelines.
 * **🔒 Multi-Tenant Role-Based Isolation**: Enhanced data boundaries and strict tenant isolation rules, along with clinical onboarding and appointment intake wizard routing fixes.
 
 ---
@@ -73,6 +74,7 @@ Patients are identified using a unique **Health ID**, which can be scanned via *
 | **html5-qrcode / jsqr** | QR code scanning |
 | **Tesseract.js** | OCR — reading text from images |
 | **Nodemailer** | Email sending |
+| **Chapa API** | Localized Healthcare Payment & Billing Gateway |
 
 ---
 
@@ -116,7 +118,7 @@ Make sure you have the following installed:
 1. **Clone the repository**
 
 ```bash
-git clone https://github.com/your-username/MyHealthID-Core.git
+git clone https://github.com/addisuyirdaw/MyHealthID-Core.git
 cd MyHealthID-Core
 ```
 
