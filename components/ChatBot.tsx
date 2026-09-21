@@ -230,8 +230,8 @@ export const ChatBot = () => {
               </h3>
               <p className="text-sm text-slate-500 max-w-[250px]">
                 {language === "AM" 
-                  ? "ይህን ቁልፍ ይጫኑ የ AI ረዳቱ በድምጽ እንዲነጋገርዎ።" 
-                  : "Tap the button below to enable the AI to speak responses aloud."}
+                  ? "ይህን ቁልፍ ይጫኑ የ ረዳቱ በድምጽ እንዲነጋገርዎ።" 
+                  : "Tap the button below to enable the assistant to speak responses aloud."}
               </p>
               <button
                 onClick={unlockAudio}

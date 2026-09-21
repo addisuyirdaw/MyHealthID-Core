@@ -1,13 +1,13 @@
 "use client";
 
 import React, { useState } from "react";
-import { registerOrganization } from "@/lib/actions/auth.actions";
+import { registerOrganization, loginUser } from "@/lib/actions/auth.actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Hospital, CheckCircle2, Copy, Check, ArrowRight, Users, LogIn, ShieldCheck } from "lucide-react";
+import { Hospital, CheckCircle2, Copy, Check, ArrowRight, Loader2, ChevronDown, ChevronUp } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/LanguageProvider";
@@ -25,6 +25,10 @@ export default function RegisterFacilityPage() {
   const [adminLicenseNumber, setAdminLicenseNumber] = useState("");
   const [adminActivationCode, setAdminActivationCode] = useState("");
   const [copiedCode, setCopiedCode] = useState(false);
+
+  const [activating, setActivating] = useState(false);
+  const [activationError, setActivationError] = useState<string | null>(null);
+  const [showDetails, setShowDetails] = useState(false);
 
   // Form Fields State
   const [officialName, setOfficialName] = useState("");
@@ -85,6 +89,38 @@ export default function RegisterFacilityPage() {
   // True when any registration field has been touched — triggers confirm() before exit
   const isDirty = !!(officialName || facilityType || licenseNumber || kilil || zone || woreda || kebele);
 
+  const handleActivateAdmin = async () => {
+    if (activating) return;
+    setActivating(true);
+    setActivationError(null);
+
+    try {
+      const result = await loginUser({
+        username: adminLicenseNumber,
+        password: adminActivationCode,
+        hospitalIdCode: token,
+      });
+
+      if (result?.error) {
+        const errLower = result.error.toLowerCase();
+        if (errLower.includes("invalid initial activation code")) {
+          setActivationError("This activation code has expired or is invalid. Please restart facility activation.");
+        } else if (errLower.includes("account not found")) {
+          setActivationError("This administrator account could not be found.");
+        } else if (errLower.includes("already activated") || !adminActivationCode) {
+          setActivationError("This administrator account has already been activated. Continue to login.");
+        } else {
+          setActivationError(result.error);
+        }
+        setActivating(false);
+      }
+      // If success, loginUser redirects automatically
+    } catch (err: any) {
+      setActivationError("We couldn't reach MyHealthID. Check your connection and try again.");
+      setActivating(false);
+    }
+  };
+
   if (success) {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-6 relative overflow-hidden">
@@ -105,127 +141,63 @@ export default function RegisterFacilityPage() {
             Facility Onboarding Successful
           </h1>
           <p className="text-slate-400 font-medium mb-8 text-center">
-            <span className="font-semibold text-white">{facilityName}</span> is now registered on the MyHealthID National Network.
+            Your facility is ready. Activate your administrator account to continue.
           </p>
 
-          {/* Org ID Token */}
-          <div className="bg-slate-900/90 border border-slate-700 rounded-2xl p-5 mb-6">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">
-              🏥 Facility Initialization Token (Organization ID)
-            </h3>
-            <div className="flex items-center gap-2 bg-slate-800 border border-emerald-500/30 p-3.5 rounded-xl font-mono text-sm text-emerald-400 font-bold break-all">
-              <span className="flex-1 select-all">{token}</span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                onClick={copyToClipboard}
-                className="text-slate-400 hover:text-white hover:bg-slate-700 h-9 px-3 shrink-0"
-              >
-                {copied ? <Check className="w-4 h-4 text-emerald-400 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
-                {copied ? "Copied" : "Copy"}
-              </Button>
+          {/* Activation Error */}
+          {activationError && (
+            <div className="bg-rose-500/10 border border-rose-500/50 text-rose-200 p-4 rounded-xl mb-6 text-sm text-center">
+              <p className="font-semibold text-rose-400 mb-1">Activation Failed</p>
+              {activationError}
             </div>
-            <p className="text-xs text-amber-400/80 mt-2 font-medium">
-              ⚠️ Save this token securely. Staff will need it to log in to your facility.
-            </p>
-          </div>
+          )}
 
-          {/* Admin Credentials Card */}
-          <div className="bg-blue-950/40 border border-blue-500/30 rounded-2xl p-5 mb-6">
-            <h3 className="text-xs font-bold text-blue-300 uppercase tracking-wider mb-3 flex items-center gap-2">
-              <ShieldCheck className="w-3.5 h-3.5" /> Your Facility Admin Login Credentials
-            </h3>
-            <div className="space-y-3">
-              {/* License Number */}
-              <div>
-                <p className="text-xs text-slate-400 mb-1">Email / License Number</p>
-                <div className="bg-slate-900 border border-slate-700 rounded-xl p-3 font-mono text-sm text-white break-all select-all">
-                  {adminLicenseNumber}
-                </div>
-              </div>
-              {/* One-time Activation Code */}
-              <div>
-                <p className="text-xs text-slate-400 mb-1">One-Time Activation Code <span className="text-amber-400">(use as your first password)</span></p>
-                <div className="flex items-center gap-2 bg-slate-900 border border-amber-500/40 rounded-xl p-3">
-                  <span className="flex-1 font-mono text-lg font-black text-amber-300 tracking-[0.3em] select-all">{adminActivationCode}</span>
+          <Button
+            type="button"
+            disabled={activating}
+            onClick={handleActivateAdmin}
+            className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 h-14 text-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mb-6 transition-all"
+          >
+            {activating ? (
+              <>
+                <Loader2 className="w-5 h-5 animate-spin" /> Activating Admin Account...
+              </>
+            ) : (
+              <>
+                Activate Admin Account <ArrowRight className="w-5 h-5" />
+              </>
+            )}
+          </Button>
+
+          <div className="border border-slate-700 rounded-xl overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setShowDetails(!showDetails)}
+              className="w-full flex items-center justify-between p-4 bg-slate-800/50 hover:bg-slate-800 text-sm font-semibold text-slate-300 transition-colors"
+            >
+              Facility Details
+              {showDetails ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+            {showDetails && (
+              <div className="p-4 bg-slate-900/50 border-t border-slate-700 space-y-3">
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  Your Facility ID is used internally to identify this facility within MyHealthID. You can access it later from your dashboard.
+                </p>
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 p-3 rounded-lg font-mono text-xs text-slate-300">
+                  <span className="flex-1 select-all">{token}</span>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    onClick={copyActivationCode}
-                    className="text-slate-400 hover:text-white hover:bg-slate-700 h-9 px-3 shrink-0"
+                    onClick={copyToClipboard}
+                    className="text-slate-400 hover:text-white h-7 px-2 shrink-0"
                   >
-                    {copiedCode ? <Check className="w-4 h-4 text-emerald-400 mr-1" /> : <Copy className="w-4 h-4 mr-1" />}
-                    {copiedCode ? "Copied" : "Copy"}
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-400 mr-1" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                    {copied ? "Copied" : "Copy"}
                   </Button>
                 </div>
               </div>
-            </div>
-            <p className="text-xs text-amber-400/80 mt-3 font-medium">
-              ⚠️ You will be prompted to set a new password after your first login. Save these credentials now.
-            </p>
-          </div>
-
-          {/* Step-by-step next actions */}
-          <div className="bg-slate-900/60 border border-slate-700/60 rounded-2xl p-6 mb-7 space-y-6">
-            <h3 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1 border-b border-slate-800 pb-2">
-              Action Checklist
-            </h3>
-
-            {/* Step 1 */}
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-sm">
-                1
-              </div>
-              <div>
-                <p className="text-sm font-bold text-white">Secure Your Credentials</p>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Make sure to copy and save the <span className="text-emerald-400 font-semibold">Organization ID</span> and the <span className="text-amber-300 font-semibold">One-Time Activation Code</span> shown above. They are required to log in.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-sm">
-                2
-              </div>
-              <div>
-                <p className="text-sm font-bold text-white">Activate Admin Account</p>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Use the action button below to go to the login portal. Log in with your admin license number and one-time code to initialize your password.
-                </p>
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <div className="flex items-start gap-4">
-              <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-500/10 border border-blue-500/30 flex items-center justify-center text-blue-400 font-bold text-sm">
-                3
-              </div>
-              <div>
-                <p className="text-sm font-bold text-white">Invite Your Staff</p>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Provide your clinical staff with your Organization ID and the self-registration link so they can register their own accounts.
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Action buttons */}
-          <div className="flex flex-col gap-3">
-            <Link href={`/login?orgId=${encodeURIComponent(token)}`} className="w-full">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 h-12 text-md font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
-                <ShieldCheck className="w-5 h-5" /> Go to Staff Login Portal <ArrowRight className="w-4 h-4" />
-              </Button>
-            </Link>
-            <Link href={`/register-staff?orgId=${encodeURIComponent(token)}`} className="w-full">
-              <Button className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl px-8 h-11 text-sm font-semibold flex items-center justify-center gap-2 border border-slate-700 hover:border-slate-600">
-                <Users className="w-4 h-4 text-blue-400" /> Share Self-Registration Link for Staff <ArrowRight className="w-3.5 h-3.5" />
-              </Button>
-            </Link>
-            <p className="text-center text-xs text-slate-500">The Organization ID is pre-filled automatically on these pages.</p>
+            )}
           </div>
         </Card>
       </div>

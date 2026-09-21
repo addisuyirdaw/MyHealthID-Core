@@ -469,10 +469,6 @@ export async function searchPatients(query: string) {
       createdAt: 'desc',
     },
     include: {
-      vitals: true,
-      investigations: true,
-      prescriptions: true,
-      clinicalExam: true,
       queues: true,
     }
   });
@@ -537,22 +533,10 @@ if (organizationId) {
 
     const mappedPatients = patients.map((p: any) => ({
       ...p,
-      vitals: p.vitals?.map((v: any) => ({
-        ...v,
-        facilityName: formatFacilityName(v.organizationId)
-      })) || [],
-      investigations: p.investigations?.map((i: any) => ({
-        ...i,
-        facilityName: formatFacilityName(i.organizationId)
-      })) || [],
-      prescriptions: p.prescriptions?.map((pr: any) => ({
-        ...pr,
-        facilityName: formatFacilityName(pr.organizationId)
-      })) || [],
-      clinicalExam: p.clinicalExam ? {
-        ...p.clinicalExam,
-        facilityName: formatFacilityName(p.clinicalExam.organizationId)
-      } : null
+      vitals: [],
+      investigations: [],
+      prescriptions: [],
+      clinicalExam: null,
     }));
 
     return JSON.parse(JSON.stringify(mappedPatients));

@@ -97,37 +97,36 @@ function LoginForm() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-950 flex items-center justify-center relative overflow-hidden p-4">
-      {/* Background ambient glows */}
-      <div className="pointer-events-none absolute -top-48 -left-48 w-[700px] h-[700px] rounded-full bg-blue-600/8 blur-[120px]" />
-      <div className="pointer-events-none absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-emerald-600/8 blur-[100px]" />
-      <div className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[300px] rounded-full bg-indigo-900/5 blur-[80px]" />
+    <div className="min-h-screen bg-slate-50 flex items-center justify-center relative overflow-hidden p-4">
+      {/* Background ambient glows (light theme) */}
+      <div className="pointer-events-none absolute -top-48 -left-48 w-[700px] h-[700px] rounded-full bg-blue-100 blur-[120px]" />
+      <div className="pointer-events-none absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-slate-200 blur-[100px]" />
 
-      <div className="w-full max-w-md relative z-10 flex flex-col items-center gap-6">
+      <div className="w-full max-w-md mx-auto relative z-10 flex flex-col items-center gap-6">
 
         {/* Brand */}
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-900/40">
-            <HeartPulse className="w-5 h-5 text-white" />
+        <div className="flex flex-col items-center gap-2 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-md">
+            <HeartPulse className="w-6 h-6 text-white" />
           </div>
           <div>
-            <p className="text-white font-black text-lg leading-none">MyHealthID</p>
-            <p className="text-slate-500 text-xs font-medium">Ethiopia's National Health Portal</p>
+            <p className="text-slate-900 font-black text-xl leading-none">MyHealthID</p>
+            <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mt-1">Clinical Operations & Patient Portal</p>
           </div>
         </div>
 
         {/* Card */}
-        <div className="w-full bg-slate-900/60 border border-slate-800 rounded-3xl shadow-2xl backdrop-blur-xl overflow-hidden">
+        <div className="w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
 
           {/* Tab selector */}
-          <div className="flex border-b border-slate-800">
+          <div className="flex border-b border-slate-200 bg-slate-50">
             <button
               id="tab-citizen"
               onClick={() => setActiveTab("citizen")}
               className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold transition-all
                 ${activeTab === "citizen"
-                  ? "text-blue-400 border-b-2 border-blue-500 bg-blue-500/5"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+                  ? "text-blue-600 border-b-2 border-blue-600 bg-white"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                 }`}
             >
               <Users className="w-4 h-4" />
@@ -138,8 +137,8 @@ function LoginForm() {
               onClick={() => setActiveTab("staff")}
               className={`flex-1 flex items-center justify-center gap-2 py-4 text-sm font-bold transition-all
                 ${activeTab === "staff"
-                  ? "text-emerald-400 border-b-2 border-emerald-500 bg-emerald-500/5"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/40"
+                  ? "text-blue-600 border-b-2 border-blue-600 bg-white"
+                  : "text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                 }`}
             >
               <Stethoscope className="w-4 h-4" />
@@ -152,14 +151,14 @@ function LoginForm() {
             {/* ─── CITIZEN TAB ─── */}
             {activeTab === "citizen" && (
               <div className="flex flex-col items-center text-center gap-6">
-                <div className="w-16 h-16 rounded-2xl bg-blue-600/15 border border-blue-500/25 flex items-center justify-center">
-                  <User className="w-8 h-8 text-blue-400" />
+                <div className="w-16 h-16 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center">
+                  <User className="w-8 h-8 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-2xl font-black text-white mb-1">Citizen Portal</h1>
-                  <p className="text-slate-400 text-sm leading-relaxed">
+                  <h1 className="text-2xl font-black text-slate-900 mb-1">Citizen Portal</h1>
+                  <p className="text-slate-500 text-sm leading-relaxed">
                     Access your health records using your<br />
-                    <span className="text-blue-300 font-semibold">National ID (Fayda ID)</span> or patient token.
+                    <span className="text-blue-600 font-semibold">National ID (Fayda ID)</span> or patient token.
                   </p>
                 </div>
 
@@ -167,7 +166,7 @@ function LoginForm() {
                   <Link
                     href="/signin"
                     id="citizen-signin-btn"
-                    className="w-full h-13 flex items-center justify-center gap-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-blue-900/30 active:scale-[0.98] py-3.5"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm transition flex items-center justify-center gap-2.5"
                   >
                     <User className="w-5 h-5" />
                     Sign In to My Health Records
@@ -176,13 +175,13 @@ function LoginForm() {
                   <Link
                     href="/register"
                     id="citizen-register-btn"
-                    className="w-full h-12 flex items-center justify-center gap-2 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white hover:bg-slate-800/60 font-semibold rounded-xl transition-all text-sm"
+                    className="w-full py-3 bg-white hover:bg-slate-50 text-slate-700 font-semibold rounded-lg shadow-sm border border-slate-300 transition flex items-center justify-center gap-2 text-sm"
                   >
                     New Patient? Register Here
                   </Link>
                 </div>
 
-                <p className="text-[11px] text-slate-600 leading-relaxed max-w-xs">
+                <p className="text-[11px] text-slate-500 leading-relaxed max-w-xs">
                   Your data is encrypted and protected under Ethiopian health privacy standards.
                 </p>
               </div>
@@ -192,11 +191,11 @@ function LoginForm() {
             {activeTab === "staff" && (
               <div className="flex flex-col gap-6">
                 <div className="flex flex-col items-center text-center">
-                  <div className="w-16 h-16 rounded-2xl bg-emerald-600/15 border border-emerald-500/25 flex items-center justify-center mb-4">
-                    <Stethoscope className="w-8 h-8 text-emerald-400" />
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center mb-4">
+                    <Stethoscope className="w-8 h-8 text-emerald-600" />
                   </div>
-                  <h1 className="text-2xl font-black text-white mb-1">Clinical Workspace</h1>
-                  <p className="text-slate-400 text-sm">
+                  <h1 className="text-2xl font-black text-slate-900 mb-1">Clinical Workspace</h1>
+                  <p className="text-slate-500 text-sm">
                     Sign in with your facility credentials
                   </p>
                 </div>
@@ -204,36 +203,36 @@ function LoginForm() {
                 <form onSubmit={handleStaffLogin} className="space-y-4">
                   {/* Hospital ID */}
                   <div className="space-y-1.5">
-                    <label htmlFor="hospitalIdCode" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <label htmlFor="hospitalIdCode" className="text-xs font-semibold uppercase tracking-wider text-slate-600 block">
                       Hospital / Facility ID
                     </label>
                     <div className="relative">
-                      <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                      <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <input
                         type="text"
                         id="hospitalIdCode"
                         value={hospitalIdCode}
                         onChange={(e) => setHospitalIdCode(e.target.value)}
                         placeholder="e.g. MH-AMH-WER-DEBRE-8C21"
-                        className="w-full h-12 rounded-xl border border-slate-700 bg-slate-950/80 pl-11 pr-4 font-mono text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 outline-none transition"
+                        className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
                       />
                     </div>
                   </div>
 
                   {/* Email */}
                   <div className="space-y-1.5">
-                    <label htmlFor="emailOrUsername" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <label htmlFor="emailOrUsername" className="text-xs font-semibold uppercase tracking-wider text-slate-600 block">
                       Email or License Number
                     </label>
                     <div className="relative">
-                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <input
                         type="text"
                         id="emailOrUsername"
                         value={emailOrUsername}
                         onChange={(e) => setEmailOrUsername(e.target.value)}
                         placeholder="doctor@hospital.gov.et or md-2026-eth"
-                        className="w-full h-12 rounded-xl border border-slate-700 bg-slate-950/80 pl-11 pr-4 text-sm text-white placeholder-slate-600 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 outline-none transition"
+                        className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
                         required
                       />
                     </div>
@@ -241,18 +240,18 @@ function LoginForm() {
 
                   {/* Password */}
                   <div className="space-y-1.5">
-                    <label htmlFor="password" className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                    <label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-slate-600 block">
                       Security PIN / Password
                     </label>
                     <div className="relative">
-                      <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 w-4 h-4" />
+                      <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <input
                         type="password"
                         id="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your PIN"
-                        className="w-full h-12 rounded-xl border border-slate-700 bg-slate-950/80 pl-11 pr-4 font-mono text-white placeholder-slate-600 focus:ring-2 focus:ring-emerald-500/40 focus:border-emerald-500 outline-none transition"
+                        className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
                         required
                       />
                     </div>
@@ -262,7 +261,7 @@ function LoginForm() {
                     id="staff-signin-btn"
                     type="submit"
                     disabled={status === "loading"}
-                    className="w-full h-12 font-bold bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white rounded-xl shadow-lg shadow-emerald-900/30 transition-all active:scale-[0.98] flex items-center justify-center gap-2 mt-2"
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg shadow-sm transition disabled:opacity-50 flex items-center justify-center gap-2 mt-2"
                   >
                     {status === "loading" ? (
                       <>

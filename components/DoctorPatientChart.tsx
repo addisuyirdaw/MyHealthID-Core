@@ -151,6 +151,7 @@ function VitalCard({ icon: Icon, label, value, unit, color }: {
 }
 
 // ─── Main Component ────────────────────────────────────────────────────────
+// ─── Main Component ────────────────────────────────────────────────--------
 export default function DoctorPatientChart({ patient, currentUserId }: { patient: any; currentUserId?: string }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("identification");
@@ -414,7 +415,7 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
                 }`}
               >
                 <Sparkles className="w-4 h-4 text-blue-400 animate-pulse" />
-                AI Clinical Support
+                Smart Clinical Support
               </Button>
               <DynamicVitalsModal patientId={patient.id} patientName={patient.fullName} />
               <PrescribeModal patientId={patient.id} patientName={patient.fullName} patientAllergies={patient.allergyInformation} />
@@ -1015,7 +1016,7 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "0ms" }} />
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "150ms" }} />
                       <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-bounce" style={{ animationDelay: "300ms" }} />
-                      <span className="text-[10px] ml-1">AI compiling...</span>
+                      <span className="text-[10px] ml-1">Analyzing...</span>
                     </div>
                   )}
 

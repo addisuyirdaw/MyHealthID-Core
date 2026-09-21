@@ -16,6 +16,7 @@ import {
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { checkRateLimit } from "@/lib/rate-limit";
+import { signToken } from "@/lib/session";
 
 export async function ensureDefaultOrganization(): Promise<string> {
   const orgName = "Debre Berhan Referral Hospital";
@@ -438,6 +439,17 @@ export async function loginUser(formData: FormData | any) {
   cookies().set("organizationId", finalOrgId, cookieOptions);
   cookies().set("userId", dbUser!.id, cookieOptions);
   cookies().set("userName", `${dbUser!.firstName} ${dbUser!.lastName}`, cookieOptions);
+
+  // SECURE SESSION TOKEN:
+  const tokenPayload = {
+    patientId: dbUser!.id, // Reusing patientId field for userId in this generic token
+    role: role,
+    organizationId: finalOrgId,
+    iat: Date.now(),
+    exp: Date.now() + 1000 * 60 * 60 * 24 * 7,
+  };
+  const sessionToken = signToken(tokenPayload as any);
+  cookies().set("session_token", sessionToken, cookieOptions);
 
   if (dbUser.isFirstLogin) {
     cookies().set("isFirstLogin", "true", cookieOptions);

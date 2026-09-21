@@ -236,9 +236,9 @@ export function AIClinicalSummary({ patientId }: AIClinicalSummaryProps) {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h3 className="font-black text-white text-base">AI Clinical Assistant</h3>
+              <h3 className="font-black text-white text-base">Smart Clinical Assistant</h3>
               <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-900/60 text-indigo-300 border border-indigo-500/30">
-                <Sparkles className="w-2.5 h-2.5" /> Gemini
+                <Sparkles className="w-2.5 h-2.5" /> Engine
               </span>
             </div>
             <p className="text-xs text-indigo-400/70">
@@ -280,8 +280,8 @@ export function AIClinicalSummary({ patientId }: AIClinicalSummaryProps) {
         {status === "idle" && (
           <div className="text-center py-10">
             <Brain className="w-12 h-12 text-indigo-800 mx-auto mb-3" />
-            <p className="text-neutral-500 font-medium">Click <strong className="text-indigo-400">Analyze History</strong> to generate a grounded AI summary.</p>
-            <p className="text-neutral-600 text-xs mt-1">The AI reads directly from this patient's hospital records — no hallucination.</p>
+            <p className="text-neutral-500 font-medium">Click <strong className="text-indigo-400">Analyze History</strong> to generate a grounded smart summary.</p>
+            <p className="text-neutral-600 text-xs mt-1">The engine parses structured vitals and clinical patterns from this patient's hospital records.</p>
           </div>
         )}
 

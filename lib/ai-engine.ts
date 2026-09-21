@@ -1,13 +1,13 @@
 /**
  * ╔══════════════════════════════════════════════════════════════════════════╗
- * ║           MyHealthID — AI Smart Triage Engine  (lib/ai-engine.ts)       ║
+ * ║      MyHealthID — Algorithmic Smart Triage Engine  (lib/ai-engine.ts)   ║
  * ║    Predictive triage scoring | Bilingual output | Queuing Theory proof  ║
  * ╚══════════════════════════════════════════════════════════════════════════╝
  *
  * UNIQUE VALUE PROPOSITION (for Mastercard Foundation / Entrepreneurial pitch)
  * ─────────────────────────────────────────────────────────────────────────────
  * "MyHealthID is the only Ethiopian health platform that unifies Fayda
- *  National Identity with AI-powered triage, eliminating the 'forgotten
+ *  National Identity with algorithmic smart triage, eliminating the 'forgotten
  *  patient' problem across every ward — something SmartCare cannot do
  *  because it lacks a sovereign identity layer."
  *
@@ -147,13 +147,13 @@ function classifyPriority(score: number): "RED" | "YELLOW" | "GREEN" {
 //  λ = patient arrival rate (patients/min)
 //  W = average time-to-treatment (min)
 //
-//  Baseline (no AI):
+//  Baseline (no Smart Triage):
 //    λ  = 4 patients/hour = 0.067 / min
 //    W  = 45 min (manual triage + duplicate history taking)
 //    L  = 0.067 × 45 = 3.0  (≈ 3 patients stacked in system)
 //
-//  With MyHealthID AI (once-only fetch, predictive routing):
-//    W' = 17 min (AI pre-scores, history already in DB, no re-interview)
+//  With MyHealthID Smart Triage (once-only fetch, predictive routing):
+//    W' = 17 min (Engine pre-scores, history already in DB, no re-interview)
 //    L' = 0.067 × 17 = 1.14  (≈ 1 patient in system)
 //
 //  Time-to-Treatment reduction = (45 − 17) / 45 = 62.2%
@@ -265,7 +265,7 @@ function buildRecommendation(
 /**
  * analyzeVitals()
  *
- * The single entry-point for the AI Smart Triage Engine.
+ * The single entry-point for the Algorithmic Smart Triage Engine.
  * Call once at triage, persist the result; every downstream ward reads it.
  *
  * @example

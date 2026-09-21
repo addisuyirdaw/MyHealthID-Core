@@ -195,7 +195,7 @@ export default function DoctorDashboardClient({
     return () => clearInterval(t);
   }, []);
 
-  // Auto-refresh every 30 seconds
+  // Auto-refresh every 15 seconds
   useEffect(() => {
     const interval = setInterval(async () => {
       try {
@@ -204,7 +204,7 @@ export default function DoctorDashboardClient({
       } catch (e) {
         console.error("Refresh failed", e);
       }
-    }, 30000);
+    }, 15000);
     return () => clearInterval(interval);
   }, []);
 

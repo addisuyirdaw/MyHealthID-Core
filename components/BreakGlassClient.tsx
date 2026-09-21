@@ -12,6 +12,7 @@ interface BreakGlassClientProps {
 export default function BreakGlassClient({ patientId, patientName, doctorName = "Dr. Dawit Tadesse" }: BreakGlassClientProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "granted">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [reason, setReason] = useState("");
 
   const handleOverride = async () => {
     setStatus("loading");
@@ -24,6 +25,7 @@ export default function BreakGlassClient({ patientId, patientName, doctorName = 
           accessedByName: doctorName,
           facility: "Debre Berhan Hospital",
           role: "GENERAL_PRACTITIONER",
+          reason: reason.trim(),
         }),
       });
       const data = await res.json();
@@ -88,10 +90,20 @@ export default function BreakGlassClient({ patientId, patientName, doctorName = 
           </div>
 
           <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
-            <p className="text-amber-800 text-sm font-bold mb-1">⚠ Emergency Break-Glass Protocol</p>
+            <p className="text-amber-800 text-sm font-bold mb-1">⚠ Emergency Access</p>
             <p className="text-amber-700 text-sm">
-              Activating the override will <span className="font-bold">permanently log</span> your name, role, facility, and timestamp in the patient's immutable audit trail. The patient will be notified.
+              This patient is registered at another facility. Emergency access will be logged.
             </p>
+            <div className="mt-4">
+              <label className="block text-sm font-bold text-amber-900 mb-2">Reason for Access</label>
+              <textarea
+                className="w-full rounded-xl border-amber-300 shadow-sm focus:border-red-500 focus:ring-red-500 text-sm p-3"
+                rows={3}
+                placeholder="Enter clinical justification..."
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              />
+            </div>
           </div>
 
           {error && (
@@ -100,7 +112,7 @@ export default function BreakGlassClient({ patientId, patientName, doctorName = 
 
           <button
             onClick={handleOverride}
-            disabled={status === "loading"}
+            disabled={status === "loading" || reason.trim() === ""}
             className="w-full h-14 rounded-2xl bg-red-600 hover:bg-red-700 active:scale-[0.98] text-white font-bold text-base transition-all shadow-lg shadow-red-200 flex items-center justify-center gap-2 disabled:opacity-60"
           >
             {status === "loading" ? (

@@ -13,6 +13,7 @@
  */
 
 import { cookies } from "next/headers";
+import { verifyToken } from "@/lib/session";
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -42,21 +43,25 @@ export class TenantContextError extends Error {
  */
 export async function getTenantContext(): Promise<TenantContext> {
   const cookieStore = cookies();
-  const organizationId = cookieStore.get("organizationId")?.value?.trim();
-  const userId = cookieStore.get("userId")?.value?.trim();
-  const role = cookieStore.get("userRole")?.value?.trim();
-
-  if (!organizationId) {
+  const sessionToken = cookieStore.get("session_token")?.value?.trim();
+  
+  if (!sessionToken) {
     throw new TenantContextError(
-      "[TenantContext] No active organizationId found in session. " +
-        "Ensure the user is authenticated and has a facility context."
+      "[TenantContext] No active session_token found. User is not authenticated."
+    );
+  }
+
+  const payload = verifyToken(sessionToken);
+  if (!payload || !(payload as any).organizationId) {
+    throw new TenantContextError(
+      "[TenantContext] Invalid or expired session token, or missing organizationId."
     );
   }
 
   return {
-    userId: userId ?? "",
-    organizationId,
-    role: role ?? "",
+    userId: payload.patientId, // mapped to userId in auth.actions.ts
+    organizationId: (payload as any).organizationId,
+    role: payload.role,
   };
 }
 
@@ -74,16 +79,17 @@ export async function getTenantContext(): Promise<TenantContext> {
 export async function getTenantContextOrNull(): Promise<TenantContext | null> {
   try {
     const cookieStore = cookies();
-    const organizationId = cookieStore.get("organizationId")?.value?.trim();
-    const userId = cookieStore.get("userId")?.value?.trim();
-    const role = cookieStore.get("userRole")?.value?.trim();
+    const sessionToken = cookieStore.get("session_token")?.value?.trim();
 
-    if (!organizationId) return null;
+    if (!sessionToken) return null;
+
+    const payload = verifyToken(sessionToken);
+    if (!payload || !(payload as any).organizationId) return null;
 
     return {
-      userId: userId ?? "",
-      organizationId,
-      role: role ?? "",
+      userId: payload.patientId,
+      organizationId: (payload as any).organizationId,
+      role: payload.role,
     };
   } catch {
     // In non-request contexts (e.g. build time, scripts) cookies() throws —

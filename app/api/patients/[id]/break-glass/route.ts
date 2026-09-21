@@ -3,6 +3,9 @@ import prisma from "@/lib/prisma";
 import { normalizeHealthcareRole } from "@/lib/locales/enums";
 import { Role } from "@prisma/client";
 import { cookies } from "next/headers";
+import { CLINICAL_ROLES, TRIAGE_ROLES, ADMIN_ROLES } from "@/lib/locales/enums";
+import { CROSS_FACILITY } from "@/lib/utils/tenantContext";
+import { auditCrossFacilityAccess } from "@/lib/services/audit.service";
 
 // POST /api/patients/[id]/break-glass — emergency override
 // Logs the event immutably in AccessLog and returns full patient data
@@ -32,22 +35,19 @@ export async function POST(
       facilityServiceType = org?.serviceType || undefined;
     }
 
-    // 1. Write the immutable BREAK_GLASS audit log entry
-    await prisma.accessLog.create({
-      data: {
-        patientId: params.id,
-        userId: userId || undefined,
-        organizationId: organizationId || undefined,
-        accessedByName: body.accessedByName || "Unknown Doctor",
-        role: normalizedRole,
-        facilityServiceType: facilityServiceType,
-        action: "BREAK_GLASS",
-      },
-    });
+    if (!body.reason || typeof body.reason !== "string" || body.reason.trim() === "") {
+      return NextResponse.json({ success: false, error: "Reason for emergency access is required" }, { status: 400 });
+    }
 
-    // 2. Return the patient data so the UI can unlock
+    // Role Authorization
+    const authRoles = [...CLINICAL_ROLES, ...TRIAGE_ROLES, ...ADMIN_ROLES];
+    if (!authRoles.includes(normalizedRole as any)) {
+      return NextResponse.json({ success: false, error: "Unauthorized role for Break Glass" }, { status: 403 });
+    }
+
+    // 1. Return the patient data using CROSS_FACILITY
     const patient = await prisma.patient.findUnique({
-      where: { id: params.id },
+      where: { ...CROSS_FACILITY, id: params.id } as any,
       include: {
         vitals: { orderBy: { createdAt: "desc" } },
         investigations: { orderBy: { createdAt: "desc" } },
@@ -59,6 +59,23 @@ export async function POST(
     if (!patient) {
       return NextResponse.json({ success: false, error: "Patient not found" }, { status: 404 });
     }
+
+    // 2. Write the immutable BREAK_GLASS audit log entry
+    await auditCrossFacilityAccess({
+      userId: userId || "SYSTEM",
+      employeeName: body.accessedByName || "Unknown User",
+      organizationId: organizationId || "UNKNOWN",
+      patientId: params.id,
+      userRole: normalizedRole,
+      facilityServiceType: facilityServiceType as any,
+      actionType: "BREAK_GLASS",
+      emergency: true,
+      metadata: {
+        reason: body.reason.trim(),
+        targetFacility: patient.organizationId,
+        sourceFacility: organizationId,
+      }
+    });
 
     return NextResponse.json({ success: true, patient: JSON.parse(JSON.stringify(patient)) });
   } catch (error: any) {

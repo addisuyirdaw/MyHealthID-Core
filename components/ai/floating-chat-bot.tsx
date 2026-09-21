@@ -244,8 +244,8 @@ export function FloatingChatBot() {
               </h3>
               <p className="text-sm text-slate-500 max-w-[250px]">
                 {language === "AM"
-                  ? "ይህን ቁልፍ ይጫኑ የ AI ረዳቱ በድምጽ እንዲነጋገርዎ።"
-                  : "Tap the button below to enable the AI to speak responses aloud."}
+                  ? "ይህን ቁልፍ ይጫኑ የ ረዳቱ በድምጽ እንዲነጋገርዎ።"
+                  : "Tap the button below to enable the assistant to speak responses aloud."}
               </p>
               <button
                 onClick={unlockAudio}
@@ -358,7 +358,7 @@ export function FloatingChatBot() {
         ) : (
           <>
             <BotMessageSquare size={22} className="shrink-0" />
-            <span className="text-sm font-bold whitespace-nowrap">Ask MyHealthID AI</span>
+            <span className="text-sm font-bold whitespace-nowrap">Clinical Assistant</span>
             {/* Pulse indicator */}
             <span className="flex h-2.5 w-2.5 shrink-0">
               <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-blue-300 opacity-75" />

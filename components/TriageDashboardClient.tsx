@@ -283,6 +283,17 @@ export default function TriageDashboardClient({
     return () => clearInterval(t);
   }, []);
 
+  // Sync RSC updates to local state
+  useEffect(() => {
+    setPatients(initialPatients);
+  }, [initialPatients]);
+
+  // Auto-refresh queue every 15 seconds
+  useEffect(() => {
+    const t = setInterval(() => router.refresh(), 15000);
+    return () => clearInterval(t);
+  }, [router]);
+
   // ── Derived ──────────────────────────────────────────────────────────────────
   const filteredPatients = patients.filter(
     (p) =>
@@ -1049,7 +1060,7 @@ export default function TriageDashboardClient({
                   <ShieldAlert className="w-3 h-3" /> Triage Category
                 </h3>
 
-                {/* AI suggestion hint */}
+                {/* Smart suggestion hint */}
                 {(() => {
                   const suggestion = getAiSuggestion(selectedPatient);
                   const cat = TRIAGE_CATEGORIES.find((c) => c.id === suggestion);
@@ -1057,7 +1068,7 @@ export default function TriageDashboardClient({
                     <div className="mb-3 flex items-center gap-2 bg-indigo-950/30 border border-indigo-500/20 rounded-lg px-3 py-2">
                       <Brain className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                       <span className="text-[10px] text-indigo-300">
-                        AI Suggestion: <strong className={cat.color}>{cat.emoji} {cat.label}</strong> based on chief complaint
+                        Smart Suggestion: <strong className={cat.color}>{cat.emoji} {cat.label}</strong> based on chief complaint
                       </span>
                     </div>
                   ) : null;
