@@ -196,10 +196,8 @@ export function FaydaRegistration({ onVerified, onCancel }: FaydaRegistrationPro
         {scanStep === "scan_back" && (
           <div className="space-y-6">
             <FaydaQrScanner
-              onCodeRead={handleDecodedQr}
-              autoClose={false}
-              closeScanner={() => setScanStep("idle")}
-              cameraSide="environment"
+              onDecodedText={handleDecodedQr}
+              onManualBypass={() => setScanStep("idle")}
             />
             <div className="text-center">
               <button 

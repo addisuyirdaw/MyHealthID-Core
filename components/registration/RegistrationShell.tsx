@@ -198,7 +198,7 @@ export function RegistrationShell() {
         {step === 1 && (mode === "NO_ID" || mode === "MANUAL") && (
           <ManualRegistration 
             initialData={formData}
-            isFaydaVerified={mode === "FAYDA"} // Will be false here
+            isFaydaVerified={false} // mode is NO_ID or MANUAL here
             onNext={handleManualNext}
             onCancel={handleReset}
           />
