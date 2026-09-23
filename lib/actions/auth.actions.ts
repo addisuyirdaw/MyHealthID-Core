@@ -47,46 +47,48 @@ export async function registerOrganization(data: {
   woreda: string;
   kebele: string;
   licenseNumber?: string;
+  customFacilityNumber?: string;
 }) {
   try {
-    // Memorable dynamic Organization ID generation logic
-    const reg = data.kilil.replace(/\s+/g, "").substring(0, 3).toUpperCase();
-    const wor = data.woreda.replace(/\s+/g, "").substring(0, 3).toUpperCase();
-    
-    const fillers = ["hospital", "clinic", "health", "center", "and", "the"];
-    const tokens = data.officialName
-      .toLowerCase()
-      .replace(/[^a-z0-9\s]/g, "")
-      .split(/\s+/)
-      .filter(token => token && !fillers.includes(token));
-    
-    const coreWord = tokens.length > 0 ? tokens[0].toUpperCase() : "FACILITY";
-    const hex = Math.floor(4096 + Math.random() * 61439).toString(16).toUpperCase(); // 4-char hex
+    const REGION_CODES: Record<string, string> = {
+      "Amhara": "AM",
+      "Addis Ababa": "AA",
+      "Oromia": "OR",
+      "Tigray": "TG",
+      "Sidama": "SD",
+      "Somali": "SM",
+      "Afar": "AF",
+      "Benishangul-Gumuz": "BG",
+      "Gambella": "GM",
+      "Harari": "HR",
+      "South Ethiopia": "SE",
+      "Central Ethiopia": "CE",
+      "South West Ethiopia": "SW",
+      "Dire Dawa": "DD"
+    };
 
-    const orgId = `MH-${reg}-${wor}-${coreWord}-${hex}`;
+    const regPrefix = REGION_CODES[data.kilil] || data.kilil.replace(/\s+/g, "").substring(0, 2).toUpperCase();
+
+    let orgId = "";
+    if (data.customFacilityNumber && data.customFacilityNumber.trim() !== "") {
+      const padded = data.customFacilityNumber.trim().padStart(2, '0');
+      orgId = `${regPrefix}${padded}`.toUpperCase();
+    } else {
+      const count = await prisma.organization.count({
+        where: { id: { startsWith: regPrefix } }
+      });
+      orgId = `${regPrefix}${String(count + 1).padStart(2, '0')}`.toUpperCase();
+    }
+
     const normalizedFacilityType = normalizeFacilityServiceType(data.facilityType);
     const serializedName = `${data.officialName} (${normalizedFacilityType})`;
     
-    const org = await prisma.organization.create({
-      data: {
-        id: orgId,
-        name: `${serializedName} - ${data.kilil}, ${data.zone}, ${data.woreda}, ${data.kebele}`,
-        nameLng: { en: data.officialName, am: data.officialName },
-        code: orgId,
-        registrationId: orgId,
-        licenseNumber: data.licenseNumber,
-        ownershipType: "PUBLIC",
-        serviceType: normalizedFacilityType as any,
-      }
-    });
-
     // ─── Auto-create the default facility ADMIN account ────────────────────────
-    // Generate a stable, memorable default license number for the admin account
-    const adminLicenseNumber = `admin-${orgId.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
-    const adminEmail = `${adminLicenseNumber.replace(/[^a-z0-9]/g, "")}@myhealthid.gov.et`;
-    // IMPORTANT: normalizeLoginIdentifier strips hyphens during login, so we must
-    // store the hyphen-stripped version so the DB lookup finds this account.
-    const adminEmailOrUsername = adminLicenseNumber.replace(/[^a-z0-9]/g, "");
+    // Auto-generate the license number following the [2_DIGITS][ROLE] format
+    const adminRoleCode = "AD";
+    const adminLicenseNumber = `01${adminRoleCode}`;
+    const adminEmail = `${adminLicenseNumber.toLowerCase()}@myhealthid.gov.et`;
+    const adminEmailOrUsername = adminLicenseNumber.toLowerCase();
 
     // Generate a readable 8-character one-time activation code
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -97,32 +99,45 @@ export async function registerOrganization(data: {
     }
 
     // Synthetic national ID for the auto-admin
-    const nationalId = `fadmin-${orgId.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Math.random().toString(36).substring(2, 6)}`;
-
+    const nationalId = `fadmin-${orgId.toLowerCase()}-${Math.random().toString(36).substring(2, 6)}`;
     const adminRole = normalizeHealthcareRole("ADMIN");
-    await prisma.user.create({
-      data: {
-        email: adminEmail,
-        emailOrUsername: adminEmailOrUsername,
-        role: adminRole as any,
-        firstName: "Facility",
-        lastName: "Administrator",
-        professionalLicenseNumber: adminLicenseNumber,
-        hospitalId: orgId,
-        hospitalName: org.name,
-        organizationId: orgId,
-        nationalId,
-        isFirstLogin: true,
-        activationCode,
-      }
-    });
+
+    const [org, newUser] = await prisma.$transaction([
+      prisma.organization.create({
+        data: {
+          id: orgId,
+          name: `${serializedName} - ${data.kilil}, ${data.zone}, ${data.woreda}, ${data.kebele}`,
+          nameLng: { en: data.officialName, am: data.officialName },
+          code: orgId,
+          registrationId: orgId,
+          licenseNumber: data.licenseNumber,
+          ownershipType: "PUBLIC",
+          serviceType: normalizedFacilityType as any,
+        }
+      }),
+      prisma.user.create({
+        data: {
+          email: adminEmail,
+          emailOrUsername: adminEmailOrUsername,
+          role: adminRole as any,
+          firstName: "Facility",
+          lastName: "Administrator",
+          professionalLicenseNumber: adminLicenseNumber,
+          hospitalId: orgId,
+          hospitalName: `${serializedName} - ${data.kilil}, ${data.zone}, ${data.woreda}, ${data.kebele}`,
+          organizationId: orgId,
+          nationalId,
+          isFirstLogin: true,
+          activationCode,
+        }
+      })
+    ]);
     // ───────────────────────────────────────────────────────────────────────────
 
     return {
       success: true,
       organizationId: org.id,
       name: org.name,
-      // Return admin credentials so the UI can display them to the registrant
       adminLicenseNumber,
       adminActivationCode: activationCode,
     };
@@ -170,8 +185,24 @@ export async function onboardHealthcareProfessional(data: {
       throw new Error("Unauthorized: No active facility context found for administrator.");
     }
 
-    const email = `${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@myhealthid.gov.et`;
-    const emailOrUsername = normalizeLoginIdentifier(data.licenseNumber);
+    const ROLE_CODES: Record<string, string> = {
+      "DOCTOR": "MD",
+      "NURSE": "RN",
+      "PHARMACIST": "PH",
+      "LAB_TECH": "LT",
+      "ADMIN": "AD",
+      "RECEPTIONIST": "RC"
+    };
+    const roleCode = ROLE_CODES[data.role] || "XX";
+
+    const count = await prisma.user.count({
+      where: { organizationId: activeOrgId }
+    });
+    
+    const genLicenseNumber = `${String(count + 1).padStart(2, '0')}${roleCode}`;
+
+    const email = `${genLicenseNumber.toLowerCase()}@myhealthid.gov.et`;
+    const emailOrUsername = genLicenseNumber.toLowerCase();
     const hospitalName = (await prisma.organization.findUnique({ where: { id: activeOrgId }, select: { name: true } }))?.name || null;
 
     const [firstName = "", ...lastNameParts] = data.fullName.trim().split(" ");
@@ -186,7 +217,7 @@ export async function onboardHealthcareProfessional(data: {
       throw new Error("A professional with this license number is already registered.");
     }
 
-    const nationalId = `onb-nid-${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Math.random().toString(36).substring(2, 6)}`;
+    const nationalId = `onb-nid-${genLicenseNumber.toLowerCase()}-${Math.random().toString(36).substring(2, 6)}`;
 
     // Generate a readable, random 6-character alphanumeric key
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -204,7 +235,7 @@ export async function onboardHealthcareProfessional(data: {
         role: normalizedRole as any,
         firstName,
         lastName,
-        professionalLicenseNumber: data.licenseNumber,
+        professionalLicenseNumber: genLicenseNumber,
         hospitalId: activeOrgId,
         hospitalName,
         organizationId: activeOrgId,
@@ -255,8 +286,24 @@ export async function registerHealthcareProfessional(data: {
       throw new Error("Invalid Hospital/Facility ID Token. Organization not found.");
     }
 
-    const email = `${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}@myhealthid.gov.et`;
-    const emailOrUsername = normalizeLoginIdentifier(data.licenseNumber);
+    const ROLE_CODES: Record<string, string> = {
+      "DOCTOR": "MD",
+      "NURSE": "RN",
+      "PHARMACIST": "PH",
+      "LAB_TECH": "LT",
+      "ADMIN": "AD",
+      "RECEPTIONIST": "RC"
+    };
+    const roleCode = ROLE_CODES[data.role] || "XX";
+
+    const count = await prisma.user.count({
+      where: { organizationId: org.id }
+    });
+    
+    const genLicenseNumber = `${String(count + 1).padStart(2, '0')}${roleCode}`;
+
+    const email = `${genLicenseNumber.toLowerCase()}@myhealthid.gov.et`;
+    const emailOrUsername = genLicenseNumber.toLowerCase();
     const hospitalName = org.name;
 
     const [firstName = "", ...lastNameParts] = data.fullName.trim().split(" ");
@@ -271,7 +318,7 @@ export async function registerHealthcareProfessional(data: {
       throw new Error("A professional with this license number is already registered.");
     }
 
-    const nationalId = `self-nid-${data.licenseNumber.toLowerCase().replace(/[^a-z0-9]/g, "")}-${Math.random().toString(36).substring(2, 6)}`;
+    const nationalId = `self-nid-${genLicenseNumber.toLowerCase()}-${Math.random().toString(36).substring(2, 6)}`;
 
     const normalizedRole = normalizeHealthcareRole(data.role);
     const newUser = await prisma.user.create({
@@ -282,7 +329,7 @@ export async function registerHealthcareProfessional(data: {
         role: normalizedRole as any,
         firstName,
         lastName,
-        professionalLicenseNumber: data.licenseNumber,
+        professionalLicenseNumber: genLicenseNumber,
         hospitalId: org.id,
         hospitalName,
         organizationId: org.id,
@@ -344,7 +391,7 @@ export async function loginUser(formData: FormData | any) {
   }
 
   const passwordVal = extractedPassword ? String(extractedPassword).trim() : "";
-  const hospitalIdCodeVal = extractedHospitalIdCode ? String(extractedHospitalIdCode).trim() : "";
+  const hospitalIdCodeVal = extractedHospitalIdCode ? String(extractedHospitalIdCode).trim().toUpperCase() : "";
 
   const cleanIdentifier = normalizeLoginIdentifier(finalIdentifier);
 
@@ -361,6 +408,7 @@ export async function loginUser(formData: FormData | any) {
       OR: [
         { email: cleanIdentifier },
         { emailOrUsername: cleanIdentifier },
+        { professionalLicenseNumber: { equals: finalIdentifier.trim(), mode: "insensitive" } },
       ],
     },
   });
@@ -370,7 +418,10 @@ export async function loginUser(formData: FormData | any) {
     // let's try to find the facility by license number and log them in as the default admin.
     const orgByLicense = await prisma.organization.findFirst({
       where: {
-        id: hospitalIdCode,
+        OR: [
+          { id: hospitalIdCode },
+          { code: { equals: hospitalIdCode, mode: "insensitive" } }
+        ],
         licenseNumber: { equals: finalIdentifier, mode: "insensitive" }
       }
     });
@@ -393,8 +444,13 @@ export async function loginUser(formData: FormData | any) {
   }
 
   // Verify Organisation exists
-  const org = await prisma.organization.findUnique({
-    where: { id: hospitalIdCode }
+  const org = await prisma.organization.findFirst({
+    where: {
+      OR: [
+        { id: hospitalIdCode },
+        { code: { equals: hospitalIdCode, mode: "insensitive" } }
+      ]
+    }
   });
   if (!org) {
     return { error: "Invalid Hospital/Facility ID Code. Organisation not found." };

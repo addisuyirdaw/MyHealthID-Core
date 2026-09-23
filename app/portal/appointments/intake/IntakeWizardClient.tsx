@@ -7,11 +7,19 @@ import {
   CheckCircle2, AlertTriangle, ArrowRight, ArrowLeft, Sparkles, Loader2 
 } from "lucide-react";
 
+interface Ward {
+  id: string;
+  name: string;
+  code: string;
+  type?: string;
+}
+
 interface Hospital {
   id: string;
   name: string;
   region?: string;
   zone?: string;
+  clinicalWards?: Ward[];
 }
 
 interface IntakeWizardClientProps {
@@ -36,6 +44,7 @@ export function IntakeWizardClient({
   const router = useRouter();
   const [step, setStep] = useState(1);
   const [selectedHospitalId, setSelectedHospitalId] = useState("");
+  const [selectedWardId, setSelectedWardId] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTimeSlot, setSelectedTimeSlot] = useState("");
   const [chiefComplaints, setChiefComplaints] = useState("");
@@ -95,7 +104,8 @@ export function IntakeWizardClient({
           facilityId: selectedHospitalId,
           appointmentDate: selectedDate,
           timeSlot: selectedTimeSlot,
-          chiefComplaints: chiefComplaints
+          chiefComplaints: chiefComplaints,
+          wardId: selectedWardId || undefined
         })
       });
 
@@ -241,25 +251,54 @@ export function IntakeWizardClient({
             </div>
           </div>
 
-          {/* Persistent Hospital Selector at top of card */}
+          {/* Persistent Hospital & Ward Selector at top of card */}
           {step < 4 && (
-            <div className="space-y-2">
-              <label className="block text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-1">
-                <Building className="w-3.5 h-3.5" /> Target Healthcare Facility
-              </label>
-              <select
-                disabled={loading}
-                value={selectedHospitalId}
-                onChange={(e) => setSelectedHospitalId(e.target.value)}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
-              >
-                <option value="">-- Choose Hospital --</option>
-                {initialHospitals.map((hosp) => (
-                  <option key={hosp.id} value={hosp.id}>
-                    {hosp.name} {hosp.region ? `(${hosp.region})` : ""}
-                  </option>
-                ))}
-              </select>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="block text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-1">
+                  <Building className="w-3.5 h-3.5" /> Target Healthcare Facility
+                </label>
+                <select
+                  disabled={loading}
+                  value={selectedHospitalId}
+                  onChange={(e) => {
+                    setSelectedHospitalId(e.target.value);
+                    setSelectedWardId(""); // Reset ward when hospital changes
+                  }}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                >
+                  <option value="">-- Choose Hospital --</option>
+                  {initialHospitals.map((hosp) => (
+                    <option key={hosp.id} value={hosp.id}>
+                      {hosp.name} {hosp.region ? `(${hosp.region})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {selectedHospitalId && (
+                <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <label className="block text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-1">
+                    <Stethoscope className="w-3.5 h-3.5" /> Target Ward / Department
+                  </label>
+                  <select
+                    disabled={loading}
+                    value={selectedWardId}
+                    onChange={(e) => setSelectedWardId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-50"
+                  >
+                    <option value="">-- Let system assign automatically --</option>
+                    {initialHospitals.find(h => h.id === selectedHospitalId)?.clinicalWards?.map((ward) => (
+                      <option key={ward.id} value={ward.id}>
+                        {ward.name}
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-500">
+                    Leave blank to automatically assign based on your chief complaints.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 

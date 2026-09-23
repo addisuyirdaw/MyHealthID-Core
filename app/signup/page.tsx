@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { selfRegisterCitizen, directCitizenSignIn } from "@/lib/actions/patient.actions";
 import { useLanguage } from "@/components/LanguageProvider";
 import { LanguageToggle } from "@/components/LanguageToggle";
+import { UniversalNavigation } from "@/components/navigation/UniversalNavigation";
 import Link from "next/link";
 import {
   User,
@@ -97,6 +98,7 @@ export default function SignUpPage() {
   if (registeredId) {
     return (
       <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-4 relative overflow-hidden">
+        <UniversalNavigation isFloating />
         {/* Ambient glows */}
         <div className="pointer-events-none absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-emerald-600/10 blur-3xl" />
         <div className="pointer-events-none absolute -bottom-24 -right-24 w-[400px] h-[400px] rounded-full bg-emerald-800/10 blur-3xl" />
@@ -184,6 +186,7 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-neutral-100 flex items-center justify-center p-4 relative overflow-hidden">
+      <UniversalNavigation isFloating />
       {/* Language toggle */}
       <div className="absolute top-4 right-4 z-50">
         <LanguageToggle />
@@ -195,7 +198,7 @@ export default function SignUpPage() {
 
       <div className="w-full max-w-md relative z-10 py-8">
         {/* Brand */}
-        <div className="flex items-center justify-center gap-2.5 mb-8">
+        <Link href="/" className="flex items-center justify-center gap-2.5 mb-8 cursor-pointer hover:opacity-90 transition-opacity">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-900/40">
             <HeartPulse className="w-5 h-5 text-white" />
           </div>
@@ -203,7 +206,7 @@ export default function SignUpPage() {
             <p className="text-white font-black text-base leading-none">MyHealthID</p>
             <p className="text-neutral-500 text-[11px] font-medium">National Health Network</p>
           </div>
-        </div>
+        </Link>
 
         {/* Card */}
         <div className="bg-neutral-900/70 border border-neutral-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl ring-1 ring-white/5">

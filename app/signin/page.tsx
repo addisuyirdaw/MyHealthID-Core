@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { directCitizenSignIn } from "@/lib/actions/patient.actions";
 import { useLanguage } from "@/components/LanguageProvider";
+import { UniversalNavigation } from "@/components/navigation/UniversalNavigation";
 
 import { LogoIcon } from "@/components/LogoIcon";
 import Link from "next/link";
@@ -71,6 +72,7 @@ export default function SignInPage() {
 
   return (
     <div className="min-h-screen bg-[#030712] text-white flex items-center justify-center p-4 relative overflow-hidden">
+      <UniversalNavigation isFloating />
       {/* Ambient glows */}
       <div className="pointer-events-none absolute -top-32 -left-32 w-[480px] h-[480px] rounded-full bg-blue-600/10 blur-3xl" />
       <div className="pointer-events-none absolute -bottom-24 -right-24 w-[400px] h-[400px] rounded-full bg-indigo-600/10 blur-3xl" />
@@ -78,7 +80,7 @@ export default function SignInPage() {
 
       <div className="w-full max-w-md relative z-10">
         {/* Brand */}
-        <div className="flex items-center justify-center gap-3 mb-8">
+        <Link href="/" className="flex items-center justify-center gap-3 mb-8 cursor-pointer hover:opacity-90 transition-opacity">
           <div className="max-w-[180px] h-auto flex items-center justify-center mb-4">
             <LogoIcon className="w-full h-auto object-contain" />
           </div>
@@ -86,7 +88,7 @@ export default function SignInPage() {
             <p className="text-white font-black text-lg leading-none">MyHealthID</p>
             <p className="text-neutral-500 text-[11px] font-medium mt-1">National Health Network</p>
           </div>
-        </div>
+        </Link>
 
         {/* Card */}
         <div className="bg-neutral-900/70 border border-neutral-800 rounded-3xl p-8 shadow-2xl backdrop-blur-xl ring-1 ring-white/5">

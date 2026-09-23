@@ -13,6 +13,8 @@ import { useRouter } from "next/navigation";
 import { useLanguage } from "@/components/LanguageProvider";
 import { FACILITY_SERVICE_TYPE_KEYS, getFacilityServiceTypeTranslation } from "@/lib/locales/enums";
 import { EscapeHatch } from "@/components/navigation/EscapeHatch";
+import { UniversalNavigation } from "@/components/navigation/UniversalNavigation";
+import { HeartPulse } from "lucide-react";
 
 export default function RegisterFacilityPage() {
   const router = useRouter();
@@ -38,6 +40,7 @@ export default function RegisterFacilityPage() {
   const [zone, setZone] = useState("");
   const [woreda, setWoreda] = useState("");
   const [kebele, setKebele] = useState("");
+  const [customFacilityNumber, setCustomFacilityNumber] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,6 +59,7 @@ export default function RegisterFacilityPage() {
         zone,
         woreda,
         kebele,
+        customFacilityNumber,
       });
 
       if (res.success && res.organizationId) {
@@ -125,7 +129,7 @@ export default function RegisterFacilityPage() {
     return (
       <div className="min-h-screen bg-slate-900 text-slate-100 flex items-center justify-center p-6 relative overflow-hidden">
         {/* Escape hatch — post-success: no dirty guard needed */}
-        <EscapeHatch href="/login" label="Return to Login Hub" />
+        <EscapeHatch href={`/login?facilityId=${encodeURIComponent(token)}&identifier=${encodeURIComponent(adminLicenseNumber)}`} label="Return to Login Hub" />
         {/* Background Gradients */}
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-500/10 rounded-full blur-3xl pointer-events-none" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
@@ -183,8 +187,8 @@ export default function RegisterFacilityPage() {
                 <p className="text-xs text-slate-400 leading-relaxed">
                   Your Facility ID is used internally to identify this facility within MyHealthID. You can access it later from your dashboard.
                 </p>
-                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 p-3 rounded-lg font-mono text-xs text-slate-300">
-                  <span className="flex-1 select-all">{token}</span>
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 p-3 rounded-lg font-mono text-xl text-slate-300">
+                  <span className="flex-1 font-bold text-emerald-400 text-center select-all">{token}</span>
                   <Button
                     type="button"
                     variant="ghost"
@@ -221,6 +225,17 @@ export default function RegisterFacilityPage() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center py-12 px-6 relative overflow-hidden">
+      <UniversalNavigation isFloating />
+      <div className="fixed top-4 right-4 z-[9999]">
+        <Link href="/" className="flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity bg-slate-900/80 backdrop-blur-sm p-2 rounded-xl shadow-sm border border-slate-800">
+          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center shadow-md">
+            <HeartPulse className="w-5 h-5 text-white" />
+          </div>
+          <div>
+            <p className="text-white font-bold text-lg leading-none">MyHealthID</p>
+          </div>
+        </Link>
+      </div>
       {/* Escape hatch — guarded when any field is populated */}
       <EscapeHatch href="/login" label="Return to Login Hub" isDirty={isDirty} />
       {/* Dynamic Ambient Background */}
@@ -297,6 +312,21 @@ export default function RegisterFacilityPage() {
                   placeholder="e.g. MOH-ETH-2024-99999"
                   className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-12 focus:ring-2 focus:ring-blue-500/40"
                   required
+                />
+              </div>
+
+              {/* Custom Facility Number */}
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="customFacilityNumber" className="text-xs font-bold uppercase tracking-widest text-slate-400">
+                  Custom Facility Number (Optional)
+                </Label>
+                <Input
+                  id="customFacilityNumber"
+                  value={customFacilityNumber}
+                  onChange={(e) => setCustomFacilityNumber(e.target.value.replace(/[^0-9]/g, '').slice(0, 2))}
+                  placeholder="e.g. 01, 99 (Leave blank to auto-generate)"
+                  className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-12 focus:ring-2 focus:ring-blue-500/40"
+                  maxLength={2}
                 />
               </div>
 

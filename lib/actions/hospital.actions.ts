@@ -89,6 +89,15 @@ export async function getHospitals(filter?: { kilil?: string; zone?: string; wor
         kebele: true,
         isActive: true,
         isVerified: true,
+        clinicalWards: {
+          select: {
+            id: true,
+            name: true,
+            code: true,
+            type: true
+          },
+          orderBy: { name: "asc" }
+        }
       }
     });
 

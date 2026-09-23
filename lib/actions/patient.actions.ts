@@ -701,7 +701,10 @@ export async function processTriage(
     const priorityLevel = (priority === "RED" || dbWard === "EMERGENCY" ? PriorityLevel.EMERGENCY : priority === "YELLOW" ? PriorityLevel.URGENT : PriorityLevel.ROUTINE) as PriorityLevel;
 
     const patient = await prisma.patient.update({
-      where: { id: patientId },
+      where: { 
+        ...CROSS_FACILITY,
+        id: patientId 
+      } as any,
       data: {
         ward: dbWard as Ward,
         triageStatus: priority,
@@ -758,7 +761,10 @@ export async function saveClinicalExam(patientId: string, examData: any) {
 
     // Update patient status
     const patient = await prisma.patient.update({
-      where: { id: patientId },
+      where: { 
+        ...CROSS_FACILITY,
+        id: patientId 
+      } as any,
       data: {
         examStatus: 'EXAMINATION_COMPLETE'
       }

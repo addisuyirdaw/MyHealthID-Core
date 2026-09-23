@@ -19,13 +19,14 @@ import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 
+import { UniversalNavigation } from "@/components/navigation/UniversalNavigation";
+
 type Tab = "citizen" | "staff";
 
 function LoginForm() {
   const searchParams = useSearchParams();
   const [activeTab, setActiveTab] = useState<Tab>("citizen");
   const [status, setStatus] = useState<"idle" | "loading" | "success">("idle");
-
   // Staff form state
   const [hospitalIdCode, setHospitalIdCode] = useState("");
   const [emailOrUsername, setEmailOrUsername] = useState("");
@@ -37,10 +38,14 @@ function LoginForm() {
   useEffect(() => {
     fetch("/api/clear-session").finally(() => {
       setSessionCleared(true);
-      const orgId = searchParams.get("orgId");
-      if (orgId) {
-        setHospitalIdCode(orgId);
+      const facilityId = searchParams.get("facilityId") || searchParams.get("orgId");
+      const identifier = searchParams.get("identifier");
+      if (facilityId) {
+        setHospitalIdCode(facilityId);
         setActiveTab("staff");
+      }
+      if (identifier) {
+        setEmailOrUsername(identifier);
       }
     });
   }, [searchParams]);
@@ -98,6 +103,7 @@ function LoginForm() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center relative overflow-hidden p-4">
+      <UniversalNavigation isFloating />
       {/* Background ambient glows (light theme) */}
       <div className="pointer-events-none absolute -top-48 -left-48 w-[700px] h-[700px] rounded-full bg-blue-100 blur-[120px]" />
       <div className="pointer-events-none absolute -bottom-32 -right-32 w-[500px] h-[500px] rounded-full bg-slate-200 blur-[100px]" />
@@ -105,7 +111,7 @@ function LoginForm() {
       <div className="w-full max-w-md mx-auto relative z-10 flex flex-col items-center gap-6">
 
         {/* Brand */}
-        <div className="flex flex-col items-center gap-2 text-center">
+        <Link href="/" className="flex flex-col items-center gap-2 text-center cursor-pointer hover:opacity-90 transition-opacity">
           <div className="w-12 h-12 rounded-2xl bg-blue-600 flex items-center justify-center shadow-md">
             <HeartPulse className="w-6 h-6 text-white" />
           </div>
@@ -113,7 +119,7 @@ function LoginForm() {
             <p className="text-slate-900 font-black text-xl leading-none">MyHealthID</p>
             <p className="text-slate-500 text-xs font-semibold uppercase tracking-wider mt-1">Clinical Operations & Patient Portal</p>
           </div>
-        </div>
+        </Link>
 
         {/* Card */}
         <div className="w-full bg-white border border-slate-200 rounded-2xl shadow-xl overflow-hidden">
@@ -213,7 +219,7 @@ function LoginForm() {
                         id="hospitalIdCode"
                         value={hospitalIdCode}
                         onChange={(e) => setHospitalIdCode(e.target.value)}
-                        placeholder="e.g. MH-AMH-WER-DEBRE-8C21"
+                        placeholder="e.g. AM01 or AA02"
                         className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
                       />
                     </div>
@@ -231,7 +237,7 @@ function LoginForm() {
                         id="emailOrUsername"
                         value={emailOrUsername}
                         onChange={(e) => setEmailOrUsername(e.target.value)}
-                        placeholder="doctor@hospital.gov.et or md-2026-eth"
+                        placeholder="e.g. 01MD, 02RN, or Username"
                         className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
                         required
                       />

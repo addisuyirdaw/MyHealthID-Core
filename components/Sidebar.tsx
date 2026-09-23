@@ -8,6 +8,7 @@ import {
 import { LanguageToggle } from "./LanguageToggle";
 import { LocalizedText } from "./LocalizedText";
 import { LogoIcon } from "./LogoIcon";
+import { UniversalNavigation } from "./navigation/UniversalNavigation";
 import prisma from "@/lib/prisma";
 import { logoutUser } from "@/lib/actions/auth.actions";
 import { ADMIN_ROLES, CLINICAL_ROLES, TRIAGE_ROLES, LAB_ROLES, PHARMACY_ROLES, REGISTRATION_ROLES } from "@/lib/locales/enums";
@@ -60,7 +61,7 @@ export async function Sidebar() {
           <span>MyHealthID</span>
         </div>
         <div>
-          <Link href="/" className="text-sm text-neutral-300 hover:text-white px-2 py-1 rounded-md">Home</Link>
+          <UniversalNavigation />
         </div>
       </div>
 

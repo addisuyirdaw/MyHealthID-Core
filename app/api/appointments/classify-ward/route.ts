@@ -4,7 +4,7 @@ import prisma from "@/lib/prisma";
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-    const { patientId, facilityId, chiefComplaints, appointmentDate, timeSlot } = body;
+    const { patientId, facilityId, chiefComplaints, appointmentDate, timeSlot, wardId } = body;
 
     if (!patientId || !facilityId || !chiefComplaints || !appointmentDate || !timeSlot) {
       return NextResponse.json(
@@ -13,30 +13,38 @@ export async function POST(req: Request) {
       );
     }
 
-    // 1. Classifier logic based on chiefComplaints keywords
-    const text = chiefComplaints.toLowerCase();
-    let resolvedCode = "GEN_MED";
+    let ward = null;
 
-    const pedKeywords = ["child", "pediatric", "baby", "infant", "toddler"];
-    const cardKeywords = ["heart", "chest pain", "palpitation", "bp", "cardio"];
-    const genMedKeywords = ["fever", "cough", "cold", "flu", "headache", "body pain"];
+    if (wardId) {
+      ward = await prisma.clinicalWard.findUnique({
+        where: { id: wardId }
+      });
+    } else {
+      // 1. Classifier logic based on chiefComplaints keywords
+      const text = chiefComplaints.toLowerCase();
+      let resolvedCode = "GEN_MED";
 
-    if (pedKeywords.some(kw => text.includes(kw))) {
-      resolvedCode = "PED";
-    } else if (cardKeywords.some(kw => text.includes(kw))) {
-      resolvedCode = "CARD";
-    } else if (genMedKeywords.some(kw => text.includes(kw))) {
-      resolvedCode = "GEN_MED";
+      const pedKeywords = ["child", "pediatric", "baby", "infant", "toddler"];
+      const cardKeywords = ["heart", "chest pain", "palpitation", "bp", "cardio"];
+      const genMedKeywords = ["fever", "cough", "cold", "flu", "headache", "body pain"];
+
+      if (pedKeywords.some(kw => text.includes(kw))) {
+        resolvedCode = "PED";
+      } else if (cardKeywords.some(kw => text.includes(kw))) {
+        resolvedCode = "CARD";
+      } else if (genMedKeywords.some(kw => text.includes(kw))) {
+        resolvedCode = "GEN_MED";
+      }
+
+      // 2. Fetch the corresponding ClinicalWard from the database
+      ward = await prisma.clinicalWard.findUnique({
+        where: { code: resolvedCode }
+      });
     }
-
-    // 2. Fetch the corresponding ClinicalWard from the database
-    const ward = await prisma.clinicalWard.findUnique({
-      where: { code: resolvedCode }
-    });
 
     if (!ward) {
       return NextResponse.json(
-        { success: false, error: `Clinical Ward with code '${resolvedCode}' not found.` },
+        { success: false, error: `Clinical Ward could not be found or assigned.` },
         { status: 404 }
       );
     }

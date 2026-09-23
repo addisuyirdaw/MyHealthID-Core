@@ -673,93 +673,122 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
 
             {/* Structured Medical History Dropdown (Task 1) */}
             <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
-                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
-                  <ClipboardList className="w-4 h-4 text-amber-400" /> Detailed Clinical History
-                </h2>
-                <select
-                  value={historyCategory}
-                  onChange={(e) => setHistoryCategory(e.target.value)}
-                  className="bg-neutral-800 border border-neutral-600 text-neutral-200 text-sm rounded-lg p-2 focus:outline-none focus:border-blue-500"
-                >
-                  <option value="Medical">Medical History</option>
-                  <option value="Surgical">Surgical History</option>
-                  <option value="Pediatric">Pediatric History</option>
-                  <option value="Gynecology">Gynecology & Obstetrics</option>
-                </select>
-              </div>
+              {(() => {
+                const HISTORY_TOPICS: Record<string, string[]> = {
+                  Medical: ["Past Medical History", "Drug History", "Allergy History", "Family History", "Social History", "Personal History", "Nutritional History", "Immunization History", "Occupational History", "Travel History", "Review of Systems"],
+                  Surgical: ["Past Surgical History", "Previous Operations", "Previous Anesthesia", "Surgical Complications", "Previous Hospitalization", "Blood Transfusion History", "Trauma History", "Previous Procedures", "Prosthesis/Implant History"],
+                  Pediatric: ["Birth/Perinatal History", "Neonatal History", "Growth & Development", "Immunization History", "Nutritional History", "Breastfeeding History", "Childhood Illnesses", "Pediatric Medication History", "Developmental History", "School History"],
+                  Gynecology: ["Menstrual History", "Obstetric History", "Pregnancy History", "Gynecological History", "Contraceptive History", "Sexual History", "Previous Pregnancy Complications", "Menopause History", "Infertility History", "STI History", "Gynecological Procedures"]
+                };
+                
+                const activeStateObj = 
+                  historyCategory === "Medical" ? extMedical :
+                  historyCategory === "Surgical" ? extSurgical :
+                  historyCategory === "Pediatric" ? extPediatric : extGynecology;
 
-              {/* Dynamic History Inputs based on Selection */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {historyCategory === "Medical" && [
-                  "Past Medical History", "Drug History", "Allergy History", "Family History", 
-                  "Social History", "Personal History", "Nutritional History", "Immunization History", 
-                  "Occupational History", "Travel History", "Review of Systems"
-                ].map((key) => (
-                  <div key={key} className="space-y-2">
-                    <Label className="text-neutral-300 font-semibold">{key}</Label>
-                    <textarea
-                      value={extMedical[key] || ""}
-                      onChange={e => setExtMedical({ ...extMedical, [key]: e.target.value })}
-                      placeholder={`Enter ${key}...`}
-                      rows={3}
-                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm resize-none focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                ))}
+                const availableTopics = HISTORY_TOPICS[historyCategory] || [];
+                const activeKeys = Object.keys(activeStateObj);
+                const unselectedTopics = availableTopics.filter(t => !activeKeys.includes(t));
 
-                {historyCategory === "Surgical" && [
-                  "Past Surgical History", "Previous Operations", "Previous Anesthesia", 
-                  "Surgical Complications", "Previous Hospitalization", "Blood Transfusion History", 
-                  "Trauma History", "Previous Procedures", "Prosthesis/Implant History"
-                ].map((key) => (
-                  <div key={key} className="space-y-2">
-                    <Label className="text-neutral-300 font-semibold">{key}</Label>
-                    <textarea
-                      value={extSurgical[key] || ""}
-                      onChange={e => setExtSurgical({ ...extSurgical, [key]: e.target.value })}
-                      placeholder={`Enter ${key}...`}
-                      rows={3}
-                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm resize-none focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                ))}
+                const handleAddTopic = (topic: string) => {
+                  if (historyCategory === "Medical") setExtMedical({ ...extMedical, [topic]: "" });
+                  else if (historyCategory === "Surgical") setExtSurgical({ ...extSurgical, [topic]: "" });
+                  else if (historyCategory === "Pediatric") setExtPediatric({ ...extPediatric, [topic]: "" });
+                  else setExtGynecology({ ...extGynecology, [topic]: "" });
+                };
 
-                {historyCategory === "Pediatric" && [
-                  "Birth/Perinatal History", "Neonatal History", "Growth & Development", 
-                  "Immunization History", "Nutritional History", "Breastfeeding History", 
-                  "Childhood Illnesses", "Pediatric Medication History", "Developmental History", "School History"
-                ].map((key) => (
-                  <div key={key} className="space-y-2">
-                    <Label className="text-neutral-300 font-semibold">{key}</Label>
-                    <textarea
-                      value={extPediatric[key] || ""}
-                      onChange={e => setExtPediatric({ ...extPediatric, [key]: e.target.value })}
-                      placeholder={`Enter ${key}...`}
-                      rows={3}
-                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm resize-none focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                ))}
+                const handleRemoveTopic = (topic: string) => {
+                  const val = activeStateObj[topic];
+                  if (val && val.trim() !== "") {
+                    if (!window.confirm(`Are you sure you want to remove "${topic}"? This will delete the recorded text upon saving.`)) {
+                      return;
+                    }
+                  }
+                  if (historyCategory === "Medical") {
+                    const next = { ...extMedical }; delete next[topic]; setExtMedical(next);
+                  } else if (historyCategory === "Surgical") {
+                    const next = { ...extSurgical }; delete next[topic]; setExtSurgical(next);
+                  } else if (historyCategory === "Pediatric") {
+                    const next = { ...extPediatric }; delete next[topic]; setExtPediatric(next);
+                  } else {
+                    const next = { ...extGynecology }; delete next[topic]; setExtGynecology(next);
+                  }
+                };
 
-                {historyCategory === "Gynecology" && [
-                  "Menstrual History", "Obstetric History", "Pregnancy History", 
-                  "Gynecological History", "Contraceptive History", "Sexual History", 
-                  "Previous Pregnancy Complications", "Menopause History", "Infertility History", 
-                  "STI History", "Gynecological Procedures"
-                ].map((key) => (
-                  <div key={key} className="space-y-2">
-                    <Label className="text-neutral-300 font-semibold">{key}</Label>
-                    <textarea
-                      value={extGynecology[key] || ""}
-                      onChange={e => setExtGynecology({ ...extGynecology, [key]: e.target.value })}
-                      placeholder={`Enter ${key}...`}
-                      rows={3}
-                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm resize-none focus:outline-none focus:border-blue-500"
-                    />
-                  </div>
-                ))}
-              </div>
+                const handleUpdateTopic = (topic: string, value: string) => {
+                  if (historyCategory === "Medical") setExtMedical({ ...extMedical, [topic]: value });
+                  else if (historyCategory === "Surgical") setExtSurgical({ ...extSurgical, [topic]: value });
+                  else if (historyCategory === "Pediatric") setExtPediatric({ ...extPediatric, [topic]: value });
+                  else setExtGynecology({ ...extGynecology, [topic]: value });
+                };
+
+                return (
+                  <>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+                      <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
+                        <ClipboardList className="w-4 h-4 text-amber-400" /> Detailed Clinical History
+                      </h2>
+                      
+                      <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                        <select
+                          value={historyCategory}
+                          onChange={(e) => setHistoryCategory(e.target.value)}
+                          className="bg-neutral-800 border border-neutral-600 text-neutral-200 text-sm rounded-lg p-2 focus:outline-none focus:border-blue-500"
+                        >
+                          <option value="Medical">Medical History</option>
+                          <option value="Surgical">Surgical History</option>
+                          <option value="Pediatric">Pediatric History</option>
+                          <option value="Gynecology">Gynecology & Obstetrics</option>
+                        </select>
+                        
+                        <select
+                          value=""
+                          onChange={(e) => {
+                            if (e.target.value) handleAddTopic(e.target.value);
+                          }}
+                          className="bg-neutral-800 border border-neutral-600 text-neutral-200 text-sm rounded-lg p-2 focus:outline-none focus:border-blue-500 cursor-pointer"
+                        >
+                          <option value="" disabled>+ Add Sub-Topic...</option>
+                          {unselectedTopics.map(t => (
+                            <option key={t} value={t}>{t}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    {/* Dynamic History Inputs based on Selection */}
+                    {activeKeys.length === 0 ? (
+                      <div className="bg-neutral-800/30 border border-neutral-700/50 rounded-xl p-6 text-center text-neutral-500 italic">
+                        No {historyCategory} History recorded yet. Select a sub-topic above to begin documentation.
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {activeKeys.map((key) => (
+                          <div key={key} className="bg-neutral-800/40 border border-neutral-700/60 rounded-xl p-4 relative group">
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => handleRemoveTopic(key)}
+                              className="absolute top-2 right-2 w-6 h-6 text-neutral-500 hover:text-red-400 hover:bg-red-900/30 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                              title={`Remove ${key}`}
+                            >
+                              <X className="w-3 h-3" />
+                            </Button>
+                            <Label className="text-neutral-300 font-semibold mb-2 block pr-6">{key}</Label>
+                            <textarea
+                              value={activeStateObj[key]}
+                              onChange={e => handleUpdateTopic(key, e.target.value)}
+                              placeholder={`Document ${key.toLowerCase()}...`}
+                              rows={3}
+                              className="w-full rounded-lg bg-neutral-900 border border-neutral-700 text-neutral-200 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
               <div className="mt-4 flex justify-end">
                 <Button onClick={handleSaveHistory} disabled={savingHistory} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6">
                   {savingHistory ? "Saving..." : historySaved ? "Saved!" : "Save History"}
