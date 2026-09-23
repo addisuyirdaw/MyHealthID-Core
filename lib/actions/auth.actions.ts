@@ -557,6 +557,10 @@ export async function logoutUser() {
   cookies().delete("userName");
   cookies().delete("isFirstLogin");
   cookies().delete("isTempPassword");
+  // Delete all primary session tokens
+  cookies().delete("session_token");
+  cookies().delete("citizenSessionToken");
+  cookies().delete("citizenPatientId");
   redirect("/");
 }
 
