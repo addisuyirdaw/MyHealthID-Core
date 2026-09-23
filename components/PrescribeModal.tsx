@@ -13,16 +13,18 @@ export function PrescribeModal({ patientId, patientName, patientAllergies, patie
   const [loading, setLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   
-  const [prescriptionText, setPrescriptionText] = useState("");
+  const [medications, setMedications] = useState([{ drugName: "", dosage: "", route: "", frequency: "", duration: "" }]);
   const [notes, setNotes] = useState("");
 
   const [acknowledged, setAcknowledged] = useState(false);
 
+  const allDrugText = medications.map(m => m.drugName).join(" ");
+
   // Safety Engine Logic: checks words from the unified prescription text against the patient's allergy list
   const hasAllergyWarning = Boolean(
-    prescriptionText.trim().length > 2 &&
+    allDrugText.trim().length > 2 &&
     patientAllergies &&
-    prescriptionText.toLowerCase().split(/\s+/).some(word => word.length > 3 && patientAllergies.toLowerCase().includes(word))
+    allDrugText.toLowerCase().split(/\s+/).some(word => word.length > 3 && patientAllergies.toLowerCase().includes(word))
   );
 
   // Safety Guard (Drug/History Conflict)
@@ -36,15 +38,16 @@ export function PrescribeModal({ patientId, patientName, patientAllergies, patie
   };
 
   const activeHistoryWarning = Object.keys(antagonists).find(drug => {
-    if (prescriptionText.toLowerCase().includes(drug)) {
+    if (allDrugText.toLowerCase().includes(drug)) {
       return antagonists[drug].some(condition => patientHistory?.toLowerCase().includes(condition));
     }
     return false;
   });
 
   const handlePrescribe = async () => {
-    if (!prescriptionText.trim()) {
-      alert("Please provide medicine names and dosages.");
+    const validMeds = medications.filter(m => m.drugName.trim());
+    if (validMeds.length === 0) {
+      alert("Please provide at least one medicine name.");
       return;
     }
     if ((hasAllergyWarning || activeHistoryWarning) && !acknowledged) {
@@ -55,20 +58,24 @@ export function PrescribeModal({ patientId, patientName, patientAllergies, patie
     setLoading(true);
     
     try {
-      await createPrescription({
-        patientId,
-        drugName: prescriptionText, // Push all text here so pharmacists can see it
-        dosage: "As directed",      // Default placeholder
-        frequency: "N/A",           // Default placeholder
-        duration: "N/A",            // Default placeholder
-        notes,
-      });
+      await Promise.all(
+        validMeds.map(med => 
+          createPrescription({
+            patientId,
+            drugName: med.drugName,
+            dosage: med.dosage || "As directed",
+            frequency: med.frequency || "N/A",
+            duration: med.duration || "N/A",
+            notes: notes + (med.route ? ` [Route: ${med.route}]` : ""),
+          })
+        )
+      );
       router.refresh();
       setIsSuccess(true);
       setTimeout(() => {
         setIsSuccess(false);
         setOpen(false);
-        setPrescriptionText("");
+        setMedications([{ drugName: "", dosage: "", route: "", frequency: "", duration: "" }]);
         setNotes("");
         setAcknowledged(false);
       }, 1500);
@@ -101,16 +108,100 @@ export function PrescribeModal({ patientId, patientName, patientAllergies, patie
             <p className="text-lg font-medium">Prescription Sent to Pharmacy!</p>
           </div>
         ) : (
-          <div className="grid gap-4 py-4">
+          <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto px-1">
             <div className="grid gap-2">
-              <label htmlFor="prescriptionText" className="text-sm font-medium leading-none">Medicine Names & Dosage <span className="text-red-500">*</span></label>
-              <textarea
-                id="prescriptionText"
-                placeholder="e.g. Amoxicillin 500mg, Paracetamol 1000mg..."
-                value={prescriptionText}
-                onChange={(e) => setPrescriptionText(e.target.value)}
-                className="flex w-full rounded-md border border-slate-200 bg-white px-3 py-2 text-sm ring-offset-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 min-h-[120px]"
-              />
+              <label className="text-sm font-medium leading-none">Structured Medications <span className="text-red-500">*</span></label>
+              
+              {medications.map((med, idx) => (
+                <div key={idx} className="bg-neutral-50 p-3 rounded-md border border-neutral-200 space-y-3 relative">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs text-neutral-500 mb-1 block">Medicine Name</label>
+                      <input
+                        value={med.drugName}
+                        onChange={(e) => {
+                          const newMeds = [...medications];
+                          newMeds[idx].drugName = e.target.value;
+                          setMedications(newMeds);
+                        }}
+                        placeholder="e.g. Amoxicillin"
+                        className="w-full rounded border-slate-200 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-500 mb-1 block">Dosage</label>
+                      <input
+                        value={med.dosage}
+                        onChange={(e) => {
+                          const newMeds = [...medications];
+                          newMeds[idx].dosage = e.target.value;
+                          setMedications(newMeds);
+                        }}
+                        placeholder="e.g. 500mg"
+                        className="w-full rounded border-slate-200 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-xs text-neutral-500 mb-1 block">Route</label>
+                      <input
+                        value={med.route}
+                        onChange={(e) => {
+                          const newMeds = [...medications];
+                          newMeds[idx].route = e.target.value;
+                          setMedications(newMeds);
+                        }}
+                        placeholder="e.g. PO"
+                        className="w-full rounded border-slate-200 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-500 mb-1 block">Frequency</label>
+                      <input
+                        value={med.frequency}
+                        onChange={(e) => {
+                          const newMeds = [...medications];
+                          newMeds[idx].frequency = e.target.value;
+                          setMedications(newMeds);
+                        }}
+                        placeholder="e.g. TID"
+                        className="w-full rounded border-slate-200 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-neutral-500 mb-1 block">Duration</label>
+                      <input
+                        value={med.duration}
+                        onChange={(e) => {
+                          const newMeds = [...medications];
+                          newMeds[idx].duration = e.target.value;
+                          setMedications(newMeds);
+                        }}
+                        placeholder="e.g. 7 days"
+                        className="w-full rounded border-slate-200 px-3 py-1.5 text-sm outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                    </div>
+                  </div>
+                  {medications.length > 1 && (
+                    <button 
+                      onClick={() => setMedications(medications.filter((_, i) => i !== idx))}
+                      className="absolute -top-2 -right-2 bg-red-100 text-red-600 rounded-full w-6 h-6 flex items-center justify-center hover:bg-red-200 text-xs shadow-sm border border-red-200 font-bold"
+                      title="Remove Medication"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              ))}
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setMedications([...medications, { drugName: "", dosage: "", route: "", frequency: "", duration: "" }])}
+                className="w-full border-dashed mt-1 bg-white hover:bg-slate-50"
+              >
+                + Add Medicine
+              </Button>
             </div>
 
             {(hasAllergyWarning || activeHistoryWarning) && (
@@ -167,7 +258,7 @@ export function PrescribeModal({ patientId, patientName, patientAllergies, patie
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
             <Button 
                 onClick={handlePrescribe} 
-                disabled={!prescriptionText.trim() || loading || ((hasAllergyWarning || Boolean(activeHistoryWarning)) && !acknowledged)} 
+                disabled={medications.filter(m => m.drugName.trim()).length === 0 || loading || ((hasAllergyWarning || Boolean(activeHistoryWarning)) && !acknowledged)} 
                 className="bg-primary hover:bg-primary/90 text-white"
             >
               {loading ? "Saving..." : "Send to Pharmacy"}

@@ -338,6 +338,14 @@ model ClinicalExamination {
   integumentary     String?
   neurological      String?
 
+  // Extended Clinical Data (Task 1 & 2)
+  chiefComplaints   Json?
+  hpi               String?
+  historyMedical    Json?
+  historySurgical   Json?
+  historyPediatric  Json?
+  historyGynecology Json?
+
   clinicalNotes String? // Final impressions
 
   // Doctor Assessment Fields

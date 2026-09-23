@@ -365,6 +365,27 @@ export async function loginUser(formData: FormData | any) {
     },
   });
 
+  if (!dbUser && hospitalIdCode) {
+    // Fallback: If the user entered the facility's license number instead of their admin username,
+    // let's try to find the facility by license number and log them in as the default admin.
+    const orgByLicense = await prisma.organization.findFirst({
+      where: {
+        id: hospitalIdCode,
+        licenseNumber: { equals: finalIdentifier, mode: "insensitive" }
+      }
+    });
+
+    if (orgByLicense) {
+      dbUser = await prisma.user.findFirst({
+        where: {
+          organizationId: orgByLicense.id,
+          role: "HOSPITAL_CEO"
+        },
+        orderBy: { createdAt: "asc" }
+      });
+    }
+  }
+
   let finalOrgId: string;
 
   if (!hospitalIdCode) {

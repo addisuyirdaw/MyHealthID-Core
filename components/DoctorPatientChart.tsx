@@ -225,6 +225,28 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
     neurological:           patient.clinicalExam?.neurological || "",
     clinicalNotes:          patient.clinicalExam?.clinicalNotes || "",
   });
+  
+  // Extended Clinical Data (Task 1 & 2)
+  const [ccList, setCcList] = useState<{ complaint: string; duration: string }[]>(
+    Array.isArray(patient.clinicalExam?.chiefComplaints) 
+      ? (patient.clinicalExam.chiefComplaints as any)
+      : []
+  );
+  const [hpi, setHpi] = useState(patient.clinicalExam?.hpi || "");
+  const [historyCategory, setHistoryCategory] = useState("Medical");
+  const [extMedical, setExtMedical] = useState<Record<string, string>>(
+    (patient.clinicalExam?.historyMedical as any) || {}
+  );
+  const [extSurgical, setExtSurgical] = useState<Record<string, string>>(
+    (patient.clinicalExam?.historySurgical as any) || {}
+  );
+  const [extPediatric, setExtPediatric] = useState<Record<string, string>>(
+    (patient.clinicalExam?.historyPediatric as any) || {}
+  );
+  const [extGynecology, setExtGynecology] = useState<Record<string, string>>(
+    (patient.clinicalExam?.historyGynecology as any) || {}
+  );
+
   const [savingHistory, setSavingHistory] = useState(false);
   const [historySaved, setHistorySaved] = useState(false);
 
@@ -258,6 +280,34 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
   const latestVital = patient.vitals?.[0];
 
   // ── Handlers ──
+  // Auto-save logic
+  React.useEffect(() => {
+    const handler = setTimeout(() => {
+      if (activeTab === "history") {
+        saveClinicalExam(patient.id, {
+          generalAppearance: historyData.generalAppearance,
+          heent:             historyData.heent,
+          lymphoglandular:   historyData.lymphoglandular,
+          respiratory:       historyData.respiratory,
+          cardiovascular:    historyData.cardiovascular,
+          abdomen:           historyData.abdomen,
+          genitourinary:     historyData.genitourinary,
+          musculoskeletal:   historyData.musculoskeletal,
+          integumentary:     historyData.integumentary,
+          neurological:      historyData.neurological,
+          clinicalNotes:     historyData.clinicalNotes,
+          chiefComplaints:   ccList,
+          hpi:               hpi,
+          historyMedical:    extMedical,
+          historySurgical:   extSurgical,
+          historyPediatric:  extPediatric,
+          historyGynecology: extGynecology,
+        }).catch(e => console.error("Auto-save failed", e));
+      }
+    }, 2500);
+    return () => clearTimeout(handler);
+  }, [historyData, ccList, hpi, extMedical, extSurgical, extPediatric, extGynecology, activeTab, patient.id]);
+
   const handleSaveHistory = async () => {
     setSavingHistory(true);
     try {
@@ -273,6 +323,13 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
         integumentary:     historyData.integumentary,
         neurological:      historyData.neurological,
         clinicalNotes:     historyData.clinicalNotes,
+        // New Additions
+        chiefComplaints:   ccList,
+        hpi:               hpi,
+        historyMedical:    extMedical,
+        historySurgical:   extSurgical,
+        historyPediatric:  extPediatric,
+        historyGynecology: extGynecology,
       });
       setHistorySaved(true);
       setTimeout(() => setHistorySaved(false), 3000);
@@ -561,10 +618,159 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
         {/* ══ TAB 2: Past Medical History & Clinical Examination ══ */}
         {activeTab === "history" && (
           <div className="space-y-6">
-            {/* Medical History */}
+            {/* Chief Complaints (Task 2) */}
             <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
               <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-amber-400" /> Past Medical History
+                <AlertTriangle className="w-4 h-4 text-rose-400" /> Chief Complaints
+              </h2>
+              <div className="space-y-3">
+                {ccList.map((cc, idx) => (
+                  <div key={idx} className="flex gap-2">
+                    <input
+                      value={cc.complaint}
+                      onChange={(e) => {
+                        const newCc = [...ccList];
+                        newCc[idx].complaint = e.target.value;
+                        setCcList(newCc);
+                      }}
+                      placeholder="Symptom/Complaint"
+                      className="flex-1 rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                    <input
+                      value={cc.duration}
+                      onChange={(e) => {
+                        const newCc = [...ccList];
+                        newCc[idx].duration = e.target.value;
+                        setCcList(newCc);
+                      }}
+                      placeholder="Duration (e.g. 3 days)"
+                      className="w-1/3 rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                    <Button variant="outline" size="icon" onClick={() => setCcList(ccList.filter((_, i) => i !== idx))} className="shrink-0 border-neutral-600 text-red-400 hover:text-red-300 hover:bg-red-900/20">
+                      <X className="w-4 h-4" />
+                    </Button>
+                  </div>
+                ))}
+                <Button variant="outline" onClick={() => setCcList([...ccList, { complaint: "", duration: "" }])} className="w-full border-dashed border-neutral-600 text-neutral-400 hover:text-neutral-200 hover:border-neutral-400">
+                  + Add Complaint
+                </Button>
+              </div>
+            </div>
+
+            {/* History of Present Illness (HPI) (Task 2) */}
+            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-blue-400" /> History of Present Illness (HPI)
+              </h2>
+              <textarea
+                value={hpi}
+                onChange={e => setHpi(e.target.value)}
+                placeholder="Onset, duration, progression, aggravating/relieving factors, associated symptoms, prior treatments."
+                rows={4}
+                className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500"
+              />
+            </div>
+
+            {/* Structured Medical History Dropdown (Task 1) */}
+            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
+                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-amber-400" /> Detailed Clinical History
+                </h2>
+                <select
+                  value={historyCategory}
+                  onChange={(e) => setHistoryCategory(e.target.value)}
+                  className="bg-neutral-800 border border-neutral-600 text-neutral-200 text-sm rounded-lg p-2 focus:outline-none focus:border-blue-500"
+                >
+                  <option value="Medical">Medical History</option>
+                  <option value="Surgical">Surgical History</option>
+                  <option value="Pediatric">Pediatric History</option>
+                  <option value="Gynecology">Gynecology & Obstetrics</option>
+                </select>
+              </div>
+
+              {/* Dynamic History Inputs based on Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {historyCategory === "Medical" && [
+                  "Past Medical History", "Drug History", "Allergy History", "Family History", 
+                  "Social History", "Personal History", "Nutritional History", "Immunization History", 
+                  "Occupational History", "Travel History", "Review of Systems"
+                ].map((key) => (
+                  <div key={key} className="space-y-2">
+                    <Label className="text-neutral-300 font-semibold">{key}</Label>
+                    <textarea
+                      value={extMedical[key] || ""}
+                      onChange={e => setExtMedical({ ...extMedical, [key]: e.target.value })}
+                      placeholder={`Enter ${key}...`}
+                      rows={3}
+                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm resize-none focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                ))}
+
+                {historyCategory === "Surgical" && [
+                  "Past Surgical History", "Previous Operations", "Previous Anesthesia", 
+                  "Surgical Complications", "Previous Hospitalization", "Blood Transfusion History", 
+                  "Trauma History", "Previous Procedures", "Prosthesis/Implant History"
+                ].map((key) => (
+                  <div key={key} className="space-y-2">
+                    <Label className="text-neutral-300 font-semibold">{key}</Label>
+                    <textarea
+                      value={extSurgical[key] || ""}
+                      onChange={e => setExtSurgical({ ...extSurgical, [key]: e.target.value })}
+                      placeholder={`Enter ${key}...`}
+                      rows={3}
+                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm resize-none focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                ))}
+
+                {historyCategory === "Pediatric" && [
+                  "Birth/Perinatal History", "Neonatal History", "Growth & Development", 
+                  "Immunization History", "Nutritional History", "Breastfeeding History", 
+                  "Childhood Illnesses", "Pediatric Medication History", "Developmental History", "School History"
+                ].map((key) => (
+                  <div key={key} className="space-y-2">
+                    <Label className="text-neutral-300 font-semibold">{key}</Label>
+                    <textarea
+                      value={extPediatric[key] || ""}
+                      onChange={e => setExtPediatric({ ...extPediatric, [key]: e.target.value })}
+                      placeholder={`Enter ${key}...`}
+                      rows={3}
+                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm resize-none focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                ))}
+
+                {historyCategory === "Gynecology" && [
+                  "Menstrual History", "Obstetric History", "Pregnancy History", 
+                  "Gynecological History", "Contraceptive History", "Sexual History", 
+                  "Previous Pregnancy Complications", "Menopause History", "Infertility History", 
+                  "STI History", "Gynecological Procedures"
+                ].map((key) => (
+                  <div key={key} className="space-y-2">
+                    <Label className="text-neutral-300 font-semibold">{key}</Label>
+                    <textarea
+                      value={extGynecology[key] || ""}
+                      onChange={e => setExtGynecology({ ...extGynecology, [key]: e.target.value })}
+                      placeholder={`Enter ${key}...`}
+                      rows={3}
+                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 p-2 text-sm resize-none focus:outline-none focus:border-blue-500"
+                    />
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 flex justify-end">
+                <Button onClick={handleSaveHistory} disabled={savingHistory} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6">
+                  {savingHistory ? "Saving..." : historySaved ? "Saved!" : "Save History"}
+                </Button>
+              </div>
+            </div>
+
+            {/* Legacy Medical History (Preserved to be Non-Destructive) */}
+            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-amber-400" /> Legacy Medical History
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[

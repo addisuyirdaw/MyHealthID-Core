@@ -177,11 +177,13 @@ export async function registerPatient(data: {
           : null;
 
     let passwordHash: string | undefined = undefined;
-    if (password) {
+    const finalPassword = password || "123456"; // Default password if not provided by staff
+    
+    if (finalPassword) {
       const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
       passwordHash = crypto
         .createHmac("sha256", salt)
-        .update(password)
+        .update(finalPassword)
         .digest("hex");
     }
 
@@ -1784,24 +1786,29 @@ export async function directCitizenSignIn(credential: string, password: string) 
       };
     }
 
-    // If the patient has no password yet, inform them
-    if (!patient.passwordHash) {
-      return {
-        success: false,
-        error:
-          "No password is set for this account. Please contact your facility reception desk to set up your patient password.",
-        noPassword: true,
-      };
-    }
-
-    // Hash input and compare using HMAC-SHA256 (same as staff auth)
     const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
     const inputHash = crypto
       .createHmac("sha256", salt)
       .update(cleanPassword)
       .digest("hex");
 
-    if (inputHash !== patient.passwordHash) {
+    // If the patient has no password yet, allow them to use the default password "123456"
+    if (!patient.passwordHash) {
+      if (cleanPassword === "123456") {
+        // Automatically set their password to the default hash so they can change it later
+        await prisma.patient.update({
+          where: { id: patient.id },
+          data: { passwordHash: inputHash }
+        });
+      } else {
+        return {
+          success: false,
+          error:
+            "No password is set for this account. Please use the default password '123456' to login, then change it from your dashboard.",
+          noPassword: true,
+        };
+      }
+    } else if (inputHash !== patient.passwordHash) {
       return { success: false, error: "Incorrect password. Please try again." };
     }
 

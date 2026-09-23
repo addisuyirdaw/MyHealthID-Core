@@ -196,6 +196,21 @@ export default function RegisterFacilityPage() {
                     {copied ? "Copied" : "Copy"}
                   </Button>
                 </div>
+                <div className="mt-4 border-t border-slate-700/50 pt-4">
+                  <p className="text-xs text-slate-400 leading-relaxed mb-2">
+                    Default Administrator Credentials (please save these):
+                  </p>
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 p-2 rounded-lg font-mono text-xs text-slate-300">
+                      <span className="text-slate-500 w-16">Username:</span>
+                      <span className="flex-1 select-all font-bold text-white">{adminLicenseNumber}</span>
+                    </div>
+                    <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 p-2 rounded-lg font-mono text-xs text-slate-300">
+                      <span className="text-slate-500 w-16">Password:</span>
+                      <span className="flex-1 select-all font-bold text-emerald-400">{adminActivationCode}</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             )}
           </div>
