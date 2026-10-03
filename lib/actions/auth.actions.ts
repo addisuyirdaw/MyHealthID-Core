@@ -48,6 +48,8 @@ export async function registerOrganization(data: {
   kebele: string;
   licenseNumber?: string;
   customFacilityNumber?: string;
+  adminUsername?: string;
+  adminPassword?: string;
 }) {
   try {
     const REGION_CODES: Record<string, string> = {
@@ -84,18 +86,40 @@ export async function registerOrganization(data: {
     const serializedName = `${data.officialName} (${normalizedFacilityType})`;
     
     // ─── Auto-create the default facility ADMIN account ────────────────────────
-    // Auto-generate the license number following the [2_DIGITS][ROLE] format
-    const adminRoleCode = "AD";
-    const adminLicenseNumber = `01${adminRoleCode}`;
-    const adminEmail = `${adminLicenseNumber.toLowerCase()}@myhealthid.gov.et`;
-    const adminEmailOrUsername = adminLicenseNumber.toLowerCase();
+    let adminEmailOrUsername = data.adminUsername?.trim().toLowerCase();
+    
+    if (!adminEmailOrUsername) {
+      adminEmailOrUsername = `01AD-${orgId}`.toLowerCase();
+    }
 
-    // Generate a readable 8-character one-time activation code
-    const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+    const adminLicenseNumber = adminEmailOrUsername.toUpperCase();
+    const adminEmail = `${adminEmailOrUsername}@myhealthid.gov.et`;
+
+    const existing = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { emailOrUsername: adminEmailOrUsername },
+          { email: adminEmail },
+          { professionalLicenseNumber: { equals: adminLicenseNumber, mode: "insensitive" } }
+        ]
+      }
+    });
+
+    if (existing) {
+      return { success: false, error: "The provided admin username is already taken. Please choose another one." };
+    }
+
+    let passwordHash = undefined;
     let activationCode = "";
-    const bytes = crypto.randomBytes(8);
-    for (let i = 0; i < 8; i++) {
-      activationCode += chars[bytes[i] % chars.length];
+
+    if (data.adminPassword) {
+      passwordHash = await hashPassword(data.adminPassword);
+    } else {
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const bytes = crypto.randomBytes(8);
+      for (let i = 0; i < 8; i++) {
+        activationCode += chars[bytes[i] % chars.length];
+      }
     }
 
     // Synthetic national ID for the auto-admin
@@ -127,8 +151,9 @@ export async function registerOrganization(data: {
           hospitalName: `${serializedName} - ${data.kilil}, ${data.zone}, ${data.woreda}, ${data.kebele}`,
           organizationId: orgId,
           nationalId,
-          isFirstLogin: true,
-          activationCode,
+          isFirstLogin: !passwordHash,
+          activationCode: activationCode || null,
+          passwordHash: passwordHash || null,
         }
       })
     ]);
@@ -199,7 +224,7 @@ export async function onboardHealthcareProfessional(data: {
       where: { organizationId: activeOrgId }
     });
     
-    const genLicenseNumber = `${String(count + 1).padStart(2, '0')}${roleCode}`;
+    const genLicenseNumber = `${String(count + 1).padStart(2, '0')}${roleCode}-${activeOrgId}`;
 
     const email = `${genLicenseNumber.toLowerCase()}@myhealthid.gov.et`;
     const emailOrUsername = genLicenseNumber.toLowerCase();
@@ -300,7 +325,7 @@ export async function registerHealthcareProfessional(data: {
       where: { organizationId: org.id }
     });
     
-    const genLicenseNumber = `${String(count + 1).padStart(2, '0')}${roleCode}`;
+    const genLicenseNumber = `${String(count + 1).padStart(2, '0')}${roleCode}-${org.id}`;
 
     const email = `${genLicenseNumber.toLowerCase()}@myhealthid.gov.et`;
     const emailOrUsername = genLicenseNumber.toLowerCase();
@@ -413,57 +438,17 @@ export async function loginUser(formData: FormData | any) {
     },
   });
 
-  if (!dbUser && hospitalIdCode) {
-    // Fallback: If the user entered the facility's license number instead of their admin username,
-    // let's try to find the facility by license number and log them in as the default admin.
-    const orgByLicense = await prisma.organization.findFirst({
-      where: {
-        OR: [
-          { id: hospitalIdCode },
-          { code: { equals: hospitalIdCode, mode: "insensitive" } }
-        ],
-        licenseNumber: { equals: finalIdentifier, mode: "insensitive" }
-      }
-    });
-
-    if (orgByLicense) {
-      dbUser = await prisma.user.findFirst({
-        where: {
-          organizationId: orgByLicense.id,
-          role: "HOSPITAL_CEO"
-        },
-        orderBy: { createdAt: "asc" }
-      });
-    }
-  }
-
-  let finalOrgId: string;
-
-  if (!hospitalIdCode) {
-    return { error: "Hospital/Facility ID Code is required." };
-  }
-
-  // Verify Organisation exists
-  const org = await prisma.organization.findFirst({
-    where: {
-      OR: [
-        { id: hospitalIdCode },
-        { code: { equals: hospitalIdCode, mode: "insensitive" } }
-      ]
-    }
-  });
-  if (!org) {
-    return { error: "Invalid Hospital/Facility ID Code. Organisation not found." };
-  }
-
-  // Unknown identifier → reject. New staff must be registered by a facility
-  // admin via /register-staff or the admin onboarding flow.
   if (!dbUser) {
     return { error: "Account not found. Please contact your facility administrator to register your account." };
   }
 
-  if (dbUser.organizationId !== org.id) {
-    return { error: "This account is not registered under this facility. Check your Organisation ID." };
+  let finalOrgId = dbUser.organizationId;
+  const org = await prisma.organization.findUnique({
+    where: { id: finalOrgId }
+  });
+
+  if (!org) {
+    return { error: "Invalid Hospital/Facility. Organisation not found." };
   }
 
   // Deactivation guard – admin can suspend accounts via /admin/users

@@ -50,4 +50,5 @@ export interface RegistrationFormData {
   fcn: string;
   ward: string;
   chiefComplaint: string;
+  reasonForVisit: string;
 }

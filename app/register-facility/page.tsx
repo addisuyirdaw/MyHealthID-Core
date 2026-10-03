@@ -41,10 +41,12 @@ export default function RegisterFacilityPage() {
   const [woreda, setWoreda] = useState("");
   const [kebele, setKebele] = useState("");
   const [customFacilityNumber, setCustomFacilityNumber] = useState("");
+  const [adminUsername, setAdminUsername] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!officialName || !facilityType || !licenseNumber || !kilil || !zone || !woreda || !kebele) {
+    if (!officialName || !facilityType || !licenseNumber || !kilil || !zone || !woreda || !kebele || !adminUsername || !adminPassword) {
       alert("Please fill in all the required fields.");
       return;
     }
@@ -60,6 +62,8 @@ export default function RegisterFacilityPage() {
         woreda,
         kebele,
         customFacilityNumber,
+        adminUsername,
+        adminPassword,
       });
 
       if (res.success && res.organizationId) {
@@ -145,33 +149,15 @@ export default function RegisterFacilityPage() {
             Facility Onboarding Successful
           </h1>
           <p className="text-slate-400 font-medium mb-8 text-center">
-            Your facility is ready. Activate your administrator account to continue.
+            Your facility is ready. You can now login to the clinical workspace.
           </p>
 
-          {/* Activation Error */}
-          {activationError && (
-            <div className="bg-rose-500/10 border border-rose-500/50 text-rose-200 p-4 rounded-xl mb-6 text-sm text-center">
-              <p className="font-semibold text-rose-400 mb-1">Activation Failed</p>
-              {activationError}
-            </div>
-          )}
-
-          <Button
-            type="button"
-            disabled={activating}
-            onClick={handleActivateAdmin}
+          <Link
+            href="/login"
             className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 h-14 text-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20 mb-6 transition-all"
           >
-            {activating ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" /> Activating Admin Account...
-              </>
-            ) : (
-              <>
-                Activate Admin Account <ArrowRight className="w-5 h-5" />
-              </>
-            )}
-          </Button>
+            Login to Clinical Workspace <ArrowRight className="w-5 h-5" />
+          </Link>
 
           <div className="border border-slate-700 rounded-xl overflow-hidden">
             <button
@@ -389,6 +375,38 @@ export default function RegisterFacilityPage() {
                   required
                 />
               </div>
+
+              {/* Admin Credentials */}
+              <div className="space-y-2 md:col-span-2 mt-4 pt-4 border-t border-slate-800">
+                <Label htmlFor="adminUsername" className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                  Administrator Username
+                </Label>
+                <Input
+                  id="adminUsername"
+                  value={adminUsername}
+                  onChange={(e) => setAdminUsername(e.target.value)}
+                  placeholder="e.g. myhospital-admin"
+                  className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/40"
+                  required
+                />
+                <p className="text-xs text-slate-500">This will be used to log in to the Clinical Workspace.</p>
+              </div>
+
+              <div className="space-y-2 md:col-span-2 mb-4">
+                <Label htmlFor="adminPassword" className="text-xs font-bold uppercase tracking-widest text-emerald-400">
+                  Administrator Password
+                </Label>
+                <Input
+                  id="adminPassword"
+                  type="password"
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="Set a strong password"
+                  className="bg-slate-950/80 border-slate-800 text-white rounded-xl h-12 focus:ring-2 focus:ring-emerald-500/40"
+                  required
+                />
+              </div>
+
             </div>
 
             <Button

@@ -330,41 +330,37 @@ export function FloatingChatBot() {
         </div>
       )}
 
-      {/* ── Pill-Shaped Floating Trigger ── */}
+      {/* ── Circular Floating Trigger ── */}
       <button
         id="chatbot-pill-trigger"
         onClick={toggleChat}
         className={`
-          flex items-center gap-2.5 rounded-full shadow-2xl transition-all duration-300
-          border-2 border-white/30
+          flex items-center justify-center rounded-full shadow-2xl transition-all duration-300
+          border border-white/20 w-12 h-12
           ${
             isOpen
-              ? "bg-gray-100 text-gray-600 px-4 py-3"
-              : "bg-gradient-to-r from-violet-600 to-blue-600 text-white px-5 py-3.5 hover:opacity-95 hover:scale-105 active:scale-95 shadow-violet-900/40"
+              ? "bg-gray-100 text-gray-600"
+              : "bg-gradient-to-br from-violet-600 to-blue-600 text-white hover:shadow-lg hover:scale-105 active:scale-95"
           }
         `}
         aria-label={isOpen ? "Close Health Assistant" : "Open Health Assistant"}
         style={{
           boxShadow: isOpen
             ? undefined
-            : "0 8px 32px -4px rgba(124,58,237,0.5), 0 0 0 1px rgba(255,255,255,0.1)",
+            : "0 8px 24px -4px rgba(124,58,237,0.5)",
         }}
       >
         {isOpen ? (
-          <>
-            <X size={20} />
-            <span className="text-sm font-bold">Close</span>
-          </>
+          <X size={20} />
         ) : (
-          <>
-            <BotMessageSquare size={22} className="shrink-0" />
-            <span className="text-sm font-bold whitespace-nowrap">Clinical Assistant</span>
+          <div className="relative flex items-center justify-center">
+            <BotMessageSquare size={22} />
             {/* Pulse indicator */}
-            <span className="flex h-2.5 w-2.5 shrink-0">
+            <span className="absolute top-0 right-0 -mt-1 -mr-1 flex h-2.5 w-2.5">
               <span className="animate-ping absolute inline-flex h-2.5 w-2.5 rounded-full bg-blue-300 opacity-75" />
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-blue-200" />
             </span>
-          </>
+          </div>
         )}
       </button>
     </div>

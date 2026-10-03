@@ -1204,7 +1204,7 @@ export async function searchPatientMasterRecord(query: string) {
     if (!q || q.length < 2) return [];
 
     // CROSS_FACILITY: master record search is explicitly global —
-    // allows a doctor to pull historical records from any facility.
+    // It is used to identify patients globally, but MUST NOT return medical records.
     const patients = await prisma.patient.findMany({
       where: {
         ...CROSS_FACILITY,
@@ -1219,11 +1219,19 @@ export async function searchPatientMasterRecord(query: string) {
       },
       orderBy: { updatedAt: "desc" },
       take: 10,
-      include: {
-        vitals:        { orderBy: { createdAt: "desc" }, take: 1 },
-        clinicalExam:  true,
-        investigations:{ orderBy: { createdAt: "desc" }, take: 3 },
-        prescriptions: { orderBy: { createdAt: "desc" }, take: 3 },
+      select: {
+        id: true,
+        healthId: true,
+        nationalId: true,
+        faydaId: true,
+        hospitalId: true,
+        internalId: true,
+        fullName: true,
+        age: true,
+        dateOfBirth: true,
+        sex: true,
+        organizationId: true,
+        updatedAt: true,
       },
     });
 
@@ -1242,22 +1250,6 @@ export async function searchPatientMasterRecord(query: string) {
     const mappedPatients = patients.map((p: any) => ({
       ...p,
       facilityName: formatFacilityName(p.organizationId),
-      vitals: p.vitals?.map((v: any) => ({
-        ...v,
-        facilityName: formatFacilityName(v.organizationId),
-      })) || [],
-      investigations: p.investigations?.map((i: any) => ({
-        ...i,
-        facilityName: formatFacilityName(i.organizationId),
-      })) || [],
-      prescriptions: p.prescriptions?.map((pr: any) => ({
-        ...pr,
-        facilityName: formatFacilityName(pr.organizationId),
-      })) || [],
-      clinicalExam: p.clinicalExam ? {
-        ...p.clinicalExam,
-        facilityName: formatFacilityName(p.clinicalExam.organizationId),
-      } : null,
     }));
 
     return JSON.parse(JSON.stringify(mappedPatients));

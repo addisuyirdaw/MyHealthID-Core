@@ -38,12 +38,22 @@ export function RegistrationSuccess({ patient, userContext, onReset }: Registrat
       </div>
 
       <div className="p-6 space-y-6 flex flex-col items-center">
-        {/* ID Display Card */}
         <div className="w-full bg-slate-50 border border-slate-200 rounded-2xl p-5 flex flex-col sm:flex-row items-center gap-6">
           <div className="bg-white p-2 rounded-xl border border-slate-200 shadow-sm">
             <QRCodeSVG value={patient.uniqueId} size={100} />
           </div>
           <div className="flex-1 text-center sm:text-left w-full">
+            <h3 className="text-xl font-bold text-slate-900 mb-1">{patient.name}</h3>
+            {patient.nationalId ? (
+              <p className="text-sm font-medium text-blue-700 bg-blue-100 px-2 py-0.5 rounded inline-block mb-3">
+                Linked to Fayda Identity
+              </p>
+            ) : (
+              <p className="text-sm font-medium text-emerald-700 bg-emerald-100 px-2 py-0.5 rounded inline-block mb-3">
+                New MyHealthID Generated
+              </p>
+            )}
+            
             <p className="text-sm text-slate-500 font-semibold mb-1">{t.registrationV2.mhidLabel}</p>
             <div className="flex items-center justify-center sm:justify-start gap-2 mb-2">
               <span className="text-3xl font-black text-slate-900 font-mono tracking-tight">{patient.uniqueId}</span>

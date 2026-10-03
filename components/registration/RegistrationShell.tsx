@@ -6,12 +6,9 @@ import { RegistrationModeSelector } from "./RegistrationModeSelector";
 import { FaydaRegistration } from "./FaydaRegistration";
 import { ManualRegistration } from "./ManualRegistration";
 import { EmergencyRegistration } from "./EmergencyRegistration";
-import { PatientAddress } from "./PatientAddress";
-import { RegistrationReview } from "./RegistrationReview";
 import { RegistrationSuccess } from "./RegistrationSuccess";
 import { registerPatient } from "@/lib/actions/patient.actions";
 import { checkInToQueue } from "@/lib/actions/queue.actions";
-import { checkDuplicate } from "./utils"; // we'll extract this simple helper
 import { EscapeHatch } from "@/components/navigation/EscapeHatch";
 
 // Helper to check duplicates against the API
@@ -52,34 +49,18 @@ export function RegistrationShell() {
     setFormData({});
     setRegisteredPatient(null);
     setDuplicateWarning(null);
+    setIsSubmitting(false);
   };
 
   const advanceStep = () => setStep(s => s + 1);
-  const previousStep = () => setStep(s => s - 1);
 
   const handleFaydaVerified = (data: Partial<RegistrationFormData>) => {
     setFormData(prev => ({ ...prev, ...data }));
-    advanceStep(); // Go to address step
-  };
-
-  const handleManualNext = (data: Partial<RegistrationFormData>) => {
-    setFormData(prev => ({ ...prev, ...data }));
-    advanceStep(); // Go to address step
-  };
-
-  const handleAddressNext = async (data: Partial<RegistrationFormData>) => {
-    const merged = { ...formData, ...data };
-    setFormData(merged);
-    
-    // Run duplicate check before showing review
-    const isDup = await checkDuplicateApi(merged.faydaId, merged.phoneNumber);
-    if (isDup) setDuplicateWarning("DUPLICATE");
-    else setDuplicateWarning(null);
-    
-    advanceStep(); // Go to review step
+    advanceStep(); // Go to manual form step
   };
 
   const submitEmergency = async (data: Partial<RegistrationFormData>) => {
+    // ... same as before
     const result = await registerPatient({
       fullName: data.fullName!,
       generateMyHealthId: true,
@@ -116,7 +97,20 @@ export function RegistrationShell() {
     setStep(4); // Success screen
   };
 
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const submitFullRegistration = async (finalData: Partial<RegistrationFormData>) => {
+    setIsSubmitting(true);
+    setDuplicateWarning(null);
+
+    // Run duplicate check against API first to give a nicer error message
+    const isDup = await checkDuplicateApi(finalData.faydaId, finalData.phoneNumber);
+    if (isDup) {
+      setDuplicateWarning("DUPLICATE");
+      setIsSubmitting(false);
+      return;
+    }
+
     const result = await registerPatient({
       fullName: finalData.fullName!,
       faydaId: mode === "FAYDA" ? finalData.faydaId : undefined,
@@ -126,8 +120,8 @@ export function RegistrationShell() {
       dateOfBirth: finalData.dateOfBirth ? new Date(`${finalData.dateOfBirth}T00:00:00.000Z`) : undefined,
       age: finalData.age!,
       sex: finalData.sex!,
-      reasonForVisit: "Routine Triage Assessment",
-      ward: finalData.ward as any,
+      reasonForVisit: finalData.reasonForVisit || "Initial Identity Registration",
+      ward: (finalData.ward as any) || "OPD_OUTPATIENT",
       triageStatus: "WAITING_FOR_TRIAGE" as any,
       emergencyFlag: false,
       addressRegion: finalData.addressRegion,
@@ -136,8 +130,10 @@ export function RegistrationShell() {
       addressKebele: finalData.addressKebele,
       phoneNumber: finalData.phoneNumber || undefined,
       password: finalData.password || undefined,
-      chiefComplaint: finalData.chiefComplaint!,
+      chiefComplaint: finalData.chiefComplaint || "Routine Assessment",
     });
+
+    setIsSubmitting(false);
 
     if (!result || result.error || !result.id) {
       if (result?.error === "DUPLICATE_PATIENT_IDENTITY") {
@@ -155,7 +151,7 @@ export function RegistrationShell() {
       name: result.name || finalData.fullName!,
       uniqueId: result.uniqueId,
       nationalId: result.nationalId,
-      ward: finalData.ward,
+      ward: finalData.ward || "OPD_OUTPATIENT",
       priorityLevel: "ROUTINE",
       organizationId: result.organizationId,
     });
@@ -195,34 +191,19 @@ export function RegistrationShell() {
           <FaydaRegistration onVerified={handleFaydaVerified} onCancel={handleReset} />
         )}
         
-        {step === 1 && (mode === "NO_ID" || mode === "MANUAL") && (
+        {((step === 1 && mode === "NO_ID") || (step === 2 && mode === "FAYDA")) && (
           <ManualRegistration 
             initialData={formData}
-            isFaydaVerified={false} // mode is NO_ID or MANUAL here
-            onNext={handleManualNext}
+            isFaydaVerified={mode === "FAYDA"}
+            isSubmitting={isSubmitting}
+            duplicateWarning={duplicateWarning}
+            onSubmit={submitFullRegistration}
             onCancel={handleReset}
           />
         )}
 
         {step === 1 && mode === "EMERGENCY" && (
           <EmergencyRegistration onSubmit={submitEmergency} onCancel={handleReset} />
-        )}
-
-        {step === 2 && (mode === "FAYDA" || mode === "NO_ID" || mode === "MANUAL") && (
-          <PatientAddress 
-            initialData={formData}
-            onNext={handleAddressNext}
-            onBack={previousStep}
-          />
-        )}
-
-        {step === 3 && (mode === "FAYDA" || mode === "NO_ID" || mode === "MANUAL") && (
-          <RegistrationReview 
-            data={formData}
-            duplicateWarning={duplicateWarning}
-            onSubmit={submitFullRegistration}
-            onBack={previousStep}
-          />
         )}
 
         {step === 4 && registeredPatient && (

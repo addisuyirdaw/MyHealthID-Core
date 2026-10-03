@@ -77,6 +77,17 @@ export async function POST(
       }
     });
 
+    // 3. Create the BreakGlassSession for stateful authorization (valid for 2 hours)
+    await prisma.breakGlassSession.create({
+      data: {
+        userId: userId || "SYSTEM",
+        patientId: params.id,
+        organizationId: organizationId || "UNKNOWN",
+        reason: body.reason.trim(),
+        expiresAt: new Date(Date.now() + 2 * 60 * 60 * 1000), // 2 hours
+      }
+    });
+
     return NextResponse.json({ success: true, patient: JSON.parse(JSON.stringify(patient)) });
   } catch (error: any) {
     console.error("[break-glass] error:", error.message);

@@ -207,24 +207,6 @@ function LoginForm() {
                 </div>
 
                 <form onSubmit={handleStaffLogin} className="space-y-4">
-                  {/* Hospital ID */}
-                  <div className="space-y-1.5">
-                    <label htmlFor="hospitalIdCode" className="text-xs font-semibold uppercase tracking-wider text-slate-600 block">
-                      Hospital / Facility ID
-                    </label>
-                    <div className="relative">
-                      <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-                      <input
-                        type="text"
-                        id="hospitalIdCode"
-                        value={hospitalIdCode}
-                        onChange={(e) => setHospitalIdCode(e.target.value)}
-                        placeholder="e.g. AM01 or AA02"
-                        className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
-                      />
-                    </div>
-                  </div>
-
                   {/* Email */}
                   <div className="space-y-1.5">
                     <label htmlFor="emailOrUsername" className="text-xs font-semibold uppercase tracking-wider text-slate-600 block">
@@ -237,7 +219,7 @@ function LoginForm() {
                         id="emailOrUsername"
                         value={emailOrUsername}
                         onChange={(e) => setEmailOrUsername(e.target.value)}
-                        placeholder="e.g. 01MD, 02RN, or Username"
+                        placeholder="e.g. 01AD-MH06 or Username"
                         className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
                         required
                       />

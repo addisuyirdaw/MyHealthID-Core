@@ -15,7 +15,7 @@ export default function PublicLayout({
 
   return (
     <ChatProvider>
-      <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col justify-between">
+      <div className="min-h-screen bg-[#FBF9F5] text-slate-900 flex flex-col justify-between">
         {/* Sticky Navigation Header */}
         <PublicHeader userRole={userRole} citizenPatientId={citizenPatientId} />
         

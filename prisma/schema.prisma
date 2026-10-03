@@ -430,6 +430,19 @@ model MedicalAuditLog {
   @@map("medical_audit_logs")
 }
 
+model BreakGlassSession {
+  id             String   @id @default(uuid()) @map("_id")
+  userId         String   @map("user_id")
+  patientId      String   @map("patient_id")
+  organizationId String   @map("organization_id")
+  reason         String
+  expiresAt      DateTime @map("expires_at")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@index([userId, patientId, organizationId, expiresAt])
+  @@map("break_glass_sessions")
+}
+
 enum InvestigationStatus {
   PENDING
   COMPLETED

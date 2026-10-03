@@ -1,346 +1,342 @@
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
+"use client";
 
-import prisma from "@/lib/prisma";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { 
-  ShieldCheck, 
-  Users, 
-  Building, 
-  Mail, 
-  Phone, 
-  MapPin,
-  Globe,
-  LayoutDashboard
+import Image from "next/image";
+import {
+  ShieldCheck,
+  UserPlus,
+  Building2,
+  Check,
+  Fingerprint,
+  Hospital,
+  Stethoscope,
+  LockKeyhole,
+  Activity,
+  FileText,
+  AlertCircle
 } from "lucide-react";
-import { LocalizedText } from "@/components/LocalizedText";
+import { useLanguage } from "@/components/LanguageProvider";
 
-export default async function Home() {
-  // Count all digitized citizens: registered Patients + User accounts with CITIZEN role.
-  let patientCount = 0;
-  try {
-    const [patientRecords, citizenUsers] = await Promise.all([
-      prisma.patient.count(),
-      prisma.user.count({ where: { role: "CITIZEN" } }),
-    ]);
-    patientCount = patientRecords + citizenUsers;
-  } catch (error: any) {
-    console.error("METRIC_FETCH_ERROR:", error.message);
-    console.error("[Home] DB unreachable, showing fallback count:", error);
+// Inline styles for custom animations
+const customStyles = `
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
   }
-
-  // Fetch Carousel Media from Prisma
-  let dbCarouselItems: any[] = [];
-  try {
-    dbCarouselItems = await prisma.carouselSlide.findMany({
-      orderBy: { sortOrder: "asc" },
-    });
-  } catch (error) {
-    console.error("Failed to load landing media:", error);
+  @keyframes float-delayed {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-15px); }
   }
+  @keyframes dash {
+    to { stroke-dashoffset: -20; }
+  }
+  .animate-float { animation: float 6s ease-in-out infinite; }
+  .animate-float-delayed { animation: float-delayed 8s ease-in-out infinite 1s; }
+  .animate-dash { animation: dash 1s linear infinite; }
+`;
 
-  const fallbackItems = [
-    {
-      id: "fallback-1",
-      imageUrl: "/front.jpg",
-      headingEn: "National Digital Health ID",
-      headingAm: "ሀገራዊ ዲጂታል ጤና መታወቂያ",
-      textEn: "Securing identity and enabling health records nationwide.",
-      textAm: "ለእያንዳንዱ ዜጋ ማንነትን ጥበቃ ማድረግ እና ተረጋግጦ የጤና መዝገቦችን ማንቃት።",
-      sortOrder: 0,
-    },
-    {
-      id: "fallback-2",
-      imageUrl: "/back.jpg",
-      headingEn: "Verified Health Profile",
-      headingAm: "ተረጋግጦ የጤና መገለጫ",
-      textEn: "Clinical-integrity and administrative verification for every citizen.",
-      textAm: "ለእያንዳንዱ ታካሚ ክሊኒካዊ ትክክለኛነት እና አስተዳደራዊ ማረጋገጫ፣ በፋይዳ ውህደት የተሰጠ።",
-      sortOrder: 1,
-    }
-  ];
+export default function LandingPage() {
+  const [mounted, setMounted] = useState(false);
+  const { language } = useLanguage();
 
-  const carouselItems = dbCarouselItems.length > 0 ? dbCarouselItems : fallbackItems;
+  useEffect(() => setMounted(true), []);
 
   return (
-    <div className="bg-gradient-to-b from-slate-50 via-white to-slate-50 text-slate-900 flex flex-col relative overflow-hidden">
+    <div className="w-full font-sans overflow-x-hidden selection:bg-teal-200 dark:selection:bg-teal-500/30">
+      <style dangerouslySetInnerHTML={{ __html: customStyles }} />
 
-      {/* Subtle ambient glows */}
-      <div className="pointer-events-none absolute -top-40 -left-40 w-[600px] h-[600px] rounded-full bg-blue-500/8 blur-[160px] z-0" />
-      <div className="pointer-events-none absolute -bottom-40 -right-40 w-[500px] h-[500px] rounded-full bg-indigo-500/6 blur-[140px] z-0" />
+      {/* HERO SECTION - Image Immersive */}
+      <section className="relative w-full bg-[#FBF9F5] dark:bg-neutral-950 pt-12 pb-24 lg:pt-20 lg:pb-32 lg:min-h-[750px] flex items-center overflow-hidden transition-colors duration-300">
 
-      {/* ── Hero Section — 2-column split layout ─────────────────────────────── */}
-      <section className="w-full relative z-10 border-b border-slate-200/60">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-32 lg:pt-40 pb-20">
+        {/* Background Image (Real Healthcare Show) */}
+        <div className="absolute inset-0 z-0">
+          <Image
+            src="/images/hero-bg.jpg"
+            alt="Ethiopian Healthcare Professionals"
+            fill
+            className="object-cover opacity-15 dark:opacity-20"
+            priority
+          />
+          {/* Gradient Overlays to ensure text remains readable */}
+          <div className="absolute inset-0 bg-gradient-to-r from-[#FBF9F5] via-[#FBF9F5]/80 to-transparent dark:from-neutral-950 dark:via-neutral-950/80 dark:to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-[#FBF9F5] dark:to-neutral-950" />
+        </div>
 
-          {/* Left Column — 7 cols: Headline + CTAs */}
-          <div className="lg:col-span-7 space-y-6">
-            {/* Trust Badge */}
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Fayda Sandbox · Privacy-focused architecture · Multi-Lingual
-            </span>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-8 items-center">
 
-            {/* Main Headline */}
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-slate-900 tracking-tight leading-tight mb-6">
-              <LocalizedText tKey="landing.heroTitle" />
-            </h1>
-
-            {/* Subtitle */}
-            <p className="text-lg md:text-xl text-slate-600 font-medium mb-10 max-w-2xl text-center md:text-left mx-auto md:mx-0">
-              <LocalizedText tKey="landing.heroSubtitle" />
-            </p>
-
-            {/* Stat chip */}
-            <div className="flex items-center gap-3 flex-wrap">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl shadow-sm text-sm">
-                <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                <span className="text-slate-600 text-xs font-medium"><LocalizedText tKey="landing.faydaReady" /></span>
+            {/* Left: Text & Actions */}
+            <div className="lg:col-span-6 flex flex-col items-start text-left">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border border-stone-200 dark:border-neutral-800 shadow-sm mb-8">
+                <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
+                <span className="text-xs font-bold tracking-wide text-slate-800 dark:text-neutral-300">
+                  {language === 'EN' ? 'Privacy-Focused • Multi-Tenant' : 'በግላዊነት ላይ ያተኮረ • ለብዙ ተቋማት'}
+                </span>
               </div>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl shadow-sm text-sm">
-                <Users className="w-4 h-4 text-blue-500" />
-                <span className="text-slate-600 text-xs font-medium"><LocalizedText tKey="landing.identityIntegration" /></span>
+
+              <h1 className="text-5xl lg:text-[4.5rem] font-black tracking-tight leading-[1.05] text-slate-900 dark:text-white mb-6 drop-shadow-sm">
+                {language === 'EN' ? (
+                  <>One identity that <span className="text-teal-700 dark:text-teal-400">connects care</span> across facilities.</>
+                ) : (
+                  <>በተለያዩ ተቋማት <span className="text-teal-700 dark:text-teal-400">እንክብካቤን የሚያገናኝ</span> አንድ ማንነት።</>
+                )}
+              </h1>
+
+              <p className="text-xl text-stone-600 dark:text-neutral-400 mb-10 font-medium leading-relaxed max-w-lg">
+                {language === 'EN' ?
+                  'Find the patient. Verify the identity. Control access seamlessly.' :
+                  'ታካሚውን ያግኙ። ማንነቱን ያረጋግጡ። መረጃን በተገቢው ይቆጣጠሩ።'}
+              </p>
+
+              <div className="flex flex-wrap items-center gap-4 mb-12">
+                <Link
+                  href="/register"
+                  className="inline-flex items-center justify-center px-8 py-4 text-base font-bold rounded-full bg-teal-700 dark:bg-teal-600 text-white hover:bg-teal-800 dark:hover:bg-teal-500 transition-all shadow-lg shadow-teal-900/20 dark:shadow-teal-900/50 hover:shadow-xl hover:-translate-y-0.5"
+                >
+                  {language === 'EN' ? 'Get Started' : 'ይጀምሩ'}
+                </Link>
+                <Link
+                  href="/signin"
+                  className="inline-flex items-center justify-center px-8 py-4 text-base font-bold rounded-full bg-white/90 dark:bg-transparent text-slate-900 dark:text-white border border-stone-200 dark:border-neutral-700 hover:border-stone-300 dark:hover:border-neutral-500 hover:bg-stone-50 dark:hover:bg-neutral-800 transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
+                >
+                  {language === 'EN' ? 'Portal Sign-In' : 'ፖርታል ግባ'}
+                </Link>
               </div>
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 rounded-xl shadow-sm text-sm">
-                <Building className="w-4 h-4 text-purple-500" />
-                <span className="text-slate-600 text-xs font-medium"><LocalizedText tKey="landing.multiFacilityArch" /></span>
+
+              {/* Compact Launcher */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-2 bg-white/60 dark:bg-neutral-900/60 backdrop-blur-md rounded-2xl border border-stone-200/80 dark:border-neutral-800 shadow-sm w-full max-w-md">
+                <span className="text-xs font-bold text-stone-500 dark:text-neutral-500 uppercase tracking-wider pl-3 hidden sm:block">
+                  {language === 'EN' ? 'Quick' : 'ፈጣን'}
+                </span>
+                <Link href="/register" className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white dark:hover:bg-neutral-800 hover:shadow-sm transition-all text-sm font-semibold text-slate-700 dark:text-neutral-200 w-full sm:w-auto">
+                  <UserPlus className="w-4 h-4 text-teal-600 dark:text-teal-400" />
+                  {language === 'EN' ? 'Register' : 'መዝግብ'}
+                </Link>
+                <Link href="/apply-for-facility" className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white dark:hover:bg-neutral-800 hover:shadow-sm transition-all text-sm font-semibold text-slate-700 dark:text-neutral-200 w-full sm:w-auto">
+                  <Building2 className="w-4 h-4 text-stone-500 dark:text-neutral-400" />
+                  {language === 'EN' ? 'Facility' : 'ተቋም'}
+                </Link>
               </div>
             </div>
 
-            {/* CTA Buttons */}
-            <div className="flex flex-col sm:flex-row gap-3 pt-2">
-              <Link href="/login">
-                <button className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-semibold px-6 py-3 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer">
-                  <ShieldCheck className="w-4 h-4" />
-                  Access Staff Portals
-                </button>
-              </Link>
-              <Link href="/register-facility">
-                <button className="w-full sm:w-auto bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold px-6 py-3 rounded-lg shadow-sm transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer">
-                  <Building className="w-4 h-4 text-purple-500" />
-                  Register Facility
-                </button>
-              </Link>
+            {/* Right: Immersive Product Visual */}
+            <div className="lg:col-span-6 relative h-[500px] lg:h-[600px] w-full flex items-center justify-center">
+
+              {/* Visual SVG Connecting Lines */}
+              {mounted && (
+                <svg className="absolute inset-0 w-full h-full pointer-events-none" style={{ zIndex: 0 }}>
+                  <path
+                    d="M 100,150 Q 250,150 300,300 T 500,450"
+                    fill="none"
+                    stroke="#0f766e"
+                    strokeWidth="2.5"
+                    strokeDasharray="6 6"
+                    className="animate-dash opacity-40 dark:stroke-[#2dd4bf] dark:opacity-50"
+                  />
+                  <path
+                    d="M 100,450 Q 250,450 300,300 T 450,150"
+                    fill="none"
+                    stroke="#78716c"
+                    strokeWidth="2"
+                    strokeDasharray="4 8"
+                    className="animate-dash opacity-40 dark:stroke-[#52525b]"
+                  />
+                </svg>
+              )}
+
+              {/* Main Identity Card (Center) */}
+              <div className="absolute z-20 animate-float bg-white/95 dark:bg-white backdrop-blur-2xl p-6 rounded-[2rem] shadow-2xl dark:shadow-[0_0_40px_rgba(45,212,191,0.15)] border border-white/50 dark:border-neutral-100 w-72 flex flex-col items-center text-center transform scale-100 lg:scale-110">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-teal-500 to-teal-700 flex items-center justify-center shadow-inner mb-5">
+                  <Fingerprint className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-xl font-black text-slate-900">Abebe Kebede</h3>
+                <p className="text-teal-700 font-mono font-bold mt-1 tracking-widest text-sm">MH-2048-8912</p>
+                <div className="mt-5 inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-bold">
+                  <Check className="w-3.5 h-3.5" />
+                  {language === 'EN' ? 'Identity Verified' : 'ማንነት ተረጋግጧል'}
+                </div>
+              </div>
+
+              {/* Facility A Card (Top Left) */}
+              <div className="absolute z-10 top-10 left-0 lg:-left-4 animate-float-delayed bg-white/90 dark:bg-white backdrop-blur-xl p-4 rounded-2xl shadow-xl border border-stone-200 dark:border-neutral-100 w-56">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 rounded-lg bg-stone-100 dark:bg-neutral-100">
+                    <Hospital className="w-4 h-4 text-stone-600 dark:text-neutral-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-stone-500 dark:text-neutral-400 uppercase tracking-wider">
+                      {language === 'EN' ? 'Source' : 'ምንጭ'}
+                    </p>
+                    <p className="text-sm font-bold text-slate-900">Facility A</p>
+                  </div>
+                </div>
+                <div className="h-1.5 w-full bg-stone-100 dark:bg-neutral-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-stone-300 dark:bg-neutral-300 w-full" />
+                </div>
+              </div>
+
+              {/* Facility B Card (Bottom Right) */}
+              <div className="absolute z-10 bottom-10 right-0 lg:-right-4 animate-float-delayed bg-white/90 dark:bg-white backdrop-blur-xl p-4 rounded-2xl shadow-xl border border-stone-200 dark:border-neutral-100 w-56" style={{ animationDelay: '2s' }}>
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="p-2 rounded-lg bg-teal-50">
+                    <Stethoscope className="w-4 h-4 text-teal-600" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-teal-600 uppercase tracking-wider">
+                      {language === 'EN' ? 'Destination' : 'መዳረሻ'}
+                    </p>
+                    <p className="text-sm font-bold text-slate-900">Facility B</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 mt-2 text-xs font-bold text-slate-700">
+                  <div className="w-2 h-2 rounded-full bg-teal-500" />
+                  {language === 'EN' ? 'Patient Recognized' : 'ታካሚው ታውቋል'}
+                </div>
+              </div>
+
+
+
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* Right Column — 5 cols: Action Hub Card */}
-          <div className="lg:col-span-5">
-            <div className="bg-white p-6 sm:p-8 rounded-2xl border border-slate-200 shadow-xl shadow-slate-200/50">
-              <h2 className="text-xl font-bold text-slate-900 mb-1"><LocalizedText tKey="landing.whatToDo" /></h2>
-              <p className="text-xs text-slate-500 mb-6"><LocalizedText tKey="landing.selectPortal" /></p>
+      {/* VISUAL PRODUCT STORY (IDENTIFY -> AUTHORIZE -> CONNECT) */}
+      <section className="py-24 bg-white dark:bg-[#0a0a0a] relative transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
-              <div className="space-y-3">
-                {/* Register Citizen */}
-                <Link href="/register" className="block">
-                  <div className="p-4 rounded-xl border border-slate-200 hover:border-blue-500 hover:bg-blue-50/50 transition-all duration-200 cursor-pointer group">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors">
-                        <Users className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900 text-sm group-hover:text-blue-700 transition-colors">
-                          <LocalizedText tKey="landing.registerCitizen" />
-                        </p>
-                        <p className="text-xs text-slate-500 mt-0.5"><LocalizedText tKey="landing.startPatientIntake" /></p>
-                      </div>
-                      <div className="text-sm font-semibold text-blue-600 group-hover:translate-x-1 transition-transform opacity-0 group-hover:opacity-100">
-                        <LocalizedText tKey="landing.open" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+          <div className="text-center mb-16">
+            <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">
+              {language === 'EN' ? 'The Healthcare Journey' : 'የጤና እንክብካቤ ጉዞ'}
+            </h2>
+          </div>
 
-                {/* Portal Sign-In */}
-                <Link href="/login" className="block">
-                  <div className="p-4 rounded-xl border border-slate-200 hover:border-emerald-500 hover:bg-emerald-50/50 transition-all duration-200 cursor-pointer group">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0 group-hover:bg-emerald-100 transition-colors">
-                        <ShieldCheck className="w-5 h-5 text-emerald-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900 text-sm group-hover:text-emerald-700 transition-colors"><LocalizedText tKey="landing.portalSignIn" /></p>
-                        <p className="text-xs text-slate-500 mt-0.5"><LocalizedText tKey="landing.accessWorkspace" /></p>
-                      </div>
-                      <div className="text-sm font-semibold text-emerald-600 group-hover:translate-x-1 transition-transform opacity-0 group-hover:opacity-100">
-                        <LocalizedText tKey="landing.open" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+          {/* Visual Pipeline */}
+          <div className="relative flex flex-col md:flex-row items-center justify-between gap-8 max-w-5xl mx-auto">
+            {/* Connecting Line Desktop */}
+            <div className="hidden md:block absolute top-1/2 left-0 w-full h-0.5 bg-stone-200 dark:bg-neutral-800 -translate-y-1/2 z-0" />
 
-                {/* Onboard Hospital */}
-                <Link href="/register-facility" className="block">
-                  <div className="p-4 rounded-xl border border-slate-200 hover:border-purple-500 hover:bg-purple-50/50 transition-all duration-200 cursor-pointer group">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-lg bg-purple-50 border border-purple-100 flex items-center justify-center shrink-0 group-hover:bg-purple-100 transition-colors">
-                        <Building className="w-5 h-5 text-purple-600" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-900 text-sm group-hover:text-purple-700 transition-colors"><LocalizedText tKey="landing.onboardHospital" /></p>
-                        <p className="text-xs text-slate-500 mt-0.5"><LocalizedText tKey="landing.registerHospital" /></p>
-                      </div>
-                      <div className="text-sm font-semibold text-purple-600 group-hover:translate-x-1 transition-transform opacity-0 group-hover:opacity-100">
-                        <LocalizedText tKey="landing.open" />
-                      </div>
-                    </div>
-                  </div>
-                </Link>
+            {/* Step 1 */}
+            <div className="relative z-10 flex flex-col items-center text-center group w-full md:w-1/3">
+              <div className="w-16 h-16 rounded-2xl bg-[#FBF9F5] dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:border-teal-300 dark:group-hover:border-teal-700 transition-all duration-300 mb-4">
+                <Fingerprint className="w-7 h-7 text-teal-700 dark:text-teal-400" />
               </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                {language === 'EN' ? 'Identify' : 'ማንነት መለየት'}
+              </h3>
+              <p className="text-sm text-stone-500 dark:text-neutral-400 mt-1 font-medium">
+                {language === 'EN' ? 'Locate patient identity.' : 'የታካሚውን ማንነት ያግኙ።'}
+              </p>
+            </div>
 
-              {/* Footer trust note */}
-              <div className="mt-6 pt-4 border-t border-slate-100 flex items-center gap-2">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                <span className="text-[11px] text-slate-400">National Health Portal Initiative · Fayda-Ready Sandbox</span>
+            {/* Step 2 */}
+            <div className="relative z-10 flex flex-col items-center text-center group w-full md:w-1/3">
+              <div className="w-16 h-16 rounded-2xl bg-[#FBF9F5] dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:border-teal-300 dark:group-hover:border-teal-700 transition-all duration-300 mb-4">
+                <ShieldCheck className="w-7 h-7 text-teal-700 dark:text-teal-400" />
               </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                {language === 'EN' ? 'Authorize' : 'ፍቃድ መስጠት'}
+              </h3>
+              <p className="text-sm text-stone-500 dark:text-neutral-400 mt-1 font-medium">
+                {language === 'EN' ? 'Control record access.' : 'የመዝገብ መዳረሻን ይቆጣጠሩ።'}
+              </p>
+            </div>
+
+            {/* Step 3 */}
+            <div className="relative z-10 flex flex-col items-center text-center group w-full md:w-1/3">
+              <div className="w-16 h-16 rounded-2xl bg-[#FBF9F5] dark:bg-neutral-900 border border-stone-200 dark:border-neutral-800 flex items-center justify-center shadow-sm group-hover:scale-110 group-hover:border-teal-300 dark:group-hover:border-teal-700 transition-all duration-300 mb-4">
+                <Activity className="w-7 h-7 text-teal-700 dark:text-teal-400" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                {language === 'EN' ? 'Connect' : 'ማገናኘት'}
+              </h3>
+              <p className="text-sm text-stone-500 dark:text-neutral-400 mt-1 font-medium">
+                {language === 'EN' ? 'Deliver coordinated care.' : 'የተቀናጀ እንክብካቤን ያቅርቡ።'}
+              </p>
             </div>
           </div>
 
         </div>
       </section>
 
-      {/* ── Product Story ────────────────────────────────────────────── */}
-      <section className="bg-white border-b border-slate-200/60 py-16 relative z-10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-sm font-bold text-blue-600 uppercase tracking-widest mb-2"><LocalizedText tKey="landing.fromFirstVisit" /></h2>
-          <h3 className="text-2xl sm:text-3xl font-black text-slate-900 mb-12"><LocalizedText tKey="landing.howItWorks" /></h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mb-4">
-                <Users className="w-6 h-6" />
+      {/* CROSS-FACILITY STORY (BREAK-GLASS VISUAL) */}
+      <section className="py-24 bg-stone-50 dark:bg-neutral-950 border-t border-stone-200/60 dark:border-neutral-900 relative overflow-hidden transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+
+            {/* Left: Interactive-looking UI representation */}
+            <div className="relative p-6 sm:p-8 bg-white dark:bg-[#0a0a0a] rounded-[2rem] border border-stone-200 dark:border-neutral-800 shadow-xl group">
+              <div className="flex items-center justify-between mb-8 pb-6 border-b border-stone-100 dark:border-neutral-800">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-6 h-6 text-stone-400 dark:text-neutral-500" />
+                  <h3 className="text-lg font-bold text-slate-900 dark:text-white">
+                    {language === 'EN' ? 'Medical Record Access' : 'የህክምና መዝገብ መዳረሻ'}
+                  </h3>
+                </div>
+                <span className="px-3 py-1 bg-stone-100 dark:bg-neutral-800 border border-stone-200 dark:border-neutral-700 text-stone-600 dark:text-neutral-300 rounded-full text-xs font-bold">
+                  Facility B
+                </span>
               </div>
-              <h4 className="font-bold text-slate-900 mb-2"><LocalizedText tKey="landing.identify" /></h4>
-              <p className="text-sm text-slate-500 leading-relaxed"><LocalizedText tKey="landing.identifyDesc" /></p>
-            </div>
-            
-            <div className="flex flex-col items-center relative">
-              <div className="hidden md:block absolute top-6 -left-[50%] w-full h-[2px] bg-gradient-to-r from-blue-100 to-emerald-100 z-0"></div>
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 border border-emerald-100 flex items-center justify-center text-emerald-600 mb-4 relative z-10">
-                <ShieldCheck className="w-6 h-6" />
+
+              <div className="bg-rose-50 dark:bg-rose-950/30 border border-rose-100 dark:border-rose-900/50 rounded-2xl p-6 mb-6 transition-colors group-hover:border-rose-200 dark:group-hover:border-rose-800">
+                <div className="flex items-center gap-3 mb-2">
+                  <AlertCircle className="w-5 h-5 text-rose-600 dark:text-rose-500" />
+                  <p className="text-sm font-bold text-rose-900 dark:text-rose-200">
+                    {language === 'EN' ? 'Authorization Required' : 'ማረጋገጫ ያስፈልጋል'}
+                  </p>
+                </div>
+                <p className="text-sm text-rose-700/90 dark:text-rose-300/80 font-medium">
+                  {language === 'EN'
+                    ? 'Patient was registered at Facility A. Emergency access requires justification and will be permanently audited.'
+                    : 'ታካሚው በሌላ ተቋም ተመዝግቧል። አስቸኳይ መዳረሻ ምክንያት ይፈልጋል እና በቋሚነት ይመዘገባል።'}
+                </p>
               </div>
-              <h4 className="font-bold text-slate-900 mb-2"><LocalizedText tKey="landing.triage" /></h4>
-              <p className="text-sm text-slate-500 leading-relaxed"><LocalizedText tKey="landing.triageDesc" /></p>
-            </div>
-            
-            <div className="flex flex-col items-center relative">
-              <div className="hidden md:block absolute top-6 -left-[50%] w-full h-[2px] bg-gradient-to-r from-emerald-100 to-purple-100 z-0"></div>
-              <div className="w-12 h-12 rounded-2xl bg-purple-50 border border-purple-100 flex items-center justify-center text-purple-600 mb-4 relative z-10">
-                <Building className="w-6 h-6" />
+
+              <div className="w-full py-4 rounded-xl bg-slate-900 dark:bg-neutral-800 text-white flex items-center justify-center gap-2 font-bold text-sm shadow-md hover:bg-slate-800 dark:hover:bg-neutral-700 transition-colors cursor-default">
+                <LockKeyhole className="w-4 h-4" />
+                {language === 'EN' ? 'Request Access' : 'መዳረሻ ይጠይቁ'}
               </div>
-              <h4 className="font-bold text-slate-900 mb-2"><LocalizedText tKey="landing.care" /></h4>
-              <p className="text-sm text-slate-500 leading-relaxed"><LocalizedText tKey="landing.careDesc" /></p>
             </div>
-            
-            <div className="flex flex-col items-center relative">
-              <div className="hidden md:block absolute top-6 -left-[50%] w-full h-[2px] bg-gradient-to-r from-purple-100 to-blue-100 z-0"></div>
-              <div className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center text-blue-600 mb-4 relative z-10">
-                <Globe className="w-6 h-6" />
+
+            {/* Right: Explanation */}
+            <div className="flex flex-col items-start text-left">
+              <div className="w-14 h-14 rounded-2xl bg-teal-50 dark:bg-teal-950 border border-teal-100 dark:border-teal-900 flex items-center justify-center mb-6 shadow-sm">
+                <LockKeyhole className="w-7 h-7 text-teal-700 dark:text-teal-400" />
               </div>
-              <h4 className="font-bold text-slate-900 mb-2"><LocalizedText tKey="landing.coordinate" /></h4>
-              <p className="text-sm text-slate-500 leading-relaxed"><LocalizedText tKey="landing.coordinateDesc" /></p>
+              <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-4">
+                {language === 'EN' ? 'Finding identity ≠ Accessing records.' : 'ማንነትን ማግኘት ≠ መዝገቦችን መድረስ።'}
+              </h2>
+              <p className="text-lg text-stone-600 dark:text-neutral-400 mb-8 font-medium leading-relaxed">
+                {language === 'EN'
+                  ? 'MyHealthID enforces strict data sovereignty. Recognizing a patient across facilities is seamless, but accessing their clinical history requires explicit, audited Break-Glass authorization.'
+                  : 'ማይሄልዝአይዲ ጥብቅ የመረጃ ደህንነትን ያስከብራል። ታካሚን ማወቅ ቀላል ቢሆንም፣ የህክምና ታሪካቸውን ለመድረስ ጥብቅ ማረጋገጫ ያስፈልጋል።'}
+              </p>
+              <div className="flex flex-col gap-5">
+                <div className="flex items-center gap-4 text-sm font-bold text-slate-800 dark:text-neutral-200">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/50">
+                    <Check className="w-4 h-4 text-teal-700 dark:text-teal-400" />
+                  </div>
+                  {language === 'EN' ? 'Patient identity is portable.' : 'የታካሚ ማንነት ከቦታ ቦታ ሊንቀሳቀስ ይችላል።'}
+                </div>
+                <div className="flex items-center gap-4 text-sm font-bold text-slate-800 dark:text-neutral-200">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/50">
+                    <Check className="w-4 h-4 text-teal-700 dark:text-teal-400" />
+                  </div>
+                  {language === 'EN' ? 'Medical records are isolated.' : 'የህክምና መዝገቦች ተነጥለው ተቀምጠዋል።'}
+                </div>
+                <div className="flex items-center gap-4 text-sm font-bold text-slate-800 dark:text-neutral-200">
+                  <div className="flex items-center justify-center w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/50">
+                    <Check className="w-4 h-4 text-teal-700 dark:text-teal-400" />
+                  </div>
+                  {language === 'EN' ? 'Cross-facility access is logged.' : 'የተቋማት መካከል መዳረሻ ይመዘገባል።'}
+                </div>
+              </div>
             </div>
+
           </div>
         </div>
       </section>
-
-      {/* ── Below-the-fold Content Sections ────────────────────────────────── */}
-      <div className="relative z-10">
-
-        {/* Product Value Cards Section */}
-        <section id="about" className="max-w-6xl mx-auto px-4 md:px-8 py-20 md:py-28 space-y-12 scroll-mt-16">
-          <div className="text-center space-y-4">
-            <h2 className="text-xs font-bold text-blue-600 uppercase tracking-widest"><LocalizedText tKey="landing.aboutInitiative" /></h2>
-            <h3 className="text-3xl sm:text-4xl font-black text-slate-900 tracking-tight leading-tight">
-              <LocalizedText tKey="landing.unifyingIdentity" />
-            </h3>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 mb-4">
-                <Users className="w-5 h-5" />
-              </div>
-              <h4 className="text-lg font-bold text-slate-900 mb-2"><LocalizedText tKey="landing.persistentIdentity" /></h4>
-              <p className="text-sm text-slate-500 leading-relaxed">
-                <LocalizedText tKey="landing.persistentIdentityDesc" />
-              </p>
-            </div>
-
-            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 flex items-center justify-center text-emerald-600 mb-4">
-                <ShieldCheck className="w-5 h-5" />
-              </div>
-              <h4 className="text-lg font-bold text-slate-900 mb-2"><LocalizedText tKey="landing.captureVitals" /></h4>
-              <p className="text-sm text-slate-500 leading-relaxed">
-                <LocalizedText tKey="landing.captureVitalsDesc" />
-              </p>
-            </div>
-
-            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-10 h-10 rounded-lg bg-purple-50 flex items-center justify-center text-purple-600 mb-4">
-                <LayoutDashboard className="w-5 h-5" />
-              </div>
-              <h4 className="text-lg font-bold text-slate-900 mb-2"><LocalizedText tKey="landing.coordinateWorkflows" /></h4>
-              <p className="text-sm text-slate-500 leading-relaxed">
-                <LocalizedText tKey="landing.coordinateWorkflowsDesc" />
-              </p>
-            </div>
-
-            <div className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="w-10 h-10 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600 mb-4">
-                <Building className="w-5 h-5" />
-              </div>
-              <h4 className="text-lg font-bold text-slate-900 mb-2"><LocalizedText tKey="landing.supportContinuity" /></h4>
-              <p className="text-sm text-slate-500 leading-relaxed">
-                <LocalizedText tKey="landing.supportContinuityDesc" />
-              </p>
-            </div>
-          </div>
-        </section>
-
-        {/* Contact & Support Section */}
-        <section id="contact" className="max-w-5xl mx-auto px-4 md:px-8 py-16 md:py-24 border-t border-slate-200/60 scroll-mt-16">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-center md:text-left">
-            <div className="space-y-4">
-              <h4 className="text-xs font-bold text-blue-600 uppercase tracking-widest">Contact Support</h4>
-              <h5 className="text-lg font-bold text-slate-900">We are here to assist you</h5>
-              <p className="text-xs text-slate-500 leading-relaxed">
-                Reach out to our unified administrative desk for technical assistance, facility registration inquiries, or record credentials verification.
-              </p>
-            </div>
-
-            <div className="space-y-4 md:pl-8 border-t md:border-t-0 md:border-l border-slate-200 pt-6 md:pt-0">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Official Channels</h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-center md:justify-start gap-3">
-                  <Phone className="w-4 h-4 text-blue-500 shrink-0" />
-                  <span className="text-xs font-semibold text-slate-700">+251 11 123 4567</span>
-                </div>
-                <div className="flex items-center justify-center md:justify-start gap-3">
-                  <Mail className="w-4 h-4 text-emerald-500 shrink-0" />
-                  <span className="text-xs font-semibold text-slate-700">support@myhealthid.gov.et</span>
-                </div>
-                <div className="flex items-center justify-center md:justify-start gap-3">
-                  <MapPin className="w-4 h-4 text-purple-500 shrink-0" />
-                  <span className="text-xs font-semibold text-slate-700">Ministry of Health, Addis Ababa</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4 md:pl-8 border-t md:border-t-0 md:border-l border-slate-200 pt-6 md:pt-0">
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest">Institutional Markers</h4>
-              <p className="text-[11px] text-slate-500 leading-relaxed">
-                Designed for Ethiopian health information security and encryption protocols.
-              </p>
-              <div className="text-[10px] font-bold text-slate-600 flex items-center justify-center md:justify-start gap-1">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> Fayda-Ready Architecture
-              </div>
-            </div>
-          </div>
-        </section>
-
-      </div>
 
     </div>
   );

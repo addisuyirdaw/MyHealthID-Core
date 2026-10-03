@@ -7,12 +7,12 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
- * Generates a standard Health ID in the format HLT-XXXXXX
- * where XXXXXX is a 6-digit number.
+ * Generates a standard Health ID in the format HLT-XXXX
+ * where XXXX is a 4-digit number.
  */
 export function generateHealthId(): string {
-  const min = 100000;
-  const max = 999999;
+  const min = 1000;
+  const max = 9999;
   const randomNum = Math.floor(Math.random() * (max - min + 1)) + min;
   return `HLT-${randomNum}`;
 }

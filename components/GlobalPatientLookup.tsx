@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useTransition } from "react";
-import { Search, ExternalLink, Hospital, Clock, FileText, X } from "lucide-react";
+import { Search, ExternalLink, Hospital, Clock, FileText, X, Lock } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -104,9 +104,6 @@ export default function GlobalPatientLookup({ onOpenPatient }: GlobalPatientLook
 
       <div className="space-y-4">
         {results.map((patient) => {
-          const latestVital = patient.vitals?.[0];
-          const latestInvestigation = patient.investigations?.[0];
-          const latestPrescription = patient.prescriptions?.[0];
           return (
             <div key={patient.id} className="rounded-3xl border border-slate-200 bg-white shadow-sm overflow-hidden">
               <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-start sm:justify-between">
@@ -114,14 +111,8 @@ export default function GlobalPatientLookup({ onOpenPatient }: GlobalPatientLook
                   <p className="text-base font-semibold text-slate-900">{patient.fullName || "Unnamed patient"}</p>
                   <div className="mt-2 flex flex-wrap gap-2 text-sm text-slate-500">
                     <span className="font-mono text-slate-700">{formatPatientId(patient)}</span>
-                    {patient.organizationId ? (
-                      <Badge className="bg-slate-100 text-slate-700 border-slate-200">{patient.organizationId}</Badge>
-                    ) : null}
-                    {patient.status ? (
-                      <Badge className="bg-slate-100 text-slate-700 border-slate-200">{patient.status}</Badge>
-                    ) : null}
-                    {patient.ward ? (
-                      <Badge className="bg-cyan-100 text-cyan-700 border-cyan-200">{patient.ward.replace(/_/g, " ")}</Badge>
+                    {patient.facilityName ? (
+                      <Badge className="bg-slate-100 text-slate-700 border-slate-200">{patient.facilityName}</Badge>
                     ) : null}
                   </div>
                 </div>
@@ -136,45 +127,22 @@ export default function GlobalPatientLookup({ onOpenPatient }: GlobalPatientLook
                 </div>
               </div>
 
-              <div className="grid gap-4 px-4 pb-4 sm:grid-cols-2">
-                <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-slate-500 font-semibold mb-3">
-                    <Hospital className="w-3.5 h-3.5" /> Patient summary
+              <div className="px-4 pb-4">
+                <div className="rounded-2xl bg-amber-50 p-4 border border-amber-200/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="text-sm text-amber-800">
+                    <p className="font-semibold mb-1">Identity verified.</p>
+                    <p className="opacity-90">Medical records require authorized access.</p>
                   </div>
-                  <div className="space-y-2 text-sm text-slate-600">
-                    <div>
-                      <p className="text-slate-500">Chief complaint</p>
-                      <p>{patient.chiefComplaint || patient.clinicalExam?.chiefAssessment || "Not recorded"}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Last clinic note</p>
-                      <p>{patient.clinicalExam?.progressNotes || patient.detailedSituation || "None"}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Facility</p>
-                      <p>{patient.facilityName || patient.organizationId || "Unknown"}</p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl bg-slate-50 p-4 border border-slate-200">
-                  <div className="flex items-center gap-2 text-xs uppercase tracking-[0.24em] text-slate-500 font-semibold mb-3">
-                    <Clock className="w-3.5 h-3.5" /> Latest activity
-                  </div>
-                  <div className="space-y-3 text-sm text-slate-600">
-                    <div>
-                      <p className="text-slate-500">Vitals</p>
-                      <p>{latestVital ? `${latestVital.bp || "—"}, ${latestVital.temp ?? "—"}°C, ${latestVital.pulse ?? "—"} bpm` : "No vitals recorded"}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Investigation</p>
-                      <p>{latestInvestigation ? latestInvestigation.testName || latestInvestigation.type || "Unknown" : "None"}</p>
-                    </div>
-                    <div>
-                      <p className="text-slate-500">Prescription</p>
-                      <p>{latestPrescription ? latestPrescription.drugName : "None"}</p>
-                    </div>
-                  </div>
+                  {onOpenPatient ? (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => onOpenPatient(patient.id)}
+                      className="gap-2 shrink-0 bg-amber-600 hover:bg-amber-700 text-white border-0 shadow-sm"
+                    >
+                      <Lock className="w-4 h-4" /> Request Medical Record Access
+                    </Button>
+                  ) : null}
                 </div>
               </div>
 
@@ -184,16 +152,6 @@ export default function GlobalPatientLookup({ onOpenPatient }: GlobalPatientLook
                   {patient.faydaId ? <Badge className="bg-slate-100 text-slate-700 border-slate-200">FIN {patient.faydaId}</Badge> : null}
                   {patient.healthId ? <Badge className="bg-slate-100 text-slate-700 border-slate-200">MHID {patient.healthId}</Badge> : null}
                 </div>
-                {onOpenPatient ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onOpenPatient(patient.id)}
-                    className="gap-2"
-                  >
-                    <ExternalLink className="w-4 h-4" /> Open full record
-                  </Button>
-                ) : null}
               </div>
             </div>
           );
