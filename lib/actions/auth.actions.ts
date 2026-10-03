@@ -443,6 +443,11 @@ export async function loginUser(formData: FormData | any) {
   }
 
   let finalOrgId = dbUser.organizationId;
+  
+  if (!finalOrgId) {
+    return { error: "Invalid Hospital/Facility. User is not assigned to an organization." };
+  }
+
   const org = await prisma.organization.findUnique({
     where: { id: finalOrgId }
   });
