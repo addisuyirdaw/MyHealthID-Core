@@ -11,6 +11,7 @@ import {
   REGISTRATION_ROLES,
   normalizeHealthcareRole,
 } from "@/lib/locales/enums";
+import { verifyToken } from "@/lib/session";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/auth/change-password
@@ -21,9 +22,27 @@ export async function POST(request: NextRequest) {
   try {
     // ── Auth guard ──────────────────────────────────────────────────────────
     const cookieStore = cookies();
-    const userId = cookieStore.get("userId")?.value;
+    const citizenSessionToken = cookieStore.get("citizenSessionToken")?.value;
+    const sessionToken = cookieStore.get("session_token")?.value;
 
-    if (!userId) {
+    let authenticatedPatientId: string | null = null;
+    let authenticatedUserId: string | null = null;
+
+    if (citizenSessionToken) {
+      const payload = verifyToken(citizenSessionToken);
+      if (payload && payload.role === "CITIZEN") {
+        authenticatedPatientId = payload.patientId;
+      }
+    }
+
+    if (sessionToken) {
+      const payload = verifyToken(sessionToken);
+      if (payload && payload.role !== "CITIZEN") {
+        authenticatedUserId = payload.patientId; // Staff session token uses patientId key for user ID
+      }
+    }
+
+    if (!authenticatedUserId && !authenticatedPatientId) {
       return NextResponse.json({ error: "Unauthorized. No active session." }, { status: 401 });
     }
 
@@ -38,9 +57,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Load user ───────────────────────────────────────────────────────────
+    const salt = process.env.PASSWORD_SALT;
+    const hashed = crypto
+      .createHmac("sha256", salt || "myhealthid-dev-salt-only")
+      .update(newPassword)
+      .digest("hex");
+
+    // ── CITIZEN FLOW ────────────────────────────────────────────────────────
+    if (authenticatedPatientId) {
+      const patient = await prisma.patient.findUnique({
+        where: { id: authenticatedPatientId },
+        select: { id: true, isTempPassword: true },
+      });
+
+      if (!patient) return NextResponse.json({ error: "Patient not found." }, { status: 404 });
+      if (!patient.isTempPassword) return NextResponse.json({ error: "No temporary password is active." }, { status: 409 });
+
+      await prisma.patient.update({
+        where: { id: authenticatedPatientId },
+        data: {
+          passwordHash: hashed,
+          isTempPassword: false,
+          resetRequestCode: null,
+        },
+      });
+
+      const response = NextResponse.json({ success: true, redirectTo: `/patients/${authenticatedPatientId}/clinical-records` }, { status: 200 });
+      response.cookies.delete("isTempPassword");
+      return response;
+    }
+
+    // ── STAFF/ADMIN FLOW ────────────────────────────────────────────────────
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: authenticatedUserId! },
       select: { id: true, isTempPassword: true, role: true },
     });
 
@@ -55,16 +104,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // ── Hash new password ───────────────────────────────────────────────────
-    const salt = process.env.PASSWORD_SALT;
-    const hashed = crypto
-      .createHmac("sha256", salt || "myhealthid-dev-salt-only")
-      .update(newPassword)
-      .digest("hex");
-
     // ── Persist and clear isTempPassword ────────────────────────────────────
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: authenticatedUserId! },
       data: {
         passwordHash:      hashed,
         isTempPassword:    false,
@@ -76,7 +118,8 @@ export async function POST(request: NextRequest) {
     // ── Determine role-based redirect ────────────────────────────────────────
     const roleStr = normalizeHealthcareRole(user.role as string);
     let redirectTo = "/login";
-    if (ADMIN_ROLES.includes(roleStr as any))             redirectTo = "/admin/dashboard";
+    if (roleStr === "SYSTEM_ADMINISTRATOR")               redirectTo = "/system-admin/dashboard";
+    else if (ADMIN_ROLES.includes(roleStr as any))             redirectTo = "/admin/dashboard";
     else if (CLINICAL_ROLES.includes(roleStr as any))     redirectTo = "/doctor/dashboard";
     else if (TRIAGE_ROLES.includes(roleStr as any))       redirectTo = "/triage";
     else if (LAB_ROLES.includes(roleStr as any))          redirectTo = "/lab";

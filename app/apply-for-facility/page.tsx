@@ -51,18 +51,7 @@ const OWNERSHIP_TYPES = ["PUBLIC", "PRIVATE"];
 export default function ApplyForFacilityPage() {
   const router = useRouter();
 
-  // Auth check — done client-side on mount via cookie
-  const [authChecked, setAuthChecked] = useState(false);
-  const [isAuthed, setIsAuthed] = useState(false);
-
-  React.useEffect(() => {
-    const uid = getCookie("userId");
-    setIsAuthed(!!uid);
-    setAuthChecked(true);
-    if (!uid) {
-      router.replace("/signin?redirect=/apply-for-facility");
-    }
-  }, [router]);
+  // Auth check removed to allow public submissions
 
   // ── Form state ──────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
@@ -149,15 +138,7 @@ export default function ApplyForFacilityPage() {
     }
   }
 
-  // ── Loading / unauthed guard ────────────────────────────────────────────────
-  if (!authChecked) {
-    return (
-      <div className="min-h-screen bg-[#06060a] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
-      </div>
-    );
-  }
-  if (!isAuthed) return null; // redirect in progress
+  // ── Loading guard removed ──
 
   // ── Success screen ──────────────────────────────────────────────────────────
   if (success) {

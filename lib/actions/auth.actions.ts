@@ -18,160 +18,49 @@ import { redirect } from "next/navigation";
 import { checkRateLimit } from "@/lib/rate-limit";
 import { signToken } from "@/lib/session";
 
-export async function ensureDefaultOrganization(): Promise<string> {
-  const orgName = "Debre Berhan Referral Hospital";
-  let org = await prisma.organization.findFirst({
-    where: { name: orgName }
+
+
+export async function bootstrapSystemAdmin(data: { email: string; passwordRaw: string }) {
+  // Security check: only allow if exactly 0 system admins exist.
+  const existingCount = await prisma.user.count({
+    where: { role: "SYSTEM_ADMINISTRATOR" }
   });
-  if (!org) {
-    org = await prisma.organization.create({
-      data: {
-        name: orgName,
-        nameLng: { en: orgName, am: orgName },
-        code: "DBRH",
-        registrationId: `REG-${Date.now()}`,
-        ownershipType: "PUBLIC",
-        serviceType: "REFERRAL_HOSPITAL",
-      },
-    });
-    console.log(`[TENANCY] Auto-created default organization: ${orgName}`);
+
+  if (existingCount > 0) {
+    return { success: false, error: "A System Administrator already exists. Bootstrapping is permanently disabled." };
   }
-  return org.id;
-}
 
-export async function registerOrganization(data: {
-  officialName: string;
-  facilityType: string;
-  kilil: string;
-  zone: string;
-  woreda: string;
-  kebele: string;
-  licenseNumber?: string;
-  customFacilityNumber?: string;
-  adminUsername?: string;
-  adminPassword?: string;
-}) {
+  if (!data.email || !data.email.includes("@")) {
+    return { success: false, error: "A valid email is required." };
+  }
+  if (!data.passwordRaw || data.passwordRaw.length < 6) {
+    return { success: false, error: "Password must be at least 6 characters." };
+  }
+
   try {
-    const REGION_CODES: Record<string, string> = {
-      "Amhara": "AM",
-      "Addis Ababa": "AA",
-      "Oromia": "OR",
-      "Tigray": "TG",
-      "Sidama": "SD",
-      "Somali": "SM",
-      "Afar": "AF",
-      "Benishangul-Gumuz": "BG",
-      "Gambella": "GM",
-      "Harari": "HR",
-      "South Ethiopia": "SE",
-      "Central Ethiopia": "CE",
-      "South West Ethiopia": "SW",
-      "Dire Dawa": "DD"
-    };
-
-    const regPrefix = REGION_CODES[data.kilil] || data.kilil.replace(/\s+/g, "").substring(0, 2).toUpperCase();
-
-    let orgId = "";
-    if (data.customFacilityNumber && data.customFacilityNumber.trim() !== "") {
-      const padded = data.customFacilityNumber.trim().padStart(2, '0');
-      orgId = `${regPrefix}${padded}`.toUpperCase();
-    } else {
-      const count = await prisma.organization.count({
-        where: { id: { startsWith: regPrefix } }
-      });
-      orgId = `${regPrefix}${String(count + 1).padStart(2, '0')}`.toUpperCase();
-    }
-
-    const normalizedFacilityType = normalizeFacilityServiceType(data.facilityType);
-    const serializedName = `${data.officialName} (${normalizedFacilityType})`;
+    const hash = await hashPassword(data.passwordRaw);
     
-    // ─── Auto-create the default facility ADMIN account ────────────────────────
-    let adminEmailOrUsername = data.adminUsername?.trim().toLowerCase();
+    // Generate secure synthetic IDs
+    const hexSegment = crypto.randomBytes(4).toString("hex").toUpperCase();
     
-    if (!adminEmailOrUsername) {
-      adminEmailOrUsername = `01AD-${orgId}`.toLowerCase();
-    }
-
-    const adminLicenseNumber = adminEmailOrUsername.toUpperCase();
-    const adminEmail = `${adminEmailOrUsername}@myhealthid.gov.et`;
-
-    const existing = await prisma.user.findFirst({
-      where: {
-        OR: [
-          { emailOrUsername: adminEmailOrUsername },
-          { email: adminEmail },
-          { professionalLicenseNumber: { equals: adminLicenseNumber, mode: "insensitive" } }
-        ]
+    const admin = await prisma.user.create({
+      data: {
+        email: data.email.toLowerCase(),
+        emailOrUsername: data.email.toLowerCase(),
+        passwordHash: hash,
+        role: "SYSTEM_ADMINISTRATOR",
+        firstName: "System",
+        lastName: "Administrator",
+        professionalLicenseNumber: `SYSADMIN-${hexSegment}`,
+        nationalId: `SYSADMIN-${hexSegment}`,
+        isFirstLogin: false,
       }
     });
 
-    if (existing) {
-      return { success: false, error: "The provided admin username is already taken. Please choose another one." };
-    }
-
-    let passwordHash = undefined;
-    let activationCode = "";
-
-    if (data.adminPassword) {
-      passwordHash = await hashPassword(data.adminPassword);
-    } else {
-      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-      const bytes = crypto.randomBytes(8);
-      for (let i = 0; i < 8; i++) {
-        activationCode += chars[bytes[i] % chars.length];
-      }
-    }
-
-    // Synthetic national ID for the auto-admin
-    const nationalId = `fadmin-${orgId.toLowerCase()}-${Math.random().toString(36).substring(2, 6)}`;
-    const adminRole = normalizeHealthcareRole("ADMIN");
-
-    const [org, newUser] = await prisma.$transaction([
-      prisma.organization.create({
-        data: {
-          id: orgId,
-          name: `${serializedName} - ${data.kilil}, ${data.zone}, ${data.woreda}, ${data.kebele}`,
-          nameLng: { en: data.officialName, am: data.officialName },
-          code: orgId,
-          registrationId: orgId,
-          licenseNumber: data.licenseNumber,
-          ownershipType: "PUBLIC",
-          serviceType: normalizedFacilityType as any,
-        }
-      }),
-      prisma.user.create({
-        data: {
-          email: adminEmail,
-          emailOrUsername: adminEmailOrUsername,
-          role: adminRole as any,
-          firstName: "Facility",
-          lastName: "Administrator",
-          professionalLicenseNumber: adminLicenseNumber,
-          hospitalId: orgId,
-          hospitalName: `${serializedName} - ${data.kilil}, ${data.zone}, ${data.woreda}, ${data.kebele}`,
-          organizationId: orgId,
-          nationalId,
-          isFirstLogin: !passwordHash,
-          activationCode: activationCode || null,
-          passwordHash: passwordHash || null,
-        }
-      })
-    ]);
-    // ───────────────────────────────────────────────────────────────────────────
-
-    return {
-      success: true,
-      organizationId: org.id,
-      name: org.name,
-      adminLicenseNumber,
-      adminActivationCode: activationCode,
-    };
+    return { success: true };
   } catch (error: any) {
-    console.error("❌ Organization registration error:", error);
-    return {
-      success: false,
-      error: error.message || "Failed to register organization."
-    };
+    console.error("❌ System Admin Bootstrap Error:", error);
+    return { success: false, error: error.message || "Failed to bootstrap system administrator." };
   }
 }
 
@@ -444,16 +333,20 @@ export async function loginUser(formData: FormData | any) {
 
   let finalOrgId = dbUser.organizationId;
   
-  if (!finalOrgId) {
-    return { error: "Invalid Hospital/Facility. User is not assigned to an organization." };
-  }
+  if (dbUser.role !== "SYSTEM_ADMINISTRATOR") {
+    if (!finalOrgId) {
+      return { error: "Invalid Hospital/Facility. User is not assigned to an organization." };
+    }
 
-  const org = await prisma.organization.findUnique({
-    where: { id: finalOrgId }
-  });
+    const org = await prisma.organization.findUnique({
+      where: { id: finalOrgId }
+    });
 
-  if (!org) {
-    return { error: "Invalid Hospital/Facility. Organisation not found." };
+    if (!org) {
+      return { error: "Invalid Hospital/Facility. Organisation not found." };
+    }
+
+    finalOrgId = org.id;
   }
 
   // Deactivation guard – admin can suspend accounts via /admin/users
@@ -487,8 +380,6 @@ export async function loginUser(formData: FormData | any) {
     }
   }
 
-  finalOrgId = org.id;
-
   const role = dbUser!.role;
 
   // FIX 1: All session cookies are now httpOnly: true.
@@ -503,7 +394,11 @@ export async function loginUser(formData: FormData | any) {
   };
 
   cookies().set("userRole", role, cookieOptions);
-  cookies().set("organizationId", finalOrgId, cookieOptions);
+  if (finalOrgId) {
+    cookies().set("organizationId", finalOrgId, cookieOptions);
+  } else {
+    cookies().delete("organizationId");
+  }
   cookies().set("userId", dbUser!.id, cookieOptions);
   cookies().set("userName", `${dbUser!.firstName} ${dbUser!.lastName}`, cookieOptions);
 
@@ -530,6 +425,7 @@ export async function loginUser(formData: FormData | any) {
   }
 
   const roleStr = normalizeHealthcareRole(role as string);
+  if (roleStr === "SYSTEM_ADMINISTRATOR") redirect("/system-admin/dashboard");
   if (ADMIN_ROLES.includes(roleStr as any)) redirect("/admin/dashboard");
   if (CLINICAL_ROLES.includes(roleStr as any)) redirect("/doctor/dashboard");
   if (TRIAGE_ROLES.includes(roleStr as any)) redirect("/triage");
@@ -595,7 +491,8 @@ export async function finalizeAccountPassword(newPassword: string) {
     // Redirect to matching role dashboard view
     const roleStr = normalizeHealthcareRole(user.role as string);
     let destination = "/login";
-    if (ADMIN_ROLES.includes(roleStr as any)) destination = "/admin/dashboard";
+    if (roleStr === "SYSTEM_ADMINISTRATOR") destination = "/system-admin/dashboard";
+    else if (ADMIN_ROLES.includes(roleStr as any)) destination = "/admin/dashboard";
     else if (CLINICAL_ROLES.includes(roleStr as any)) destination = "/doctor/dashboard";
     else if (TRIAGE_ROLES.includes(roleStr as any)) destination = "/triage";
     else if (LAB_ROLES.includes(roleStr as any)) destination = "/lab";

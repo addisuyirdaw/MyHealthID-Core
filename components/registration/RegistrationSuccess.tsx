@@ -68,6 +68,22 @@ export function RegistrationSuccess({ patient, userContext, onReset }: Registrat
             <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto sm:mx-0">
               {t.registrationV2.mhidExplainer}
             </p>
+
+            {patient.generatedPassword && (
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                <p className="text-xs font-bold text-amber-800 uppercase tracking-wide mb-1">
+                  Temporary Login Password
+                </p>
+                <div className="flex items-center gap-3">
+                  <span className="text-2xl font-black font-mono text-slate-900 tracking-widest">
+                    {patient.generatedPassword}
+                  </span>
+                </div>
+                <p className="text-[11px] text-amber-700 mt-2 leading-tight font-medium">
+                  Provide this to the patient. They must change it upon first login. It will not be shown again.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

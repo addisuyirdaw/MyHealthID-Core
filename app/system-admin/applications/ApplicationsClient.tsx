@@ -36,7 +36,7 @@ interface FacilityApplication {
   status: "PENDING" | "APPROVED" | "REJECTED";
   businessLicenseNumber: string;
   contactEmail: string;
-  registeredBy: string;
+  registeredBy: string | null;
   officialName: string;
   facilityType: string;
   ownershipType?: string | null;

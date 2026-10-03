@@ -198,6 +198,10 @@ model Patient {
   registrationSource String @default("RECEPTION")
   otpCode       String?
   otpExpiresAt  DateTime? // OTP is valid for 5 minutes from generation
+  
+  // Account Recovery / Temporary Passwords
+  isTempPassword   Boolean   @default(false)
+  resetRequestCode String?
 
   // Queue Information
   phoneNumber   String?
@@ -691,7 +695,7 @@ model FacilityApplication {
   contactEmail          String            @map("contact_email")
 
   // Submitter — references User.id (not a Prisma relation to avoid cascade issues)
-  registeredBy          String            @map("registered_by")
+  registeredBy          String?           @map("registered_by")
 
   // Facility details captured at apply-time
   officialName          String            @map("official_name")

@@ -201,108 +201,7 @@ export async function deleteFacility(
 
   const facility = await prisma.organization.findUnique({
     where: { id: facilityId },
-    select: { id: true, name: true },
-  });
-
-  if (!facility) return { success: false, error: "Facility not found." };
-
-  // Guard: check for active patients
-  const [patientCount, userCount] = await Promise.all([
-    prisma.patient.count({ where: { organizationId: facilityId } }),
-    prisma.user.count({ where: { organizationId: facilityId } }),
-  ]);
-
-  if (patientCount > 0) {
-    return {
-      success: false,
-      blocked: true,
-      error: `Cannot delete "${facility.name}" — it has ${patientCount} patient record(s). Deactivate it instead.`,
-    };
-  }
-
-  // Cascade-delete staff members (safe — no patients exist at this point)
-  if (userCount > 0) {
-    await prisma.user.deleteMany({ where: { organizationId: facilityId } });
-  }
-
-  await prisma.organization.delete({ where: { id: facilityId } });
-
-  await writeAuditLog({
-    actorId: userId,
-    actorName: userName,
-    actorRole: userRole,
-    action: "DELETE_FACILITY",
-    targetType: "FACILITY",
-    targetId: facilityId,
-    targetName: facility.name,
-    metadata: userCount > 0 ? { staffDeleted: userCount } : undefined,
-  });
-
-  revalidatePath("/system-admin/facilities");
-  return { success: true };
-}
-
-export async function toggleFacilityActive(
-  facilityId: string,
-  isActive: boolean
-): Promise<{ success: boolean; error?: string }> {
-  const { userId, userName, userRole } = await requireSysAdminSession();
-
-  const facility = await prisma.organization.findUnique({
-    where: { id: facilityId },
-    select: { id: true, name: true },
-  });
-
-  if (!facility) return { success: false, error: "Facility not found." };
-
-  await prisma.organization.update({
-    where: { id: facilityId },
-    data: { isActive },
-  });
-
-  await writeAuditLog({
-    actorId: userId,
-    actorName: userName,
-    actorRole: userRole,
-    action: isActive ? "ACTIVATE_FACILITY" : "DEACTIVATE_FACILITY",
-    targetType: "FACILITY",
-    targetId: facilityId,
-    targetName: facility.name,
-  });
-
-  revalidatePath("/system-admin/facilities");
-  return { success: true };
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Users management
-// ─────────────────────────────────────────────────────────────────────────────
-export async function getAllUsers(search?: string) {
-  await requireSysAdminSession();
-
-  const q = search?.trim();
-
-  const users = await prisma.user.findMany({
-    where: q
-      ? {
-          OR: [
-            { fullName: { contains: q, mode: "insensitive" } },
-            { firstName: { contains: q, mode: "insensitive" } },
-            { lastName: { contains: q, mode: "insensitive" } },
-            { email: { contains: q, mode: "insensitive" } },
-          ],
-        }
-      : {},
-    select: {
-      id: true,
-      email: true,
-      role: true,
-      firstName: true,
-      lastName: true,
-      fullName: true,
-      isActive: true,
-      isTempPassword: true,
-      createdAt: true,
+    select: { id: true, faydaId: true, fullName: true, age: true, sex: true, bloodGroup: true, address: true, createdAt: true,
       lastLoginAt: true,
       organizationId: true,
       organization: { select: { name: true } },
@@ -414,4 +313,28 @@ export async function getAuditLogs(opts?: {
   });
 
   return JSON.parse(JSON.stringify(logs));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Citizens (For Demo Mode Only)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getAllCitizens() {
+  await requireSysAdminSession();
+
+  const patients = await prisma.patient.findMany({
+    orderBy: { createdAt: "desc" },
+    select: {
+      id: true,
+      nationalId: true,
+      firstName: true,
+      lastName: true,
+      phoneNumber: true,
+      dateOfBirth: true,
+      gender: true,
+      bloodType: true,
+      createdAt: true,
+    }
+  });
+
+  return JSON.parse(JSON.stringify(patients));
 }

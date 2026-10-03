@@ -26,6 +26,7 @@ export interface RegisteredPatient {
   ward?: string;
   priorityLevel?: "EMERGENCY" | "URGENT" | "ROUTINE";
   organizationId?: string | null;
+  generatedPassword?: string;
 }
 
 /** Shape of collected form data before calling registerPatient(). */

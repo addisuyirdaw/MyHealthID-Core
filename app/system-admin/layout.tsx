@@ -26,6 +26,7 @@ export default function SystemAdminLayout({
     { href: "/system-admin/facilities",    label: "Facilities",   icon: Building2 },
     { href: "/system-admin/applications",  label: "Applications", icon: FilePlus2 },
     { href: "/system-admin/users",         label: "Users",        icon: Users },
+    { href: "/system-admin/citizens",      label: "Citizens",     icon: Users },
     { href: "/system-admin/audit-logs",    label: "Audit Logs",   icon: ClipboardList },
   ];
 

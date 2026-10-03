@@ -34,13 +34,33 @@ const customStyles = `
   .animate-float { animation: float 6s ease-in-out infinite; }
   .animate-float-delayed { animation: float-delayed 8s ease-in-out infinite 1s; }
   .animate-dash { animation: dash 1s linear infinite; }
+  
+  @keyframes gradient-x {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  .animate-gradient-x {
+    background-size: 200% auto;
+    animation: gradient-x 4s linear infinite;
+  }
+  
+  @keyframes slide-up {
+    0% { transform: translateY(10px); opacity: 0; }
+    100% { transform: translateY(0); opacity: 1; }
+  }
+  .animate-slide-up {
+    animation: slide-up 0.4s ease-out forwards;
+  }
 `;
 
 export default function LandingPage() {
   const [mounted, setMounted] = useState(false);
   const { language } = useLanguage();
 
-  useEffect(() => setMounted(true), []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   return (
     <div className="w-full font-sans overflow-x-hidden selection:bg-teal-200 dark:selection:bg-teal-500/30">
@@ -67,55 +87,66 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-16 lg:gap-8 items-center">
 
             {/* Left: Text & Actions */}
-            <div className="lg:col-span-6 flex flex-col items-start text-left">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/80 dark:bg-neutral-900/80 backdrop-blur-sm border border-stone-200 dark:border-neutral-800 shadow-sm mb-8">
-                <div className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-                <span className="text-xs font-bold tracking-wide text-slate-800 dark:text-neutral-300">
-                  {language === 'EN' ? 'Privacy-Focused • Multi-Tenant' : 'በግላዊነት ላይ ያተኮረ • ለብዙ ተቋማት'}
-                </span>
+            <div className="lg:col-span-6 flex flex-col items-start text-left relative z-10 pt-8 lg:pt-0">
+              <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-white/90 dark:bg-neutral-900/90 backdrop-blur-md border border-stone-200 dark:border-neutral-700 shadow-sm mb-10 overflow-hidden relative">
+                <div className="absolute inset-0 bg-teal-500/10 dark:bg-teal-500/20 animate-pulse" />
+                <div className="relative flex items-center gap-2">
+                  <span className="relative flex h-3 w-3">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-3 w-3 bg-teal-500"></span>
+                  </span>
+                  <span className="text-xs font-bold tracking-wide text-slate-800 dark:text-neutral-200 uppercase">
+                    {language === 'EN' ? 'Live: Multi-Tenant Network' : 'በቀጥታ፡ የብዙ ተቋማት ኔትወርክ'}
+                  </span>
+                </div>
               </div>
 
-              <h1 className="text-5xl lg:text-[4.5rem] font-black tracking-tight leading-[1.05] text-slate-900 dark:text-white mb-6 drop-shadow-sm">
-                {language === 'EN' ? (
-                  <>One identity that <span className="text-teal-700 dark:text-teal-400">connects care</span> across facilities.</>
-                ) : (
-                  <>በተለያዩ ተቋማት <span className="text-teal-700 dark:text-teal-400">እንክብካቤን የሚያገናኝ</span> አንድ ማንነት።</>
-                )}
+              <h1 className="text-6xl lg:text-[5.5rem] font-black tracking-tight leading-[1] mb-2 drop-shadow-sm text-transparent bg-clip-text bg-gradient-to-r from-slate-900 via-teal-700 to-slate-900 dark:from-white dark:via-teal-300 dark:to-white animate-gradient-x">
+                {language === 'EN' ? 'One identity.' : 'አንድ ማንነት።'}
               </h1>
+              
+              <h2 className="text-4xl lg:text-5xl font-black tracking-tight leading-[1.1] mb-8 drop-shadow-sm flex flex-wrap items-center gap-x-3 text-transparent bg-clip-text bg-gradient-to-r from-slate-800 via-teal-600 to-slate-800 dark:from-neutral-200 dark:via-teal-400 dark:to-neutral-200 animate-gradient-x" style={{ animationDelay: '1s' }}>
+                {language === 'EN' ? 'Connecting care seamlessly.' : 'እንክብካቤን ያለምንም እንከን ያገናኛል።'}
+              </h2>
 
-              <p className="text-xl text-stone-600 dark:text-neutral-400 mb-10 font-medium leading-relaxed max-w-lg">
-                {language === 'EN' ?
-                  'Find the patient. Verify the identity. Control access seamlessly.' :
-                  'ታካሚውን ያግኙ። ማንነቱን ያረጋግጡ። መረጃን በተገቢው ይቆጣጠሩ።'}
-              </p>
+              {/* Dynamic Health UI: Animated Heartbeat / EKG Line */}
+              <div className="w-full max-w-sm h-12 mb-10 relative overflow-hidden flex items-center">
+                <svg className="w-full h-full" viewBox="0 0 400 40" preserveAspectRatio="none">
+                  <path
+                    d="M 0,20 L 100,20 L 120,0 L 140,40 L 160,10 L 170,20 L 400,20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    className="text-teal-500/50 dark:text-teal-400/50"
+                  />
+                  <path
+                    d="M 0,20 L 100,20 L 120,0 L 140,40 L 160,10 L 170,20 L 400,20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="400"
+                    strokeDashoffset="400"
+                    className="text-teal-600 dark:text-teal-400 animate-[dash_3s_linear_infinite]"
+                  />
+                </svg>
+                <div className="absolute right-0 w-24 h-full bg-gradient-to-l from-[#FBF9F5] dark:from-neutral-950 to-transparent" />
+                <div className="absolute left-0 w-8 h-full bg-gradient-to-r from-[#FBF9F5] dark:from-neutral-950 to-transparent" />
+              </div>
 
-              <div className="flex flex-wrap items-center gap-4 mb-12">
+              <div className="flex flex-wrap items-center gap-4 mt-8">
                 <Link
                   href="/register"
-                  className="inline-flex items-center justify-center px-8 py-4 text-base font-bold rounded-full bg-teal-700 dark:bg-teal-600 text-white hover:bg-teal-800 dark:hover:bg-teal-500 transition-all shadow-lg shadow-teal-900/20 dark:shadow-teal-900/50 hover:shadow-xl hover:-translate-y-0.5"
+                  className="inline-flex items-center justify-center px-8 py-4 text-base font-bold rounded-full bg-teal-700 dark:bg-teal-500 text-white hover:bg-teal-800 dark:hover:bg-teal-400 transition-all shadow-lg shadow-teal-900/20 dark:shadow-teal-900/40 hover:shadow-xl hover:-translate-y-1"
                 >
                   {language === 'EN' ? 'Get Started' : 'ይጀምሩ'}
                 </Link>
                 <Link
                   href="/signin"
-                  className="inline-flex items-center justify-center px-8 py-4 text-base font-bold rounded-full bg-white/90 dark:bg-transparent text-slate-900 dark:text-white border border-stone-200 dark:border-neutral-700 hover:border-stone-300 dark:hover:border-neutral-500 hover:bg-stone-50 dark:hover:bg-neutral-800 transition-all shadow-sm hover:shadow hover:-translate-y-0.5"
+                  className="inline-flex items-center justify-center px-8 py-4 text-base font-bold rounded-full bg-white dark:bg-neutral-800/80 backdrop-blur-sm text-slate-900 dark:text-white border border-stone-200 dark:border-neutral-600 hover:border-stone-300 dark:hover:border-neutral-500 hover:bg-stone-50 dark:hover:bg-neutral-800 transition-all shadow-sm hover:shadow hover:-translate-y-1"
                 >
                   {language === 'EN' ? 'Portal Sign-In' : 'ፖርታል ግባ'}
-                </Link>
-              </div>
-
-              {/* Compact Launcher */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 p-2 bg-white/60 dark:bg-neutral-900/60 backdrop-blur-md rounded-2xl border border-stone-200/80 dark:border-neutral-800 shadow-sm w-full max-w-md">
-                <span className="text-xs font-bold text-stone-500 dark:text-neutral-500 uppercase tracking-wider pl-3 hidden sm:block">
-                  {language === 'EN' ? 'Quick' : 'ፈጣን'}
-                </span>
-                <Link href="/register" className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white dark:hover:bg-neutral-800 hover:shadow-sm transition-all text-sm font-semibold text-slate-700 dark:text-neutral-200 w-full sm:w-auto">
-                  <UserPlus className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-                  {language === 'EN' ? 'Register' : 'መዝግብ'}
-                </Link>
-                <Link href="/apply-for-facility" className="flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-white dark:hover:bg-neutral-800 hover:shadow-sm transition-all text-sm font-semibold text-slate-700 dark:text-neutral-200 w-full sm:w-auto">
-                  <Building2 className="w-4 h-4 text-stone-500 dark:text-neutral-400" />
-                  {language === 'EN' ? 'Facility' : 'ተቋም'}
                 </Link>
               </div>
             </div>

@@ -162,7 +162,8 @@ export async function submitFacilityApplication(data: {
     [key: string]: unknown;
   };
 }): Promise<{ success: boolean; applicationId?: string; error?: string }> {
-  const { userId } = await requireAuthSession();
+  const cookieStore = cookies();
+  const userId = cookieStore.get("userId")?.value || null;
 
   // Basic validation
   if (!data.businessLicenseNumber?.trim())
@@ -306,8 +307,8 @@ export async function approveFacilityApplication(
 
     // Link the applicant user to the new facility AND create a dedicated admin account
     await Promise.all([
-      // Update the submitter's organization linkage
-      prisma.user.update({
+      // Update the submitter's organization linkage if they were authenticated
+      application.registeredBy ? prisma.user.update({
         where: { id: application.registeredBy },
         data: {
           organizationId: tenantId,
@@ -317,7 +318,7 @@ export async function approveFacilityApplication(
       }).catch(() => {
         // Non-fatal: user may have been deleted or ID may be synthetic
         console.warn(`[approveFacility] Could not link registeredBy user ${application.registeredBy}`);
-      }),
+      }) : Promise.resolve(),
 
       // Create the dedicated facility admin account
       prisma.user.create({

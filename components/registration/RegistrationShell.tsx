@@ -154,6 +154,7 @@ export function RegistrationShell() {
       ward: finalData.ward || "OPD_OUTPATIENT",
       priorityLevel: "ROUTINE",
       organizationId: result.organizationId,
+      generatedPassword: result.generatedPassword,
     });
     setStep(4); // Success screen
   };

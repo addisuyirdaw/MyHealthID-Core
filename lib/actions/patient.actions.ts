@@ -177,19 +177,34 @@ export async function registerPatient(data: {
           : null;
 
     let passwordHash: string | undefined = undefined;
-    const finalPassword = password || "123456"; // Default password if not provided by staff
-    
-    if (finalPassword) {
+    let isTempPassword = false;
+    let generatedPlaintext: string | undefined = undefined;
+
+    if (password) {
       const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
       passwordHash = crypto
         .createHmac("sha256", salt)
-        .update(finalPassword)
+        .update(password)
+        .digest("hex");
+    } else {
+      isTempPassword = true;
+      const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+      const bytes = crypto.randomBytes(8);
+      let temp = "";
+      for (let i = 0; i < 8; i++) temp += chars[bytes[i] % chars.length];
+      generatedPlaintext = temp;
+      
+      const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
+      passwordHash = crypto
+        .createHmac("sha256", salt)
+        .update(temp)
         .digest("hex");
     }
 
     const patientData = {
       fullName: fullName || "Unknown",
       ...(passwordHash ? { passwordHash } : {}),
+      isTempPassword,
       age: Math.max(0, age || 0),
       sex: sex || "Not Specified",
       dateOfBirth: dateOfBirth || null,
@@ -352,6 +367,7 @@ export async function registerPatient(data: {
       id: patient.id,
       name: patient.fullName,
       organizationId: patient.organizationId,
+      generatedPassword: generatedPlaintext, // returned ONLY once at registration
     };
 
   } catch (error: any) {
@@ -1790,22 +1806,13 @@ export async function directCitizenSignIn(credential: string, password: string) 
       .update(cleanPassword)
       .digest("hex");
 
-    // If the patient has no password yet, allow them to use the default password "123456"
+    // If the patient has no password yet (legacy or invalid data state)
     if (!patient.passwordHash) {
-      if (cleanPassword === "123456") {
-        // Automatically set their password to the default hash so they can change it later
-        await prisma.patient.update({
-          where: { id: patient.id },
-          data: { passwordHash: inputHash }
-        });
-      } else {
-        return {
-          success: false,
-          error:
-            "No password is set for this account. Please use the default password '123456' to login, then change it from your dashboard.",
-          noPassword: true,
-        };
-      }
+      return {
+        success: false,
+        error: "No credentials are set for this account. Please visit a facility reception to establish secure access.",
+        noPassword: true,
+      };
     } else if (inputHash !== patient.passwordHash) {
       return { success: false, error: "Incorrect password. Please try again." };
     }
@@ -1838,6 +1845,9 @@ export async function directCitizenSignIn(credential: string, password: string) 
     };
     cookieStore.set("userRole", "CITIZEN", clientCookieOpts);
     cookieStore.set("citizenPatientId", patient.id, clientCookieOpts);
+    if (patient.isTempPassword) {
+      cookieStore.set("isTempPassword", "true", clientCookieOpts);
+    }
 
     return { success: true, patientId: patient.id, fullName: patient.fullName };
   } catch (error: any) {
