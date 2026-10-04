@@ -54,6 +54,7 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
       vitals:         { orderBy: { createdAt: 'desc' } },
       investigations: { orderBy: { createdAt: 'desc' } },
       prescriptions:  { orderBy: { createdAt: 'desc' } },
+      clinicalExams:  { orderBy: { createdAt: 'desc' }, take: 1 },
       appointments: {
         where: { status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION"] } },
         orderBy: { dateTime: "desc" },
@@ -68,8 +69,12 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
   const activeAppointment = patient.appointments?.[0];
   const activeAppointmentId = activeAppointment?.id;
   // Map the clinical exam from the appointment to patient.clinicalExam for backward compatibility
-  if (activeAppointment) {
-    (patient as any).clinicalExam = activeAppointment.clinicalExam || null;
+  if (activeAppointment && activeAppointment.clinicalExam) {
+    (patient as any).clinicalExam = activeAppointment.clinicalExam;
+  } else if (patient.clinicalExams && patient.clinicalExams.length > 0) {
+    (patient as any).clinicalExam = patient.clinicalExams[0];
+  } else {
+    (patient as any).clinicalExam = null;
   }
 
   return <DoctorPatientChart patient={patient} currentUserId={userId} activeAppointmentId={activeAppointmentId} />;
