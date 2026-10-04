@@ -148,7 +148,7 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
                     {language === "EN" ? "Register Citizen" : "ዜጋ መዝግብ"}
                   </span>
                 </Link>
-                <Link href="/register-facility" className="block">
+                <Link href="/apply-for-facility" className="block">
                   <span className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-bold text-slate-700 dark:text-neutral-300 hover:text-teal-700 dark:hover:text-white hover:bg-stone-50 dark:hover:bg-neutral-800 rounded-lg transition-colors cursor-pointer">
                     <Building className="w-4 h-4 text-teal-600 dark:text-purple-500" />
                     {language === "EN" ? "Onboard Hospital" : "ሆስፒታል መዝግብ"}
@@ -261,7 +261,7 @@ export default function PublicHeader({ userRole, citizenPatientId }: PublicHeade
                         {language === "EN" ? "Register Citizen" : "ዜጋ መዝግብ"}
                       </span>
                     </Link>
-                    <Link href="/register-facility" onClick={() => setIsOpen(false)}>
+                    <Link href="/apply-for-facility" onClick={() => setIsOpen(false)}>
                       <span className="flex items-center gap-2.5 text-sm font-semibold text-stone-600 dark:text-neutral-400 hover:text-teal-700 dark:hover:text-white cursor-pointer">
                         <Building className="w-4 h-4 text-teal-600 dark:text-purple-500" />
                         {language === "EN" ? "Onboard Hospital" : "ሆስፒታል መዝግብ"}
