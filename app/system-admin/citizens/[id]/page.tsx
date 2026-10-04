@@ -21,7 +21,7 @@ export default async function AdminPatientView({ params }: { params: { id: strin
       vitals:         { orderBy: { createdAt: 'desc' } },
       investigations: { orderBy: { createdAt: 'desc' } },
       prescriptions:  { orderBy: { createdAt: 'desc' } },
-      clinicalExam:   true,
+      clinicalExams:  { orderBy: { createdAt: 'desc' }, take: 1 },
       appointments: {
         where: { status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION"] } },
         orderBy: { dateTime: "desc" },
@@ -32,6 +32,15 @@ export default async function AdminPatientView({ params }: { params: { id: strin
   });
 
   if (!patient) return notFound();
+
+  const activeAppointment = patient.appointments?.[0];
+  if (activeAppointment && activeAppointment.clinicalExam) {
+    (patient as any).clinicalExam = activeAppointment.clinicalExam;
+  } else if (patient.clinicalExams && patient.clinicalExams.length > 0) {
+    (patient as any).clinicalExam = patient.clinicalExams[0];
+  } else {
+    (patient as any).clinicalExam = null;
+  }
 
   return (
     <div className="min-h-screen bg-neutral-950">
