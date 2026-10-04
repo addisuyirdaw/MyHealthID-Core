@@ -70,7 +70,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Scribe service unavailable" }, { status: 503 });
     }
 
-    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
     
     let systemPrompt = "";
     if (userRole === "CITIZEN") {
