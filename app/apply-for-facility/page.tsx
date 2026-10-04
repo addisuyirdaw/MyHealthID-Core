@@ -175,10 +175,10 @@ export default function ApplyForFacilityPage() {
             </p>
 
             <Link
-              href="/dashboard"
+              href="/login"
               className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-sm transition-all"
             >
-              Go to Dashboard
+              Go to Login
               <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
