@@ -374,6 +374,8 @@ export async function approveFacilityApplication(
       facilityName: application.officialName,
       decision: "approved",
       tenantId,
+      adminUsername: adminEmailOrUsername,
+      adminPassword: activationCode,
     }).catch((err) =>
       console.error("[approveFacilityApplication] Notification error:", err)
     );

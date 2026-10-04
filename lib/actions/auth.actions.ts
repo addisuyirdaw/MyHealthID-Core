@@ -65,11 +65,7 @@ export async function bootstrapSystemAdmin(data: { email: string; passwordRaw: s
 }
 
 function normalizeLoginIdentifier(value: string) {
-  const raw = String(value || "").trim().toLowerCase();
-  if (raw.includes("@")) {
-    return raw;
-  }
-  return raw.replace(/[^a-z0-9]/g, "");
+  return String(value || "").trim().toLowerCase();
 }
 
 export async function hashPassword(password: string) {

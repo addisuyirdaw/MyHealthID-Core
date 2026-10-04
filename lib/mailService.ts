@@ -76,9 +76,11 @@ export const sendApplicationNotification = async (opts: {
   facilityName: string;
   decision: "approved" | "rejected";
   tenantId?: string;
+  adminUsername?: string;
+  adminPassword?: string;
   reason?: string;
 }): Promise<{ success: boolean; error?: string }> => {
-  const { toEmail, facilityName, decision, tenantId, reason } = opts;
+  const { toEmail, facilityName, decision, tenantId, adminUsername, adminPassword, reason } = opts;
   const emailUser = process.env.EMAIL_USER;
   const emailPass = process.env.EMAIL_PASS;
 
@@ -89,7 +91,7 @@ export const sendApplicationNotification = async (opts: {
     : `❌ Facility Application Rejected — ${facilityName}`;
 
   const textBody = isApproved
-    ? `Congratulations! Your application for "${facilityName}" has been approved.\n\nYour Tenant ID is: ${tenantId}\n\nA system administrator will contact you with next steps for onboarding your staff.`
+    ? `Congratulations! Your application for "${facilityName}" has been approved.\n\nYour Tenant ID is: ${tenantId}\n\nTo access your facility dashboard, please log in with the following temporary credentials:\nUsername / Email: ${adminUsername}\nTemporary Password / PIN: ${adminPassword}\n\nYou will be required to change your password upon first login.`
     : `We regret to inform you that your application for "${facilityName}" has been rejected.\n\nReason: ${reason ?? "No reason provided."}\n\nYou may re-apply after addressing the issues noted above.`;
 
   const htmlBody = isApproved
@@ -100,8 +102,12 @@ export const sendApplicationNotification = async (opts: {
         <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:8px;padding:16px;margin:16px 0">
           <p style="margin:0;font-size:13px;color:#166534">Your Tenant ID (keep this secure):</p>
           <p style="margin:8px 0 0;font-size:18px;font-weight:700;letter-spacing:2px;color:#15803d">${tenantId}</p>
+          <hr style="border:none;border-top:1px solid #bbf7d0;margin:16px 0">
+          <p style="margin:0;font-size:13px;color:#166534">Your Initial Admin Login Credentials:</p>
+          <p style="margin:8px 0 0;font-size:14px;color:#15803d"><strong>Username:</strong> ${adminUsername}</p>
+          <p style="margin:4px 0 0;font-size:14px;color:#15803d"><strong>Temporary PIN:</strong> ${adminPassword}</p>
         </div>
-        <p style="color:#475569;font-size:14px">A system administrator will reach out with next steps for onboarding your clinical staff onto the MyHealthID platform.</p>
+        <p style="color:#475569;font-size:14px">Please log in immediately. You will be required to change your password upon your first login.</p>
         <hr style="border:none;border-top:1px solid #e2e8f0;margin:20px 0">
         <p style="color:#94a3b8;font-size:12px">MyHealthID Platform &mdash; Clinical Operations</p>
       </div>`

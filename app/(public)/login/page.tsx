@@ -311,7 +311,7 @@ function LoginForm() {
                     </p>
                     <p className="text-[11px] text-slate-500">
                       New facility?{" "}
-                      <Link href="/register-facility" className="text-blue-400 hover:underline font-semibold">
+                      <Link href="/apply-for-facility" className="text-blue-400 hover:underline font-semibold">
                         Register your Hospital
                       </Link>
                     </p>
