@@ -54,17 +54,23 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
       vitals:         { orderBy: { createdAt: 'desc' } },
       investigations: { orderBy: { createdAt: 'desc' } },
       prescriptions:  { orderBy: { createdAt: 'desc' } },
-      clinicalExam:   true,
       appointments: {
         where: { status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION"] } },
         orderBy: { dateTime: "desc" },
         take: 1,
-        include: { assignedWard: true },
+        include: { assignedWard: true, clinicalExam: true },
       },
     }
   });
 
   if (!patient) return notFound();
 
-  return <DoctorPatientChart patient={patient} currentUserId={userId} />;
+  const activeAppointment = patient.appointments?.[0];
+  const activeAppointmentId = activeAppointment?.id;
+  // Map the clinical exam from the appointment to patient.clinicalExam for backward compatibility
+  if (activeAppointment) {
+    (patient as any).clinicalExam = activeAppointment.clinicalExam || null;
+  }
+
+  return <DoctorPatientChart patient={patient} currentUserId={userId} activeAppointmentId={activeAppointmentId} />;
 }

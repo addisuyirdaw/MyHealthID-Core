@@ -406,7 +406,7 @@ export async function getPatientsByWard(ward: Ward) {
         vitals: true,
         investigations: true,
         prescriptions: true,
-        clinicalExam: true,
+        clinicalExams: { orderBy: { createdAt: "desc" }, take: 1 },
         queues: true,
       }
     });
@@ -454,9 +454,9 @@ export async function getPatientsByWard(ward: Ward) {
         ...pr,
         facilityName: formatFacilityName(pr.organizationId)
       })) || [],
-      clinicalExam: p.clinicalExam ? {
-        ...p.clinicalExam,
-        facilityName: formatFacilityName(p.clinicalExam.organizationId)
+      clinicalExam: p.clinicalExams?.[0] ? {
+        ...p.clinicalExams[0],
+        facilityName: formatFacilityName(p.clinicalExams[0].organizationId)
       } : null
     }));
 
@@ -761,19 +761,37 @@ export async function processTriage(
   }
 }
 
-export async function saveClinicalExam(patientId: string, examData: any) {
+export async function saveClinicalExam(patientId: string, appointmentId: string | null | undefined, examData: any) {
   try {
-    // organizationId is stamped automatically by the Prisma tenant extension on create
-    const exam = await prisma.clinicalExamination.upsert({
-      where: { patientId },
-      create: {
-        patientId,
-        ...examData
-      },
-      update: {
-        ...examData
+    let exam;
+    if (appointmentId) {
+      exam = await prisma.clinicalExamination.upsert({
+        where: { appointmentId },
+        create: {
+          patientId,
+          appointmentId,
+          ...examData
+        },
+        update: {
+          ...examData
+        }
+      });
+    } else {
+      const recentExam = await prisma.clinicalExamination.findFirst({
+        where: { patientId },
+        orderBy: { createdAt: "desc" }
+      });
+      if (recentExam) {
+        exam = await prisma.clinicalExamination.update({
+          where: { id: recentExam.id },
+          data: { ...examData }
+        });
+      } else {
+        exam = await prisma.clinicalExamination.create({
+          data: { patientId, ...examData }
+        });
       }
-    });
+    }
 
     // Update patient status
     const patient = await prisma.patient.update({
@@ -810,7 +828,7 @@ export async function getActivePatientsForFacility() {
         vitals: { orderBy: { createdAt: "desc" }, take: 1 },
         investigations: { orderBy: { createdAt: "desc" }, take: 5 },
         prescriptions: { orderBy: { createdAt: "desc" }, take: 5 },
-        clinicalExam: true,
+        clinicalExams: { orderBy: { createdAt: "desc" }, take: 1 },
         appointments: {
           where: {
             status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION"] }
@@ -856,6 +874,7 @@ export async function getActivePatientsForFacility() {
 
 export async function saveDoctorAssessment(
   patientId: string,
+  appointmentId: string | null | undefined,
   data: {
     chiefAssessment?: string;
     workingDiagnosis?: string;
@@ -864,23 +883,46 @@ export async function saveDoctorAssessment(
   }
 ) {
   try {
-    // organizationId is stamped automatically by the Prisma tenant extension on create
-    const exam = await prisma.clinicalExamination.upsert({
-      where: { patientId },
-      create: {
-        patientId,
-        chiefAssessment: data.chiefAssessment,
-        workingDiagnosis: data.workingDiagnosis,
-        differentialDiagnosis: data.differentialDiagnosis,
-        progressNotes: data.progressNotes,
-      },
-      update: {
-        ...(data.chiefAssessment !== undefined && { chiefAssessment: data.chiefAssessment }),
-        ...(data.workingDiagnosis !== undefined && { workingDiagnosis: data.workingDiagnosis }),
-        ...(data.differentialDiagnosis !== undefined && { differentialDiagnosis: data.differentialDiagnosis }),
-        ...(data.progressNotes !== undefined && { progressNotes: data.progressNotes }),
-      },
-    });
+    let exam;
+    const createData = {
+      patientId,
+      chiefAssessment: data.chiefAssessment,
+      workingDiagnosis: data.workingDiagnosis,
+      differentialDiagnosis: data.differentialDiagnosis,
+      progressNotes: data.progressNotes,
+    };
+    const updateData = {
+      ...(data.chiefAssessment !== undefined && { chiefAssessment: data.chiefAssessment }),
+      ...(data.workingDiagnosis !== undefined && { workingDiagnosis: data.workingDiagnosis }),
+      ...(data.differentialDiagnosis !== undefined && { differentialDiagnosis: data.differentialDiagnosis }),
+      ...(data.progressNotes !== undefined && { progressNotes: data.progressNotes }),
+    };
+
+    if (appointmentId) {
+      exam = await prisma.clinicalExamination.upsert({
+        where: { appointmentId },
+        create: {
+          appointmentId,
+          ...createData
+        },
+        update: updateData,
+      });
+    } else {
+      const recentExam = await prisma.clinicalExamination.findFirst({
+        where: { patientId },
+        orderBy: { createdAt: "desc" }
+      });
+      if (recentExam) {
+        exam = await prisma.clinicalExamination.update({
+          where: { id: recentExam.id },
+          data: updateData
+        });
+      } else {
+        exam = await prisma.clinicalExamination.create({
+          data: createData
+        });
+      }
+    }
 
     // Reflect working diagnosis on the patient record
     if (data.workingDiagnosis) {

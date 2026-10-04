@@ -52,7 +52,10 @@ export async function POST(
         vitals: { orderBy: { createdAt: "desc" } },
         investigations: { orderBy: { createdAt: "desc" } },
         prescriptions: { orderBy: { createdAt: "desc" } },
-        clinicalExam: true,
+        appointments: {
+          where: { clinicalExam: { isNot: null } },
+          include: { clinicalExam: true }
+        }
       },
     });
 

@@ -268,7 +268,7 @@ model Patient {
   investigations  Investigation[]
   prescriptions   Prescription[]
   referrals       Referral[]
-  clinicalExam    ClinicalExamination?
+  clinicalExams   ClinicalExamination[]
   queues          Queue[]
   accessLogs      AccessLog[]
   medicalAuditLogs MedicalAuditLog[]
@@ -328,7 +328,8 @@ model VerifiedCitizen {
 
 model ClinicalExamination {
   id             String  @id @default(uuid()) @map("_id")
-  patientId      String  @unique
+  patientId      String
+  appointmentId  String? @unique @map("appointment_id")
   organizationId String? @map("organization_id")
 
   generalAppearance String?
@@ -361,7 +362,10 @@ model ClinicalExamination {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  appointment Appointment? @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+
+  @@index([patientId])
 }
 
 model Vitals {
@@ -790,6 +794,7 @@ model Appointment {
   assignedWardId  String?           @map("assigned_ward_id")
   assignedWard    ClinicalWard?     @relation(fields: [assignedWardId], references: [id])
   metadata        Json?
+  clinicalExam    ClinicalExamination?
 
   @@index([facilityId, patientId])
   @@index([facilityId, status])

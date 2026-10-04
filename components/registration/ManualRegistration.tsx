@@ -147,7 +147,7 @@ export function ManualRegistration({ initialData, isFaydaVerified, duplicateWarn
             onChange={(e) => setFullName(e.target.value)}
             disabled={isFaydaVerified || isSubmitting}
             placeholder={t.registrationV2.fullNamePlaceholder}
-            className="h-12 text-base bg-slate-50/50"
+            className="h-12 text-base bg-slate-50/50 text-slate-900 placeholder:text-slate-400"
             required
           />
         </div>
@@ -156,7 +156,7 @@ export function ManualRegistration({ initialData, isFaydaVerified, duplicateWarn
           <div>
             <Label className="text-slate-700 font-semibold mb-2">{t.registrationV2.sexLabel} *</Label>
             <Select value={sex} onValueChange={setSex} disabled={isFaydaVerified || isSubmitting}>
-              <SelectTrigger className="h-12 bg-slate-50/50 text-base">
+              <SelectTrigger className="h-12 bg-slate-50/50 text-base text-slate-900">
                 <SelectValue placeholder="Select..." />
               </SelectTrigger>
               <SelectContent>
@@ -172,7 +172,7 @@ export function ManualRegistration({ initialData, isFaydaVerified, duplicateWarn
               value={dateOfBirth}
               onChange={(e) => setDateOfBirth(e.target.value)}
               disabled={isFaydaVerified || isSubmitting}
-              className="h-12 text-base bg-slate-50/50"
+              className="h-12 text-base bg-slate-50/50 text-slate-900 placeholder:text-slate-400"
               max={new Date().toISOString().split("T")[0]}
             />
           </div>
@@ -192,7 +192,7 @@ export function ManualRegistration({ initialData, isFaydaVerified, duplicateWarn
               value={ageRaw}
               onChange={(e) => setAgeRaw(e.target.value)}
               placeholder={t.registrationV2.agePlaceholder}
-              className="h-12 text-base bg-slate-50/50"
+              className="h-12 text-base bg-slate-50/50 text-slate-900 placeholder:text-slate-400"
               required={!dateOfBirth}
               disabled={isSubmitting}
             />
@@ -215,7 +215,7 @@ export function ManualRegistration({ initialData, isFaydaVerified, duplicateWarn
             value={phoneNumber}
             onChange={(e) => setPhoneNumber(e.target.value)}
             placeholder={t.registrationV2.phonePlaceholder}
-            className="h-12 text-base bg-slate-50/50"
+            className="h-12 text-base bg-slate-50/50 text-slate-900 placeholder:text-slate-400"
             disabled={isSubmitting}
           />
         </div>
@@ -226,7 +226,7 @@ export function ManualRegistration({ initialData, isFaydaVerified, duplicateWarn
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            className="h-12 text-base bg-slate-50/50 text-lg"
+            className="h-12 text-base bg-slate-50/50 text-lg text-slate-900 placeholder:text-slate-400"
             required
             disabled={isSubmitting}
           />
@@ -246,7 +246,7 @@ export function ManualRegistration({ initialData, isFaydaVerified, duplicateWarn
             value={reasonForVisit}
             onChange={(e) => setReasonForVisit(e.target.value)}
             placeholder="e.g. Routine checkup, fever, etc."
-            className={`h-12 text-base transition-colors ${severity ? severity.border : 'bg-slate-50/50 border-slate-200'} ${severity ? severity.ring : ''}`}
+            className={`h-12 text-base text-slate-900 placeholder:text-slate-400 transition-colors ${severity ? severity.border : 'bg-slate-50/50 border-slate-200'} ${severity ? severity.ring : ''}`}
             required
             disabled={isSubmitting}
           />

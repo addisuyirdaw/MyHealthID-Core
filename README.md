@@ -235,3 +235,13 @@ This project is licensed under the **MIT License** — see the [LICENSE](LICENSE
 <div align="center">
   Made with ❤️ for better healthcare
 </div>
+
+### Obtaining a Gemini API Key
+MyHealthID uses Google's Gemini AI to power the **AI Clinical Scribe** (voice-to-text drafting) and the **Smart Clinical Support Chatbot**. To use these features:
+1. Go to [Google AI Studio](https://aistudio.google.com/).
+2. Sign in with a Google account.
+3. Click on **'Get API key'** in the left navigation menu.
+4. Click **'Create API key'** (you can create it in a new or existing Google Cloud project).
+5. Copy the generated key (it should begin with \AIza\).
+6. Paste the key into your \.env.local\ file as \GEMINI_API_KEY="your-key-here"\.
+

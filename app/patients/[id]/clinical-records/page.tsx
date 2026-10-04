@@ -11,6 +11,7 @@ import { Role } from "@prisma/client";
 import { verifyToken } from "@/lib/session";
 import { verifyPatientIdentity } from "@/lib/actions/patient.actions";
 import { AIClinicalSummary } from "@/components/doctor/AIClinicalSummary";
+import { LocalizedText } from "@/components/LocalizedText";
 
 type TimelineEvent = {
   id: string;
@@ -38,7 +39,10 @@ export default async function ClinicalRecordsDashboard({
       vitals: { orderBy: { createdAt: "desc" } },
       investigations: { orderBy: { createdAt: "desc" } },
       prescriptions: { orderBy: { createdAt: "desc" } },
-      clinicalExam: true,
+      appointments: {
+        where: { clinicalExam: { isNot: null } },
+        include: { clinicalExam: true }
+      }
     },
   });
 
@@ -166,21 +170,23 @@ export default async function ClinicalRecordsDashboard({
     })
   );
 
-  if (patient.clinicalExam) {
-    events.push({
-      id: patient.clinicalExam.id,
-      type: "EXAM",
-      date: patient.clinicalExam.updatedAt,
-      title: "Clinical Examination",
-      description: patient.clinicalExam.clinicalNotes || "General physical examination completed.",
-      badge: formatFacilityName(patient.clinicalExam.organizationId)
-        ? `Origin: ${formatFacilityName(patient.clinicalExam.organizationId)}`
-        : undefined,
-      icon: <ActivitySquare className="w-4 h-4 text-purple-400" />,
-      dotColor: "bg-purple-500",
-      accentColor: "border-purple-500/30",
-    });
-  }
+  patient.appointments?.forEach((appt: any) => {
+    if (appt.clinicalExam) {
+      events.push({
+        id: appt.clinicalExam.id,
+        type: "EXAM",
+        date: appt.clinicalExam.updatedAt,
+        title: "Clinical Examination",
+        description: appt.clinicalExam.clinicalNotes || "General physical examination completed.",
+        badge: formatFacilityName(appt.clinicalExam.organizationId)
+          ? `Origin: ${formatFacilityName(appt.clinicalExam.organizationId)}`
+          : undefined,
+        icon: <ActivitySquare className="w-4 h-4 text-purple-400" />,
+        dotColor: "bg-purple-500",
+        accentColor: "border-purple-500/30",
+      });
+    }
+  });
 
   events.sort((a, b) => b.date.getTime() - a.date.getTime());
 
@@ -229,7 +235,7 @@ export default async function ClinicalRecordsDashboard({
           <div className="relative z-10">
             <p className="text-blue-300 text-sm font-semibold mb-1">MyHealthID Clinical Record</p>
             <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight mb-2">
-              Welcome back, {patient.fullName.split(" ")[0]}!
+              <LocalizedText tKey="dashboard.welcomeBack" /> {patient.fullName.split(" ")[0]}!
             </h1>
             <p className="text-blue-200/70 text-base">Your live clinical dashboard and secure medical record.</p>
           </div>
@@ -282,8 +288,8 @@ export default async function ClinicalRecordsDashboard({
               className="flex items-center justify-between bg-indigo-950/40 border border-indigo-500/20 rounded-2xl px-6 py-4 hover:bg-indigo-950/60 transition-colors group"
             >
               <div>
-                <p className="font-bold text-indigo-300">🔐 Privacy & Data Control</p>
-                <p className="text-indigo-400/70 text-sm">Manage who can see your records · ግላዊነት እና የዳታ ቁጥጥር</p>
+                <p className="font-bold text-indigo-300">🔐 <LocalizedText tKey="dashboard.privacyTitle" /></p>
+                <p className="text-indigo-400/70 text-sm"><LocalizedText tKey="dashboard.privacyDesc" /></p>
               </div>
               <span className="text-indigo-400 group-hover:translate-x-1 transition-transform text-xl">→</span>
             </a>
@@ -292,8 +298,8 @@ export default async function ClinicalRecordsDashboard({
               className="flex items-center justify-between bg-neutral-900/60 border border-neutral-800 rounded-2xl px-6 py-4 hover:bg-neutral-900 transition-colors group"
             >
               <div>
-                <p className="font-bold text-neutral-300">👤 Edit My Profile</p>
-                <p className="text-neutral-500 text-sm">Update your name, phone, and date of birth · ፕሮፋይል ማስተካከያ</p>
+                <p className="font-bold text-neutral-300">👤 <LocalizedText tKey="dashboard.editProfileTitle" /></p>
+                <p className="text-neutral-500 text-sm"><LocalizedText tKey="dashboard.editProfileDesc" /></p>
               </div>
               <span className="text-neutral-400 group-hover:translate-x-1 transition-transform text-xl">→</span>
             </a>

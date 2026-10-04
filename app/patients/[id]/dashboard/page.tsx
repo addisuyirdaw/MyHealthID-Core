@@ -35,7 +35,10 @@ export default async function PatientDashboard({ params }: { params: { id: strin
       vitals: { orderBy: { createdAt: 'desc' } },
       investigations: { orderBy: { createdAt: 'desc' } },
       prescriptions: { orderBy: { createdAt: 'desc' } },
-      clinicalExam: true
+      appointments: {
+        where: { clinicalExam: { isNot: null } },
+        include: { clinicalExam: true }
+      }
     }
   });
 
@@ -115,18 +118,20 @@ export default async function PatientDashboard({ params }: { params: { id: strin
     bgColor: "bg-teal-100"
   }));
 
-  if (patient.clinicalExam) {
-    events.push({
-      id: patient.clinicalExam.id, 
-      type: "EXAM", 
-      date: patient.clinicalExam.updatedAt, 
-      title: "Clinical Examination", 
-      description: patient.clinicalExam.clinicalNotes || "General physical examination completed.",
-      badge: formatFacilityName(patient.clinicalExam.organizationId) ? `Origin: ${formatFacilityName(patient.clinicalExam.organizationId)}` : undefined,
-      icon: <ActivitySquare className="w-5 h-5 text-purple-500" />,
-      bgColor: "bg-purple-100"
-    });
-  }
+  patient.appointments?.forEach((appt: any) => {
+    if (appt.clinicalExam) {
+      events.push({
+        id: appt.clinicalExam.id, 
+        type: "EXAM", 
+        date: appt.clinicalExam.updatedAt, 
+        title: "Clinical Examination", 
+        description: appt.clinicalExam.clinicalNotes || "General physical examination completed.",
+        badge: formatFacilityName(appt.clinicalExam.organizationId) ? `Origin: ${formatFacilityName(appt.clinicalExam.organizationId)}` : undefined,
+        icon: <ActivitySquare className="w-5 h-5 text-purple-500" />,
+        bgColor: "bg-purple-100"
+      });
+    }
+  });
 
   events.sort((a, b) => b.date.getTime() - a.date.getTime());
 

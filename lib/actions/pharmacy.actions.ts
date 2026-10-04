@@ -3,13 +3,22 @@
 import prisma from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
+import { CROSS_FACILITY } from "@/lib/utils/tenantContext";
 
 export async function createPrescription(data: { patientId: string; drugName: string; dosage: string; frequency: string; duration: string; notes?: string }) {
   try {
     const organizationId = cookies().get("organizationId")?.value || null;
+    
+    const patientExists = await prisma.patient.findFirst({
+      where: { ...CROSS_FACILITY, OR: [{ id: data.patientId }, { healthId: data.patientId }] },
+      select: { id: true }
+    });
+
+    if (!patientExists) throw new Error("Patient not found.");
+
     const prescription = await prisma.prescription.create({
       data: {
-        patientId: data.patientId,
+        patientId: patientExists.id,
         drugName: data.drugName,
         dosage: data.dosage,
         frequency: data.frequency,
@@ -21,7 +30,7 @@ export async function createPrescription(data: { patientId: string; drugName: st
     });
 
     await prisma.patient.update({
-      where: { id: data.patientId },
+      where: { id: patientExists.id, ...(CROSS_FACILITY as any) },
       data: { examStatus: "READY_FOR_PHARMACY" },
     });
 

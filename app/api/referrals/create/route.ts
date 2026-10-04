@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { cookies } from "next/headers";
 import crypto from "crypto";
+import { CROSS_FACILITY } from "@/lib/utils/tenantContext";
 
 export async function POST(req: NextRequest) {
   try {
@@ -13,8 +14,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Verify patient exists and include vitals for the summary snapshot
-    const patientExists = await prisma.patient.findUnique({
-      where: { id: patientId },
+    const patientExists = await prisma.patient.findFirst({
+      where: { ...CROSS_FACILITY, OR: [{ id: patientId }, { healthId: patientId }] },
       include: {
         vitals: { orderBy: { createdAt: "desc" } }
       }
@@ -32,7 +33,7 @@ export async function POST(req: NextRequest) {
     const [referral] = await prisma.$transaction([
       prisma.referral.create({
         data: {
-          patientId,
+          patientId: patientExists.id,
           reason,
           destinationFacility,
           aiOverrideLogged: Boolean(aiOverrideLogged),
@@ -40,7 +41,7 @@ export async function POST(req: NextRequest) {
         },
       }),
       prisma.patient.update({
-        where: { id: patientId },
+        where: { id: patientExists.id, ...(CROSS_FACILITY as any) },
         data: { status: "REFERRED_OUT" },
       }),
     ]);

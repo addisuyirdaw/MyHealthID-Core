@@ -369,6 +369,48 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ABOUT US SECTION */}
+      <section id="about" className="py-24 bg-[#FBF9F5] dark:bg-neutral-900 relative transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-6">
+            {language === 'EN' ? 'About Us' : 'ስለ እኛ'}
+          </h2>
+          <p className="max-w-3xl mx-auto text-lg text-stone-600 dark:text-neutral-400 font-medium leading-relaxed">
+            {language === 'EN'
+              ? 'MyHealthID is Ethiopia’s National Electronic Health Record (EHR) Identity system. We are committed to modernizing the healthcare sector by creating a secure, interoperable platform where patients own their medical identity and facilities can share critical information safely.'
+              : 'ማይሄልዝአይዲ የኢትዮጵያ ብሄራዊ የኤሌክትሮኒክ የጤና መዝገብ (EHR) የማንነት ስርዓት ነው። ታካሚዎች የራሳቸውን የህክምና ማንነት በባለቤትነት የሚይዙበት እና ተቋማት ደህንነቱ በተጠበቀ ሁኔታ መረጃ የሚለዋወጡበትን ስርዓት ለመፍጠር ቆርጠናል።'}
+          </p>
+        </div>
+      </section>
+
+      {/* CONTACT US SECTION */}
+      <section id="contact" className="py-24 bg-white dark:bg-neutral-950 relative transition-colors duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+          <h2 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight mb-6">
+            {language === 'EN' ? 'Contact Us' : 'ያግኙን'}
+          </h2>
+          <p className="max-w-xl mx-auto text-lg text-stone-600 dark:text-neutral-400 font-medium leading-relaxed mb-8">
+            {language === 'EN'
+              ? 'Have questions about MyHealthID or need support for your facility? Reach out to our technical team.'
+              : 'ስለ ማይሄልዝአይዲ ጥያቄዎች ካሉዎት ወይም ለተቋምዎ ድጋፍ ከፈለጉ፣ የቴክኒክ ቡድናችንን ያነጋግሩ።'}
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/50 flex items-center justify-center">
+                <AlertCircle className="w-5 h-5 text-teal-700 dark:text-teal-400" />
+              </div>
+              <span className="text-slate-900 dark:text-white font-bold">support@myhealthid.gov.et</span>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-teal-50 dark:bg-teal-900/50 flex items-center justify-center">
+                <Activity className="w-5 h-5 text-teal-700 dark:text-teal-400" />
+              </div>
+              <span className="text-slate-900 dark:text-white font-bold">+251 11 111 1111</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
     </div>
   );
 }

@@ -11,7 +11,8 @@ import {
   AlertTriangle, Droplet, Activity, Thermometer,
   Wind, Scale, Brain, Save, ExternalLink, Clock,
   FileText, Microscope, Scan, TestTubeDiagonal,
-  Sparkles, Shield, Lock, X, Info, MessageSquare, Import
+  Sparkles, Shield, Lock, X, Info, MessageSquare, Import,
+  Mic, Square, Loader2, Volume2
 } from "lucide-react";
 import { saveClinicalExam, saveDoctorAssessment } from "@/lib/actions/patient.actions";
 import { transitionToConsultation } from "@/lib/actions/appointment.actions";
@@ -152,7 +153,7 @@ function VitalCard({ icon: Icon, label, value, unit, color }: {
 
 // ─── Main Component ────────────────────────────────────────────────────────
 // ─── Main Component ────────────────────────────────────────────────--------
-export default function DoctorPatientChart({ patient, currentUserId }: { patient: any; currentUserId?: string }) {
+export default function DoctorPatientChart({ patient, currentUserId, activeAppointmentId }: { patient: any; currentUserId?: string; activeAppointmentId?: string }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("identification");
 
@@ -162,6 +163,130 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
   const [aiStreaming, setAiStreaming] = useState(false);
   const [aiError, setAiError] = useState("");
   const [streamedBullets, setStreamedBullets] = useState<string[]>([]);
+
+  // AI Scribe states
+  const [isRecording, setIsRecording] = useState(false);
+  const [scribeStatus, setScribeStatus] = useState<"" | "transcribing" | "analyzing" | "ready" | "error">("");
+  const [scribeTranscript, setScribeTranscript] = useState("");
+  const [scribeDraft, setScribeDraft] = useState<any>(null);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
+  const audioChunksRef = React.useRef<Blob[]>([]);
+
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
+        }
+      };
+      mediaRecorder.start(1000);
+      setIsRecording(true);
+      setScribeStatus("");
+      setScribeTranscript("");
+      setScribeDraft(null);
+    } catch (err) {
+      console.error("Microphone access denied or error:", err);
+      alert("Could not access microphone.");
+    }
+  };
+
+  const processAudio = async () => {
+    const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+    const formData = new FormData();
+    formData.append("audio", audioBlob);
+    if (activeAppointmentId) formData.append("appointmentId", activeAppointmentId);
+    formData.append("patientId", patient.id);
+
+    setScribeStatus("transcribing");
+    try {
+      const transRes = await fetch("/api/ai/transcribe", { method: "POST", body: formData });
+      if (!transRes.ok) throw new Error("Transcription failed");
+      const transData = await transRes.json();
+      setScribeTranscript(transData.transcript);
+
+      setScribeStatus("analyzing");
+      const scribeRes = await fetch("/api/ai/scribe", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          transcript: transData.transcript, 
+          appointmentId: activeAppointmentId || null,
+          patientId: patient.id 
+        }),
+      });
+      if (!scribeRes.ok) throw new Error("Extraction failed");
+      const scribeData = await scribeRes.json();
+      setScribeDraft(scribeData.draft);
+      setScribeStatus("ready");
+    } catch (err) {
+      console.error(err);
+      setScribeStatus("error");
+      alert("AI Scribe processing failed.");
+    }
+  };
+
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.onstop = processAudio;
+      mediaRecorderRef.current.stop();
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+      setIsRecording(false);
+    }
+  };
+
+  const toggleSpeech = () => {
+    if (isSpeaking) {
+      window.speechSynthesis.cancel();
+      setIsSpeaking(false);
+    } else {
+      if (!scribeDraft) return;
+      const textToSpeak = `Chief Complaint: ${scribeDraft.chiefComplaint || "None"}. History of Present Illness: ${scribeDraft.historyOfPresentIllness || "None"}. Assessment: ${scribeDraft.assessmentDraft || "None"}. Plan: ${scribeDraft.planDraft || "None"}.`;
+      const utterance = new SpeechSynthesisUtterance(textToSpeak);
+      utterance.onend = () => setIsSpeaking(false);
+      window.speechSynthesis.speak(utterance);
+      setIsSpeaking(true);
+    }
+  };
+
+  const applyAIDraft = () => {
+    if (!scribeDraft) return;
+    if (scribeDraft.chiefComplaint) {
+      setCcList((prev: any) => [...prev, { complaint: scribeDraft.chiefComplaint, duration: "Recent" }]);
+    }
+    if (scribeDraft.historyOfPresentIllness) {
+      setHpi(prev => prev ? prev + "\n" + scribeDraft.historyOfPresentIllness : scribeDraft.historyOfPresentIllness);
+    }
+    if (scribeDraft.symptoms && scribeDraft.symptoms.length > 0) {
+       setHistoryData(prev => ({
+         ...prev,
+         clinicalNotes: prev.clinicalNotes 
+           ? prev.clinicalNotes + "\nSymptoms: " + scribeDraft.symptoms.join(", ")
+           : "Symptoms: " + scribeDraft.symptoms.join(", ")
+       }));
+    }
+    if (scribeDraft.relevantHistory) {
+      setHistoryData(prev => ({
+         ...prev,
+         clinicalNotes: prev.clinicalNotes 
+           ? prev.clinicalNotes + "\nHistory: " + scribeDraft.relevantHistory
+           : "History: " + scribeDraft.relevantHistory
+      }));
+    }
+    if (scribeDraft.assessmentDraft) {
+      setAssessmentData(prev => ({ ...prev, chiefAssessment: scribeDraft.assessmentDraft }));
+    }
+    if (scribeDraft.planDraft) {
+      setAssessmentData(prev => ({ ...prev, progressNotes: scribeDraft.planDraft }));
+    }
+    setScribeStatus(""); 
+    setActiveTab("history"); 
+  };
+
 
   const handleTriggerAI = async () => {
     setAiLoading(true);
@@ -284,7 +409,7 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
   React.useEffect(() => {
     const handler = setTimeout(() => {
       if (activeTab === "history") {
-        saveClinicalExam(patient.id, {
+        saveClinicalExam(patient.id, activeAppointmentId || null, {
           generalAppearance: historyData.generalAppearance,
           heent:             historyData.heent,
           lymphoglandular:   historyData.lymphoglandular,
@@ -311,7 +436,7 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
   const handleSaveHistory = async () => {
     setSavingHistory(true);
     try {
-      await saveClinicalExam(patient.id, {
+      await saveClinicalExam(patient.id, activeAppointmentId || null, {
         generalAppearance: historyData.generalAppearance,
         heent:             historyData.heent,
         lymphoglandular:   historyData.lymphoglandular,
@@ -343,7 +468,7 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
   const handleSaveAssessment = async () => {
     setSavingAssessment(true);
     try {
-      await saveDoctorAssessment(patient.id, assessmentData);
+      await saveDoctorAssessment(patient.id, activeAppointmentId || null, assessmentData);
       setAssessmentSaved(true);
       setTimeout(() => setAssessmentSaved(false), 3000);
     } catch (e) {
@@ -463,6 +588,16 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
 
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap gap-2">
+              {isRecording ? (
+                <Button onClick={stopRecording} className="font-semibold rounded-xl flex items-center gap-1.5 shadow-md bg-red-600 hover:bg-red-500 text-white animate-pulse">
+                  <Square className="w-4 h-4" /> Stop Recording
+                </Button>
+              ) : (
+                <Button onClick={startRecording} className="font-semibold rounded-xl flex items-center gap-1.5 shadow-md bg-emerald-600 hover:bg-emerald-500 text-white transition-all duration-300">
+                  <Mic className="w-4 h-4" /> Start AI Scribe
+                </Button>
+              )}
+
               <Button
                 onClick={() => setShowAIPanel(prev => !prev)}
                 className={`font-semibold rounded-xl flex items-center gap-1.5 shadow-md transition-all duration-300 ${
@@ -479,6 +614,68 @@ export default function DoctorPatientChart({ patient, currentUserId }: { patient
               <ReferModal patient={patient} />
             </div>
           </div>
+          
+          {/* AI Scribe Status Panel */}
+          {scribeStatus && (
+            <div className="mt-4 p-4 bg-emerald-950/40 border border-emerald-500/30 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-emerald-400 font-bold flex items-center gap-2">
+                  <Mic className="w-4 h-4" /> AI Scribe Assistant
+                </h3>
+                <button onClick={() => setScribeStatus("")} className="text-emerald-400/50 hover:text-emerald-400">
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+              
+              {scribeStatus === "transcribing" && (
+                <div className="flex items-center gap-2 text-emerald-300 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Transcribing audio...
+                </div>
+              )}
+              {scribeStatus === "analyzing" && (
+                <div className="flex items-center gap-2 text-emerald-300 text-sm">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Extracting clinical structure...
+                </div>
+              )}
+              {scribeStatus === "error" && (
+                <div className="text-red-400 text-sm">An error occurred during AI processing. Please try again or type manually.</div>
+              )}
+              
+              {scribeStatus === "ready" && scribeDraft && (
+                <div className="space-y-3">
+                  <p className="text-xs text-emerald-200/70 italic">Transcript: "{scribeTranscript}"</p>
+                  <div className="grid grid-cols-2 gap-4 text-sm bg-[#111] p-3 rounded-lg border border-neutral-800">
+                    <div>
+                      <strong className="text-neutral-400 block mb-1">Chief Complaint:</strong>
+                      <span className="text-neutral-200">{scribeDraft.chiefComplaint || "-"}</span>
+                    </div>
+                    <div>
+                      <strong className="text-neutral-400 block mb-1">HPI:</strong>
+                      <span className="text-neutral-200">{scribeDraft.historyOfPresentIllness || "-"}</span>
+                    </div>
+                    <div>
+                      <strong className="text-neutral-400 block mb-1">Assessment Draft:</strong>
+                      <span className="text-neutral-200">{scribeDraft.assessmentDraft || "-"}</span>
+                    </div>
+                    <div>
+                      <strong className="text-neutral-400 block mb-1">Plan Draft:</strong>
+                      <span className="text-neutral-200">{scribeDraft.planDraft || "-"}</span>
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-2">
+                    <Button variant="ghost" size="sm" onClick={toggleSpeech} className="text-emerald-300 hover:text-emerald-200 hover:bg-emerald-900/50">
+                      <Volume2 className="w-4 h-4 mr-1.5" />
+                      {isSpeaking ? "Stop Audio" : "Play Audio"}
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setScribeStatus("")}>Discard</Button>
+                    <Button size="sm" onClick={applyAIDraft} className="bg-emerald-600 hover:bg-emerald-500 text-white">
+                      Apply Draft to Chart
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

@@ -96,7 +96,11 @@ export default function CitizensClient({ citizens }: { citizens: any[] }) {
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2 text-neutral-400 text-xs">
                       <MapPin className="w-3.5 h-3.5" />
-                      {c.address || "N/A"}
+                      {c.address 
+                        ? (typeof c.address === 'string' 
+                            ? c.address 
+                            : [c.address.region, c.address.zone].filter(Boolean).join(", ") || "Unknown Location") 
+                        : "N/A"}
                     </div>
                   </td>
                   <td className="px-6 py-4 text-right">

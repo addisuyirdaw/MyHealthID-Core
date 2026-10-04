@@ -13,6 +13,8 @@ export const TRANSLATIONS = {
       patientSearch: "Patient Search",
       clinicalRecords: "Clinical Records",
       emergencyTriage: "Emergency Triage",
+      searchFacilities: "Search Facilities",
+      bookAppointment: "Book Appointment",
     },
     landing: {
       title: "Universal Healthcare Access",
@@ -245,6 +247,13 @@ export const TRANSLATIONS = {
       actionRegisterAnother: "Register Another Patient",
       actionSetupPortal: "Set Up Online Access",
     },
+    dashboard: {
+      welcomeBack: "Welcome back,",
+      privacyTitle: "Privacy & Data Control",
+      privacyDesc: "Manage who can see your records",
+      editProfileTitle: "Edit My Profile",
+      editProfileDesc: "Update your name, phone, and date of birth",
+    },
   },
   AM: {
     nav: {
@@ -258,6 +267,8 @@ export const TRANSLATIONS = {
       patientSearch: "የታካሚ ፍለጋ",
       clinicalRecords: "ክሊኒካዊ መዝገቦች",
       emergencyTriage: "አስቸኳይ ምርመራ",
+      searchFacilities: "ተቋማትን ፈልግ",
+      bookAppointment: "ቀጠሮ ይያዙ",
     },
     landing: {
       title: "ሁለንተናዊ የጤና እንክብካቤ ተደራሽነት",
@@ -489,6 +500,13 @@ export const TRANSLATIONS = {
       actionOpenPortal: "ፖርታል ይክፈቱ",
       actionRegisterAnother: "ሌላ ታካሚ ይመዝገቡ",
       actionSetupPortal: "የኦንላይን መዳረሻ ያዘጋጁ",
+    },
+    dashboard: {
+      welcomeBack: "እንኳን ደህና መጡ,",
+      privacyTitle: "ግላዊነት እና የዳታ ቁጥጥር",
+      privacyDesc: "ማን መዝገቦችዎን ማየት እንደሚችል ያስተዳድሩ",
+      editProfileTitle: "ፕሮፋይል ማስተካከያ",
+      editProfileDesc: "ስምዎን፣ ስልክዎን እና የትውልድ ዘመንዎን ያዘምኑ",
     },
   }
 };
