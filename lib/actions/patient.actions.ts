@@ -763,24 +763,33 @@ export async function processTriage(
 
 export async function saveClinicalExam(patientId: string, appointmentId: string | null | undefined, examData: any) {
   try {
+    let exam;
     if (!appointmentId) {
-      throw new Error("A valid active appointment is required to save clinical examination records. Cannot edit or save outside of an active encounter.");
+      // Create a new historical record without an active appointment
+      // We generate a dummy appointmentId to bypass MongoDB's unique index constraint on nulls
+      const dummyId = `standalone-${crypto.randomUUID()}`;
+      exam = await prisma.clinicalExamination.create({
+        data: {
+          patientId,
+          appointmentId: dummyId,
+          ...examData
+        }
+      });
+    } else {
+      // Upsert explicitly to the current appointment. 
+      // This creates a new exam for a new appointment, or updates the current appointment's exam.
+      exam = await prisma.clinicalExamination.upsert({
+        where: { appointmentId },
+        create: {
+          patientId,
+          appointmentId,
+          ...examData
+        },
+        update: {
+          ...examData
+        }
+      });
     }
-
-    // Upsert explicitly to the current appointment. 
-    // This creates a new exam for a new appointment, or updates the current appointment's exam.
-    // It NEVER searches for a historical record by patientId.
-    const exam = await prisma.clinicalExamination.upsert({
-      where: { appointmentId },
-      create: {
-        patientId,
-        appointmentId,
-        ...examData
-      },
-      update: {
-        ...examData
-      }
-    });
 
     // Update patient status
     const patient = await prisma.patient.update({
@@ -888,17 +897,23 @@ export async function saveDoctorAssessment(
     };
 
     if (!appointmentId) {
-      throw new Error("A valid active appointment is required to save doctor assessment. Cannot edit or save outside of an active encounter.");
+      const dummyId = `standalone-${crypto.randomUUID()}`;
+      exam = await prisma.clinicalExamination.create({
+        data: {
+          appointmentId: dummyId,
+          ...createData
+        }
+      });
+    } else {
+      exam = await prisma.clinicalExamination.upsert({
+        where: { appointmentId },
+        create: {
+          appointmentId,
+          ...createData
+        },
+        update: updateData,
+      });
     }
-
-    exam = await prisma.clinicalExamination.upsert({
-      where: { appointmentId },
-      create: {
-        appointmentId,
-        ...createData
-      },
-      update: updateData,
-    });
 
     // Reflect working diagnosis on the patient record
     if (data.workingDiagnosis) {

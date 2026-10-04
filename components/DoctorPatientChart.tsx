@@ -437,7 +437,6 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
   }, [historyData, ccList, hpi, extMedical, extSurgical, extPediatric, extGynecology, scribeTranscript, scribeDraft, activeAppointmentId, patient.id]);
 
   const handleSaveHistory = async () => {
-    if (!activeAppointmentId) return alert("No active appointment found. Cannot save.");
     setSavingHistory(true);
     try {
       await saveClinicalExam(patient.id, activeAppointmentId, {
@@ -472,7 +471,6 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
   };
 
   const handleSaveAssessment = async () => {
-    if (!activeAppointmentId) return alert("No active appointment found. Cannot save.");
     setSavingAssessment(true);
     try {
       await saveDoctorAssessment(patient.id, activeAppointmentId, assessmentData);
@@ -822,22 +820,17 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
         {/* ══ TAB 2: Past Medical History & Clinical Examination ══ */}
         {activeTab === "history" && (
           <div className="space-y-6">
-            {!activeAppointmentId && (
-              <div className="bg-amber-900/20 border border-amber-900/50 rounded-2xl p-4 text-center">
-                <p className="text-amber-400 font-bold text-sm tracking-wide flex items-center justify-center gap-2">
-                  <AlertTriangle className="w-4 h-4" /> READ-ONLY MODE: No active appointment found. Past clinical history is available below.
-                </p>
-              </div>
-            )}
-            
-            {/* Editable sections wrapped for read-only mode */}
-            <div className={!activeAppointmentId ? "opacity-60 pointer-events-none" : "space-y-6"}>
+            {/* Editable sections */}
+            <Accordion type="multiple" defaultValue={["chief-complaints"]} className="w-full space-y-4">
               {/* Chief Complaints (Task 2) */}
-              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
-                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-rose-400" /> Chief Complaints
-              </h2>
-              <div className="space-y-3">
+              <AccordionItem value="chief-complaints" className="bg-[#171717] border border-neutral-700/50 rounded-2xl overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:bg-neutral-800 transition-colors hover:no-underline">
+                  <div className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2 m-0">
+                    <AlertTriangle className="w-4 h-4 text-rose-400" /> Chief Complaints
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
+                  <div className="space-y-3">
                 {ccList.map((cc, idx) => (
                   <div key={idx} className="flex gap-2">
                     <input
@@ -868,14 +861,18 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                 <Button variant="outline" onClick={() => setCcList([...ccList, { complaint: "", duration: "" }])} className="w-full border-dashed border-neutral-600 text-neutral-400 hover:text-neutral-200 hover:border-neutral-400">
                   + Add Complaint
                 </Button>
-              </div>
-            </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
 
-            {/* History of Present Illness (HPI) (Task 2) */}
-            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-3 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-blue-400" /> History of Present Illness (HPI)
-              </h2>
+              {/* History of Present Illness (HPI) (Task 2) */}
+              <AccordionItem value="hpi" className="bg-[#171717] border border-neutral-700/50 rounded-2xl overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:bg-neutral-800 transition-colors hover:no-underline">
+                  <div className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2 m-0">
+                    <FileText className="w-4 h-4 text-blue-400" /> History of Present Illness (HPI)
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
               <textarea
                 value={hpi}
                 onChange={e => setHpi(e.target.value)}
@@ -883,10 +880,17 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                 rows={4}
                 className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500"
               />
-            </div>
+                </AccordionContent>
+              </AccordionItem>
 
-            {/* Structured Medical History Dropdown (Task 1) */}
-            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+              {/* Structured Medical History Dropdown (Task 1) */}
+              <AccordionItem value="detailed-history" className="bg-[#171717] border border-neutral-700/50 rounded-2xl overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:bg-neutral-800 transition-colors hover:no-underline">
+                  <div className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2 m-0">
+                    <ClipboardList className="w-4 h-4 text-amber-400" /> Detailed Clinical History
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
               {(() => {
                 const HISTORY_TOPICS: Record<string, string[]> = {
                   Medical: ["Past Medical History", "Drug History", "Allergy History", "Family History", "Social History", "Personal History", "Nutritional History", "Immunization History", "Occupational History", "Travel History", "Review of Systems"],
@@ -938,11 +942,7 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
 
                 return (
                   <>
-                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-5">
-                      <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2">
-                        <ClipboardList className="w-4 h-4 text-amber-400" /> Detailed Clinical History
-                      </h2>
-                      
+                    <div className="flex flex-col sm:flex-row justify-end items-start sm:items-center gap-4 mb-5">
                       <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
                         <select
                           value={historyCategory}
@@ -1003,15 +1003,14 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                   </>
                 );
               })()}
-                {activeAppointmentId && (
-                  <div className="mt-4 flex justify-end pointer-events-auto">
-                    <Button onClick={handleSaveHistory} disabled={savingHistory} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6">
-                      {savingHistory ? "Saving..." : historySaved ? "Saved!" : "Save History"}
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
+                <div className="mt-4 flex justify-end pointer-events-auto">
+                  <Button onClick={handleSaveHistory} disabled={savingHistory} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6">
+                    {savingHistory ? "Saving..." : historySaved ? "Saved!" : "Save History"}
+                  </Button>
+                </div>
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
 
             {/* Historical Encounters (Timeline Dropdown) */}
             {pastExams.length > 0 && (
@@ -1130,13 +1129,16 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
               </div>
             )}
 
-            <div className={!activeAppointmentId ? "opacity-60 pointer-events-none mt-6" : "mt-6"}>
+            <Accordion type="multiple" defaultValue={[]} className="mt-6">
               {/* Physical Examination */}
-              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
-                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-                <Stethoscope className="w-4 h-4 text-purple-400" /> Physical Examination — Systems Review
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <AccordionItem value="physical-exam" className="bg-[#171717] border border-neutral-700/50 rounded-2xl overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:bg-neutral-800 transition-colors hover:no-underline">
+                  <div className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2 m-0">
+                    <Stethoscope className="w-4 h-4 text-purple-400" /> Physical Examination — Systems Review
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {[
                   { key: "generalAppearance", label: "General Appearance", placeholder: "Alert, oriented, well-nourished, in no acute distress..." },
                   { key: "heent",             label: "HEENT",               placeholder: "Head, eyes, ears, nose, throat findings..." },
@@ -1189,28 +1191,25 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                     )}
                   </Button>
                 </div>
-              )}
-            </div>
-            </div>
+                  )}
+                </AccordionContent>
+              </AccordionItem>
+            </Accordion>
           </div>
         )}
 
         {/* ══ TAB 3: Doctor Assessment ══ */}
         {activeTab === "assessment" && (
           <div className="max-w-4xl space-y-6">
-            {!activeAppointmentId && (
-              <div className="bg-amber-900/20 border border-amber-900/50 rounded-2xl p-4 text-center">
-                <p className="text-amber-400 font-bold text-sm tracking-wide flex items-center justify-center gap-2">
-                  <AlertTriangle className="w-4 h-4" /> READ-ONLY MODE: No active appointment found. Cannot add assessments.
-                </p>
-              </div>
-            )}
-            
-            <div className={!activeAppointmentId ? "opacity-60 pointer-events-none bg-[#171717] border border-neutral-700/50 rounded-2xl p-6" : "bg-[#171717] border border-neutral-700/50 rounded-2xl p-6"}>
-              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-6 flex items-center gap-2">
-                <Brain className="w-4 h-4 text-blue-400" /> Doctor's Clinical Assessment
-              </h2>
-              <div className="space-y-5">
+            <Accordion type="multiple" defaultValue={["doctor-assessment"]} className="w-full space-y-4">
+              <AccordionItem value="doctor-assessment" className="bg-[#171717] border border-neutral-700/50 rounded-2xl overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:bg-neutral-800 transition-colors hover:no-underline">
+                  <div className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2 m-0">
+                    <Brain className="w-4 h-4 text-blue-400" /> Doctor's Clinical Assessment
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
+                  <div className="space-y-5">
                 {/* Chief Assessment */}
                 <div className="space-y-2">
                   <Label className="text-neutral-200 font-semibold text-base">Chief Assessment</Label>
@@ -1263,7 +1262,6 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                   />
                 </div>
 
-                {activeAppointmentId && (
                   <div className="flex justify-end pt-2 pointer-events-auto">
                     <Button
                       onClick={handleSaveAssessment}
@@ -1279,17 +1277,20 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                       )}
                     </Button>
                   </div>
-                )}
-              </div>
-            </div>
+                </div>
+              </AccordionContent>
+            </AccordionItem>
 
             {/* Existing Results Summary */}
             {(patient.investigations?.length > 0 || patient.prescriptions?.length > 0) && (
-              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
-                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-4 flex items-center gap-2">
-                  <FlaskConical className="w-4 h-4 text-indigo-400" /> Current Investigation Results
-                </h2>
-                <div className="space-y-3">
+              <AccordionItem value="investigation-results" className="bg-[#171717] border border-neutral-700/50 rounded-2xl overflow-hidden">
+                <AccordionTrigger className="px-6 py-4 hover:bg-neutral-800 transition-colors hover:no-underline">
+                  <div className="text-sm font-bold text-neutral-400 uppercase tracking-wider flex items-center gap-2 m-0">
+                    <FlaskConical className="w-4 h-4 text-indigo-400" /> Current Investigation Results
+                  </div>
+                </AccordionTrigger>
+                <AccordionContent className="px-6 pb-6 pt-2">
+                  <div className="space-y-3">
                   {patient.investigations?.map((inv: any) => (
                     <div key={inv.id} className="flex items-start justify-between gap-3 p-3 rounded-lg bg-neutral-800/50 border border-neutral-700/30">
                       <div>
@@ -1304,9 +1305,11 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                       </span>
                     </div>
                   ))}
-                </div>
-              </div>
+                  </div>
+                </AccordionContent>
+              </AccordionItem>
             )}
+            </Accordion>
           </div>
         )}
 

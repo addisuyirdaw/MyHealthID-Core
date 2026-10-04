@@ -271,7 +271,7 @@ export async function Sidebar() {
           </div>
         ) : (
           <div className="mb-3">
-            <form action={logoutUser} method="POST">
+            <form action={logoutUser}>
               <button
                 type="submit"
                 className="w-full flex items-center gap-2 p-2 rounded-lg border border-transparent bg-neutral-800 text-neutral-200 hover:bg-red-50 hover:text-red-600 transition-colors"
