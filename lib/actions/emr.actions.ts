@@ -219,7 +219,7 @@ export async function getPatientManageBundle(patientId: string) {
       prescriptions: { orderBy: { createdAt: "desc" }, take: 40 },
       referrals: { orderBy: { createdAt: "desc" }, take: 20 },
       screenings: { orderBy: { createdAt: "desc" }, take: 1 },
-      clinicalExam: true,
+      clinicalExams: { orderBy: { createdAt: "desc" }, take: 1 },
     },
   });
 

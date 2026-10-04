@@ -54,7 +54,7 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
       vitals:         { orderBy: { createdAt: 'desc' } },
       investigations: { orderBy: { createdAt: 'desc' } },
       prescriptions:  { orderBy: { createdAt: 'desc' } },
-      clinicalExams:  { orderBy: { createdAt: 'desc' }, take: 1 },
+      clinicalExams:  { orderBy: { createdAt: 'desc' } },
       appointments: {
         where: { status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION"] } },
         orderBy: { dateTime: "desc" },
@@ -68,12 +68,11 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
 
   const activeAppointment = patient.appointments?.[0];
   const activeAppointmentId = activeAppointment?.id;
-  // Map the clinical exam from the appointment to patient.clinicalExam for backward compatibility
+  // Map the clinical exam ONLY from the active appointment for the current draft
   if (activeAppointment && activeAppointment.clinicalExam) {
     (patient as any).clinicalExam = activeAppointment.clinicalExam;
-  } else if (patient.clinicalExams && patient.clinicalExams.length > 0) {
-    (patient as any).clinicalExam = patient.clinicalExams[0];
   } else {
+    // DO NOT PRE-FILL from history! Let past history be read-only timeline.
     (patient as any).clinicalExam = null;
   }
 

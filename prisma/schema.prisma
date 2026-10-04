@@ -359,6 +359,10 @@ model ClinicalExamination {
   differentialDiagnosis String? @map("differential_diagnosis")
   progressNotes         String? @map("progress_notes")
 
+  // AI Scribe Persistence
+  scribeTranscript      String?
+  scribeDraft           Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

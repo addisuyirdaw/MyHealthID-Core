@@ -35,7 +35,7 @@ export function ClinicalExamModal({ patientId, patientName }: { patientId: strin
     };
 
     try {
-      await saveClinicalExam(patientId, examData);
+      await saveClinicalExam(patientId, null, examData);
       setOpen(false);
       router.refresh();
     } catch (error) {

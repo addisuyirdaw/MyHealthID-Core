@@ -763,35 +763,24 @@ export async function processTriage(
 
 export async function saveClinicalExam(patientId: string, appointmentId: string | null | undefined, examData: any) {
   try {
-    let exam;
-    if (appointmentId) {
-      exam = await prisma.clinicalExamination.upsert({
-        where: { appointmentId },
-        create: {
-          patientId,
-          appointmentId,
-          ...examData
-        },
-        update: {
-          ...examData
-        }
-      });
-    } else {
-      const recentExam = await prisma.clinicalExamination.findFirst({
-        where: { patientId },
-        orderBy: { createdAt: "desc" }
-      });
-      if (recentExam) {
-        exam = await prisma.clinicalExamination.update({
-          where: { id: recentExam.id },
-          data: { ...examData }
-        });
-      } else {
-        exam = await prisma.clinicalExamination.create({
-          data: { patientId, ...examData }
-        });
-      }
+    if (!appointmentId) {
+      throw new Error("A valid active appointment is required to save clinical examination records. Cannot edit or save outside of an active encounter.");
     }
+
+    // Upsert explicitly to the current appointment. 
+    // This creates a new exam for a new appointment, or updates the current appointment's exam.
+    // It NEVER searches for a historical record by patientId.
+    const exam = await prisma.clinicalExamination.upsert({
+      where: { appointmentId },
+      create: {
+        patientId,
+        appointmentId,
+        ...examData
+      },
+      update: {
+        ...examData
+      }
+    });
 
     // Update patient status
     const patient = await prisma.patient.update({
@@ -898,31 +887,18 @@ export async function saveDoctorAssessment(
       ...(data.progressNotes !== undefined && { progressNotes: data.progressNotes }),
     };
 
-    if (appointmentId) {
-      exam = await prisma.clinicalExamination.upsert({
-        where: { appointmentId },
-        create: {
-          appointmentId,
-          ...createData
-        },
-        update: updateData,
-      });
-    } else {
-      const recentExam = await prisma.clinicalExamination.findFirst({
-        where: { patientId },
-        orderBy: { createdAt: "desc" }
-      });
-      if (recentExam) {
-        exam = await prisma.clinicalExamination.update({
-          where: { id: recentExam.id },
-          data: updateData
-        });
-      } else {
-        exam = await prisma.clinicalExamination.create({
-          data: createData
-        });
-      }
+    if (!appointmentId) {
+      throw new Error("A valid active appointment is required to save doctor assessment. Cannot edit or save outside of an active encounter.");
     }
+
+    exam = await prisma.clinicalExamination.upsert({
+      where: { appointmentId },
+      create: {
+        appointmentId,
+        ...createData
+      },
+      update: updateData,
+    });
 
     // Reflect working diagnosis on the patient record
     if (data.workingDiagnosis) {
@@ -1361,7 +1337,7 @@ export async function getPatientByNationalId(searchQuery: string) {
       // Include core clinical context so callers don't need a second query
       include: {
         vitals:        { orderBy: { createdAt: "desc" }, take: 1 },
-        clinicalExam:  true,
+        clinicalExams: { orderBy: { createdAt: "desc" }, take: 1 },
         investigations:{ orderBy: { createdAt: "desc" }, take: 3 },
         prescriptions: { orderBy: { createdAt: "desc" }, take: 3 },
       },

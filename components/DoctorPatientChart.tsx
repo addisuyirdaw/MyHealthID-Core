@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import {
   User, HeartPulse, Stethoscope, FlaskConical,
   Pill, ArrowLeft, ClipboardList, CheckCircle2,
@@ -156,6 +157,7 @@ function VitalCard({ icon: Icon, label, value, unit, color }: {
 export default function DoctorPatientChart({ patient, currentUserId, activeAppointmentId }: { patient: any; currentUserId?: string; activeAppointmentId?: string }) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabId>("identification");
+  const pastExams = patient.clinicalExams?.filter((e: any) => e.appointmentId !== activeAppointmentId) || [];
 
   // AI Clinical Support states
   const [showAIPanel, setShowAIPanel] = useState(false);
@@ -167,8 +169,8 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
   // AI Scribe states
   const [isRecording, setIsRecording] = useState(false);
   const [scribeStatus, setScribeStatus] = useState<"" | "transcribing" | "analyzing" | "ready" | "error">("");
-  const [scribeTranscript, setScribeTranscript] = useState("");
-  const [scribeDraft, setScribeDraft] = useState<any>(null);
+  const [scribeTranscript, setScribeTranscript] = useState(patient.clinicalExam?.scribeTranscript || "");
+  const [scribeDraft, setScribeDraft] = useState<any>(patient.clinicalExam?.scribeDraft || null);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const mediaRecorderRef = React.useRef<MediaRecorder | null>(null);
   const audioChunksRef = React.useRef<Blob[]>([]);
@@ -259,7 +261,7 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
       setCcList((prev: any) => [...prev, { complaint: scribeDraft.chiefComplaint, duration: "Recent" }]);
     }
     if (scribeDraft.historyOfPresentIllness) {
-      setHpi(prev => prev ? prev + "\n" + scribeDraft.historyOfPresentIllness : scribeDraft.historyOfPresentIllness);
+      setHpi((prev: string) => prev ? prev + "\n" + scribeDraft.historyOfPresentIllness : scribeDraft.historyOfPresentIllness);
     }
     if (scribeDraft.symptoms && scribeDraft.symptoms.length > 0) {
        setHistoryData(prev => ({
@@ -408,35 +410,37 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
   // Auto-save logic
   React.useEffect(() => {
     const handler = setTimeout(() => {
-      if (activeTab === "history") {
-        saveClinicalExam(patient.id, activeAppointmentId || null, {
-          generalAppearance: historyData.generalAppearance,
-          heent:             historyData.heent,
-          lymphoglandular:   historyData.lymphoglandular,
-          respiratory:       historyData.respiratory,
-          cardiovascular:    historyData.cardiovascular,
-          abdomen:           historyData.abdomen,
-          genitourinary:     historyData.genitourinary,
-          musculoskeletal:   historyData.musculoskeletal,
-          integumentary:     historyData.integumentary,
-          neurological:      historyData.neurological,
-          clinicalNotes:     historyData.clinicalNotes,
-          chiefComplaints:   ccList,
-          hpi:               hpi,
-          historyMedical:    extMedical,
-          historySurgical:   extSurgical,
-          historyPediatric:  extPediatric,
-          historyGynecology: extGynecology,
-        }).catch(e => console.error("Auto-save failed", e));
-      }
+      if (!activeAppointmentId) return;
+      saveClinicalExam(patient.id, activeAppointmentId, {
+        generalAppearance: historyData.generalAppearance,
+        heent:             historyData.heent,
+        lymphoglandular:   historyData.lymphoglandular,
+        respiratory:       historyData.respiratory,
+        cardiovascular:    historyData.cardiovascular,
+        abdomen:           historyData.abdomen,
+        genitourinary:     historyData.genitourinary,
+        musculoskeletal:   historyData.musculoskeletal,
+        integumentary:     historyData.integumentary,
+        neurological:      historyData.neurological,
+        clinicalNotes:     historyData.clinicalNotes,
+        chiefComplaints:   ccList,
+        hpi:               hpi,
+        historyMedical:    extMedical,
+        historySurgical:   extSurgical,
+        historyPediatric:  extPediatric,
+        historyGynecology: extGynecology,
+        scribeTranscript:  scribeTranscript,
+        scribeDraft:       scribeDraft,
+      }).catch(e => console.error("Auto-save failed", e));
     }, 2500);
     return () => clearTimeout(handler);
-  }, [historyData, ccList, hpi, extMedical, extSurgical, extPediatric, extGynecology, activeTab, patient.id]);
+  }, [historyData, ccList, hpi, extMedical, extSurgical, extPediatric, extGynecology, scribeTranscript, scribeDraft, activeAppointmentId, patient.id]);
 
   const handleSaveHistory = async () => {
+    if (!activeAppointmentId) return alert("No active appointment found. Cannot save.");
     setSavingHistory(true);
     try {
-      await saveClinicalExam(patient.id, activeAppointmentId || null, {
+      await saveClinicalExam(patient.id, activeAppointmentId, {
         generalAppearance: historyData.generalAppearance,
         heent:             historyData.heent,
         lymphoglandular:   historyData.lymphoglandular,
@@ -455,6 +459,8 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
         historySurgical:   extSurgical,
         historyPediatric:  extPediatric,
         historyGynecology: extGynecology,
+        scribeTranscript:  scribeTranscript,
+        scribeDraft:       scribeDraft,
       });
       setHistorySaved(true);
       setTimeout(() => setHistorySaved(false), 3000);
@@ -466,9 +472,10 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
   };
 
   const handleSaveAssessment = async () => {
+    if (!activeAppointmentId) return alert("No active appointment found. Cannot save.");
     setSavingAssessment(true);
     try {
-      await saveDoctorAssessment(patient.id, activeAppointmentId || null, assessmentData);
+      await saveDoctorAssessment(patient.id, activeAppointmentId, assessmentData);
       setAssessmentSaved(true);
       setTimeout(() => setAssessmentSaved(false), 3000);
     } catch (e) {
@@ -815,10 +822,20 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
         {/* ══ TAB 2: Past Medical History & Clinical Examination ══ */}
         {activeTab === "history" && (
           <div className="space-y-6">
-            {/* Chief Complaints (Task 2) */}
-            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-rose-400" /> Chief Complaints
+            {!activeAppointmentId && (
+              <div className="bg-amber-900/20 border border-amber-900/50 rounded-2xl p-4 text-center">
+                <p className="text-amber-400 font-bold text-sm tracking-wide flex items-center justify-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> READ-ONLY MODE: No active appointment found. Past clinical history is available below.
+                </p>
+              </div>
+            )}
+            
+            {/* Editable sections wrapped for read-only mode */}
+            <div className={!activeAppointmentId ? "opacity-60 pointer-events-none" : "space-y-6"}>
+              {/* Chief Complaints (Task 2) */}
+              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-rose-400" /> Chief Complaints
               </h2>
               <div className="space-y-3">
                 {ccList.map((cc, idx) => (
@@ -986,41 +1003,137 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                   </>
                 );
               })()}
-              <div className="mt-4 flex justify-end">
-                <Button onClick={handleSaveHistory} disabled={savingHistory} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6">
-                  {savingHistory ? "Saving..." : historySaved ? "Saved!" : "Save History"}
-                </Button>
-              </div>
-            </div>
-
-            {/* Legacy Medical History (Preserved to be Non-Destructive) */}
-            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
-                <FileText className="w-4 h-4 text-amber-400" /> Legacy Medical History
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { key: "preExistingConditions", label: "Past Medical History", placeholder: "Diabetes, Hypertension, Cardiac disease, Asthma, TB, etc." },
-                  { key: "surgicalHistory",        label: "Surgical History",     placeholder: "Previous operations, procedures, dates, outcomes..." },
-                  { key: "familyHistory",          label: "Family History",       placeholder: "Inherited conditions, family illnesses, genetic concerns..." },
-                ].map(({ key, label, placeholder }) => (
-                  <div key={key} className="space-y-2">
-                    <Label className="text-neutral-300 font-semibold">{label}</Label>
-                    <textarea
-                      value={(historyData as any)[key]}
-                      onChange={e => setHistoryData(prev => ({ ...prev, [key]: e.target.value }))}
-                      placeholder={placeholder}
-                      rows={5}
-                      className="w-full rounded-lg bg-neutral-800 border border-neutral-600 text-neutral-200 placeholder-neutral-500 p-3 text-sm resize-none focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
-                    />
+                {activeAppointmentId && (
+                  <div className="mt-4 flex justify-end pointer-events-auto">
+                    <Button onClick={handleSaveHistory} disabled={savingHistory} className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6">
+                      {savingHistory ? "Saving..." : historySaved ? "Saved!" : "Save History"}
+                    </Button>
                   </div>
-                ))}
+                )}
               </div>
             </div>
 
-            {/* Physical Examination */}
-            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
-              <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+            {/* Historical Encounters (Timeline Dropdown) */}
+            {pastExams.length > 0 && (
+              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-emerald-400" /> Past Clinical Encounters
+                </h2>
+                <Accordion type="single" collapsible className="w-full space-y-3">
+                  {pastExams.map((exam: any, index: number) => {
+                    const examDate = new Date(exam.createdAt).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+                    return (
+                      <AccordionItem key={exam.id || index} value={`item-${index}`} className="border border-neutral-700 rounded-lg overflow-hidden bg-neutral-900/50">
+                        <AccordionTrigger className="px-4 py-3 hover:bg-neutral-800 transition-colors font-semibold text-neutral-200">
+                          Encounter - {examDate}
+                        </AccordionTrigger>
+                        <AccordionContent className="px-4 py-4 text-neutral-300 bg-neutral-900 border-t border-neutral-800 space-y-6">
+                          
+                          {/* Scribe transcript and draft (if any) */}
+                          {(exam.scribeTranscript || exam.scribeDraft) && (
+                            <div className="bg-emerald-950/20 border border-emerald-900/50 rounded-lg p-4">
+                              <h3 className="text-sm font-bold text-emerald-400 mb-2 flex items-center gap-1">
+                                <Sparkles className="w-4 h-4" /> AI Scribe Session
+                              </h3>
+                              {exam.scribeDraft && (
+                                <div className="space-y-2 mb-4">
+                                  {exam.scribeDraft.chiefComplaint && <p className="text-sm"><span className="text-neutral-400 font-semibold">Chief Complaint:</span> {exam.scribeDraft.chiefComplaint}</p>}
+                                  {exam.scribeDraft.assessmentDraft && <p className="text-sm"><span className="text-neutral-400 font-semibold">Assessment:</span> {exam.scribeDraft.assessmentDraft}</p>}
+                                </div>
+                              )}
+                              {exam.scribeTranscript && (
+                                <details>
+                                  <summary className="text-xs text-neutral-500 cursor-pointer">View Raw Transcript</summary>
+                                  <p className="text-xs mt-2 italic text-neutral-400 whitespace-pre-wrap">{exam.scribeTranscript}</p>
+                                </details>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Chief Complaints & HPI */}
+                          {(exam.chiefComplaints?.length > 0 || exam.hpi) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {exam.chiefComplaints?.length > 0 && (
+                                <div>
+                                  <h4 className="text-xs text-neutral-500 font-semibold uppercase mb-1">Chief Complaints</h4>
+                                  <ul className="list-disc list-inside text-sm space-y-1">
+                                    {exam.chiefComplaints.map((cc: any, i: number) => (
+                                      <li key={i}>{cc.complaint} <span className="opacity-60 text-xs">({cc.duration})</span></li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                              {exam.hpi && (
+                                <div>
+                                  <h4 className="text-xs text-neutral-500 font-semibold uppercase mb-1">History of Present Illness</h4>
+                                  <p className="text-sm whitespace-pre-wrap">{exam.hpi}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {/* Detailed Clinical History */}
+                          <div className="space-y-3">
+                            {["Medical", "Surgical", "Pediatric", "Gynecology"].map(cat => {
+                              const historyObj = exam[`history${cat}`];
+                              if (!historyObj || Object.keys(historyObj).length === 0) return null;
+                              return (
+                                <div key={cat} className="bg-neutral-800/40 rounded-lg p-3">
+                                  <h4 className="text-xs text-amber-400 font-semibold uppercase mb-2">{cat} History</h4>
+                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {Object.entries(historyObj).map(([key, val]: any) => (
+                                      <div key={key}>
+                                        <span className="text-xs font-semibold text-neutral-400 block">{key}</span>
+                                        <span className="text-sm block">{val || "—"}</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+
+                          {/* Physical Examination */}
+                          <div className="bg-neutral-800/40 rounded-lg p-3">
+                            <h4 className="text-xs text-purple-400 font-semibold uppercase mb-2">Physical Examination</h4>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                              {[
+                                { key: "generalAppearance", label: "General Appearance" },
+                                { key: "heent", label: "HEENT" },
+                                { key: "lymphoglandular", label: "Lymphoglandular" },
+                                { key: "respiratory", label: "Respiratory" },
+                                { key: "cardiovascular", label: "Cardiovascular" },
+                                { key: "abdomen", label: "Abdomen" },
+                                { key: "genitourinary", label: "Genitourinary" },
+                                { key: "musculoskeletal", label: "Musculoskeletal" },
+                                { key: "integumentary", label: "Integumentary" },
+                                { key: "neurological", label: "Neurological" },
+                                { key: "clinicalNotes", label: "Clinical Notes" },
+                              ].map(({ key, label }) => {
+                                const val = exam[key];
+                                if (!val) return null;
+                                return (
+                                  <div key={key}>
+                                    <span className="text-xs font-semibold text-neutral-400 block">{label}</span>
+                                    <span className="text-sm block whitespace-pre-wrap">{val}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </div>
+
+                        </AccordionContent>
+                      </AccordionItem>
+                    );
+                  })}
+                </Accordion>
+              </div>
+            )}
+
+            <div className={!activeAppointmentId ? "opacity-60 pointer-events-none mt-6" : "mt-6"}>
+              {/* Physical Examination */}
+              <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+                <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-5 flex items-center gap-2">
                 <Stethoscope className="w-4 h-4 text-purple-400" /> Physical Examination — Systems Review
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1060,21 +1173,24 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                 />
               </div>
 
-              <div className="mt-4 flex justify-end">
-                <Button
-                  onClick={handleSaveHistory}
-                  disabled={savingHistory}
-                  className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6"
-                >
-                  {savingHistory ? (
-                    <><Clock className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
-                  ) : historySaved ? (
-                    <><CheckCircle2 className="w-4 h-4 mr-2 text-green-300" /> Saved!</>
-                  ) : (
-                    <><Save className="w-4 h-4 mr-2" /> Save Examination</>
-                  )}
-                </Button>
-              </div>
+              {activeAppointmentId && (
+                <div className="mt-4 flex justify-end pointer-events-auto">
+                  <Button
+                    onClick={handleSaveHistory}
+                    disabled={savingHistory}
+                    className="bg-purple-600 hover:bg-purple-500 text-white font-bold px-6"
+                  >
+                    {savingHistory ? (
+                      <><Clock className="w-4 h-4 mr-2 animate-spin" /> Saving...</>
+                    ) : historySaved ? (
+                      <><CheckCircle2 className="w-4 h-4 mr-2 text-green-300" /> Saved!</>
+                    ) : (
+                      <><Save className="w-4 h-4 mr-2" /> Save Examination</>
+                    )}
+                  </Button>
+                </div>
+              )}
+            </div>
             </div>
           </div>
         )}
@@ -1082,7 +1198,15 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
         {/* ══ TAB 3: Doctor Assessment ══ */}
         {activeTab === "assessment" && (
           <div className="max-w-4xl space-y-6">
-            <div className="bg-[#171717] border border-neutral-700/50 rounded-2xl p-6">
+            {!activeAppointmentId && (
+              <div className="bg-amber-900/20 border border-amber-900/50 rounded-2xl p-4 text-center">
+                <p className="text-amber-400 font-bold text-sm tracking-wide flex items-center justify-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> READ-ONLY MODE: No active appointment found. Cannot add assessments.
+                </p>
+              </div>
+            )}
+            
+            <div className={!activeAppointmentId ? "opacity-60 pointer-events-none bg-[#171717] border border-neutral-700/50 rounded-2xl p-6" : "bg-[#171717] border border-neutral-700/50 rounded-2xl p-6"}>
               <h2 className="text-sm font-bold text-neutral-400 uppercase tracking-wider mb-6 flex items-center gap-2">
                 <Brain className="w-4 h-4 text-blue-400" /> Doctor's Clinical Assessment
               </h2>
@@ -1139,21 +1263,23 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                   />
                 </div>
 
-                <div className="flex justify-end pt-2">
-                  <Button
-                    onClick={handleSaveAssessment}
-                    disabled={savingAssessment}
-                    className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 h-11"
-                  >
-                    {savingAssessment ? (
-                      <><Clock className="w-4 h-4 mr-2 animate-spin" /> Saving Assessment...</>
-                    ) : assessmentSaved ? (
-                      <><CheckCircle2 className="w-4 h-4 mr-2 text-green-300" /> Assessment Saved!</>
-                    ) : (
-                      <><Save className="w-4 h-4 mr-2" /> Save Assessment</>
-                    )}
-                  </Button>
-                </div>
+                {activeAppointmentId && (
+                  <div className="flex justify-end pt-2 pointer-events-auto">
+                    <Button
+                      onClick={handleSaveAssessment}
+                      disabled={savingAssessment}
+                      className="bg-blue-600 hover:bg-blue-500 text-white font-bold px-8 h-11"
+                    >
+                      {savingAssessment ? (
+                        <><Clock className="w-4 h-4 mr-2 animate-spin" /> Saving Assessment...</>
+                      ) : assessmentSaved ? (
+                        <><CheckCircle2 className="w-4 h-4 mr-2 text-green-300" /> Assessment Saved!</>
+                      ) : (
+                        <><Save className="w-4 h-4 mr-2" /> Save Assessment</>
+                      )}
+                    </Button>
+                  </div>
+                )}
               </div>
             </div>
 
