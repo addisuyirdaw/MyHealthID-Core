@@ -55,6 +55,7 @@ export default async function DoctorPatientView({ params }: { params: { id: stri
       investigations: { orderBy: { createdAt: 'desc' } },
       prescriptions:  { orderBy: { createdAt: 'desc' } },
       clinicalExams:  { orderBy: { createdAt: 'desc' } },
+      journals:       { where: { mood: 'AI_SCRIBE_DRAFT' }, orderBy: { createdAt: 'desc' } },
       appointments: {
         where: { status: { in: ["ARRIVED", "TRIAGED", "IN_CONSULTATION"] } },
         orderBy: { dateTime: "desc" },

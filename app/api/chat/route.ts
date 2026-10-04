@@ -10,7 +10,7 @@ const HIGH_RISK_HISTORY = [
 
 // Helper to fetch Gemini API
 async function callGemini(systemPrompt: string, userMessage: string, history: any[], apiKey: string): Promise<string> {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
   
   const contents = [
     {
@@ -208,7 +208,15 @@ CURRENT VERIFIED PATIENT CONTEXT:
 - Age: ${patient.age} | Sex: ${patient.sex}
 - Pre-existing Conditions: ${pastHistoryStr || "None recorded"}
 - Recent Vitals: ${JSON.stringify(patient.vitals[0] || "No vitals recorded")}
-- Active Prescriptions: ${patient.prescriptions.map(p => p.drugName).join(", ") || "No active prescriptions"}
+- Active Prescriptions: 
+${patient.prescriptions.length > 0 ? patient.prescriptions.map(p => `  * Medication:
+    - Name: ${p.drugName || "Not recorded"}
+    - Dosage: ${p.dosage || "Not recorded"}
+    - Frequency: ${p.frequency || "Not recorded"}
+    - Duration: ${p.duration || "Not recorded"}
+    - Instructions: ${p.notes || "Not recorded"}
+    - Status: ${p.status || "Not recorded"}
+    - Date: ${p.createdAt ? new Date(p.createdAt).toLocaleDateString() : "Not recorded"}`).join("\n") : "  No active prescriptions"}
 ---
 
 CLINICAL SAFETY MANDATE:
@@ -218,17 +226,31 @@ CLINICAL SAFETY MANDATE:
 2. If they ask general questions, explain beautifully how registration works, what wards are available, how queue management works, and what investigations exist in our system based on the books provided.
 3. Be warm, empathetic, professional, and clear. Keep answers relatively concise and easy to read (use formatting/bullets where appropriate).
 4. If in Amharic, maintain polite honorifics (e.g., using "እባክዎ" for please, addressing respectfully).
+5. MEDICATION SAFETY: When the patient asks about their own medications, use ONLY the prescription information provided in the patient context.
+   - Never invent dosage, frequency, timing, duration, route, ingredients, or other instructions.
+   - If a requested detail is not recorded, explicitly tell the patient that it is not recorded in their prescription.
+   - If before/after food information exists in the doctor's recorded notes, explain that recorded instruction accurately.
+   - Do not infer before/after food instructions from the medicine name.
+   - Do not change, recommend, increase, decrease, stop, or substitute a prescribed medication.
+   - If the patient asks for a change to their prescription, tell them to confirm with their healthcare provider.
+   - Clearly distinguish between "what your prescription records" and general medical information.
+   - Never claim that an ingredient, indication, or purpose is recorded unless it actually exists in the supplied data.
 `;
 
     let responseContent = "";
     const apiKey = process.env.GEMINI_API_KEY;
     const isPlaceholderKey = !apiKey || apiKey.includes("YourActualGeminiStudioAPIKey");
 
+    console.log("=== GEMINI SYSTEM PROMPT ===");
+    console.log(systemPrompt);
+    console.log("=== END GEMINI SYSTEM PROMPT ===");
+
     if (!isPlaceholderKey) {
       try {
         responseContent = await callGemini(systemPrompt, latestMessageObj.content, messages, apiKey!);
       } catch (err) {
         console.error("Gemini call failed, falling back to rule-based engine:", err);
+        return NextResponse.json({ error: String(err) }, { status: 500 });
       }
     }
 

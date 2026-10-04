@@ -9,21 +9,35 @@ export async function POST(req: Request) {
     // 1. Session validation
     const cookieStore = cookies();
     const sessionToken = cookieStore.get("session_token")?.value;
+    const citizenToken = cookieStore.get("citizenSessionToken")?.value;
     let userId = null;
+    let userRole = null;
     
     if (sessionToken) {
       const payload = verifyToken(sessionToken);
-      if (payload) userId = payload.patientId; // Staff token uses patientId key
+      if (payload) {
+        userId = payload.patientId;
+        userRole = payload.role;
+      }
+    } else if (citizenToken) {
+      const payload = verifyToken(citizenToken);
+      if (payload) {
+        userId = payload.patientId;
+        userRole = payload.role;
+      }
     }
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    // Verify user exists and is a clinician/staff
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.role === "CITIZEN") {
-      return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
+    let user = null;
+    if (userRole !== "CITIZEN") {
+      // Verify user exists and is a clinician/staff
+      user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
+      }
     }
 
     const { transcript, appointmentId, patientId } = await req.json();
@@ -33,9 +47,13 @@ export async function POST(req: Request) {
     }
 
     // 2. Validate authorization
-    if (appointmentId) {
+    if (userRole === "CITIZEN") {
+      if (!patientId || patientId !== userId) {
+        return NextResponse.json({ error: "Unauthorized patient access" }, { status: 403 });
+      }
+    } else if (appointmentId) {
       const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
-      if (!appointment || appointment.facilityId !== user.organizationId) {
+      if (!appointment || appointment.facilityId !== user?.organizationId) {
         return NextResponse.json({ error: "Unauthorized appointment access" }, { status: 403 });
       }
     } else if (patientId) {
@@ -54,7 +72,34 @@ export async function POST(req: Request) {
 
     const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`;
     
-    const systemPrompt = `You are an AI Clinical Scribe assisting a clinician.
+    let systemPrompt = "";
+    if (userRole === "CITIZEN") {
+      systemPrompt = `You are a Patient AI Scribe. 
+Your task is to analyze the patient's report (text or transcribed audio) and produce a structured DRAFT note.
+
+CRITICAL RULES:
+- The AI must NOT invent missing information.
+- If the patient does not provide something, mark it as: "Not provided" or "Not reported."
+- Do not infer medical facts.
+- Do not diagnose conditions or prescribe medication.
+- This is a patient-generated health note to be shared with their doctor.
+
+STRICT JSON SCHEMA REQUIRED:
+{
+  "mainConcern": "string",
+  "whenStarted": "string",
+  "duration": "string",
+  "symptoms": ["string"],
+  "aggravatingOrAlleviatingFactors": "string",
+  "relevantHistory": "string",
+  "patientQuestions": "string",
+  "missingInformation": "string"
+}
+
+If a field is not supported by the transcript, return "Not reported." for strings and [] for arrays.
+Do not return markdown. Do not return explanations outside JSON. Return ONLY the JSON object.`;
+    } else {
+      systemPrompt = `You are an AI Clinical Scribe assisting a clinician.
 Your task is to analyze the provided doctor-patient transcript and produce a documentation DRAFT.
 
 CRITICAL RULES:
@@ -81,6 +126,7 @@ STRICT JSON SCHEMA REQUIRED:
 
 If a field is not supported by the transcript, return "" for string and [] for arrays.
 Do not return markdown. Do not return explanations outside JSON. Return ONLY the JSON object.`;
+    }
 
     const response = await fetch(endpoint, {
       method: "POST",

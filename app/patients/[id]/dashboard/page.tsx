@@ -182,6 +182,11 @@ export default async function PatientDashboard({ params }: { params: { id: strin
                 </div>
               </div>
               <div className="flex flex-wrap gap-2 justify-end">
+                {viewerRole === "CITIZEN" && (
+                  <Button asChild variant="outline" size="sm" className="border-purple-600 text-purple-700 hover:bg-purple-50 font-bold">
+                    <Link href={`/patients/${patient.id}/scribe`}>AI Scribe</Link>
+                  </Button>
+                )}
                 <Button asChild variant="outline" size="sm" className="border-cyan-600 text-cyan-700 hover:bg-cyan-50">
                   <Link href={`/screening/${patient.id}`}>Clinical screening</Link>
                 </Button>

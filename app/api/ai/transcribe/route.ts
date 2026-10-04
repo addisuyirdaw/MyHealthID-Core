@@ -9,21 +9,35 @@ export async function POST(req: Request) {
     // 1. Session validation
     const cookieStore = cookies();
     const sessionToken = cookieStore.get("session_token")?.value;
+    const citizenToken = cookieStore.get("citizenSessionToken")?.value;
     let userId = null;
+    let userRole = null;
     
     if (sessionToken) {
       const payload = verifyToken(sessionToken);
-      if (payload) userId = payload.patientId; // Staff token uses patientId key
+      if (payload) {
+        userId = payload.patientId;
+        userRole = payload.role;
+      }
+    } else if (citizenToken) {
+      const payload = verifyToken(citizenToken);
+      if (payload) {
+        userId = payload.patientId;
+        userRole = payload.role;
+      }
     }
 
     if (!userId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
     
-    // Verify user exists and is a clinician/staff
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user || user.role === "CITIZEN") {
-      return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
+    let user = null;
+    if (userRole !== "CITIZEN") {
+      // Verify user exists and is a clinician/staff
+      user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return NextResponse.json({ error: "Unauthorized access" }, { status: 403 });
+      }
     }
 
     const formData = await req.formData();
@@ -37,9 +51,18 @@ export async function POST(req: Request) {
     }
 
     // 2. Validate authorization
-    if (appointmentId) {
+    if (userRole === "CITIZEN") {
+      if (!patientId || patientId !== userId) {
+        return NextResponse.json({ error: "Unauthorized patient access" }, { status: 403 });
+      }
+      // Citizens cannot transcribe an appointment's audio directly if it belongs to a facility, unless we want to allow it.
+      // But they transcribe for themselves.
+      if (appointmentId) {
+         // Optionally, we could let them transcribe against their own appointment if they want, but let's restrict to just patientId for now
+      }
+    } else if (appointmentId) {
       const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
-      if (!appointment || appointment.facilityId !== user.organizationId) {
+      if (!appointment || appointment.facilityId !== user?.organizationId) {
         return NextResponse.json({ error: "Unauthorized appointment access" }, { status: 403 });
       }
     } else if (patientId) {

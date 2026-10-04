@@ -282,7 +282,17 @@ export default async function ClinicalRecordsDashboard({
 
         {/* Citizen controls */}
         {isCitizen && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <a
+              href={`/patients/${patient.id}/scribe`}
+              className="flex items-center justify-between bg-purple-950/40 border border-purple-500/20 rounded-2xl px-6 py-4 hover:bg-purple-950/60 transition-colors group"
+            >
+              <div>
+                <p className="font-bold text-purple-300 flex items-center gap-2">🎙️ AI Scribe</p>
+                <p className="text-purple-400/70 text-sm">Record a health note</p>
+              </div>
+              <span className="text-purple-400 group-hover:translate-x-1 transition-transform text-xl">→</span>
+            </a>
             <a
               href={`/patients/${patient.id}/privacy`}
               className="flex items-center justify-between bg-indigo-950/40 border border-indigo-500/20 rounded-2xl px-6 py-4 hover:bg-indigo-950/60 transition-colors group"

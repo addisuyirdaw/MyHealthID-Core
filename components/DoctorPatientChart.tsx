@@ -553,12 +553,53 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                     <AlertTriangle className="w-3 h-3" /> ALLERGY: {patient.allergyInformation}
                   </div>
                 )}
+              </div>
+              <div className="mt-2 space-y-2">
+                {/* AI Scribe Shared Drafts */}
+                {patient.journals?.map((journal: any, idx: number) => {
+                  try {
+                    const draft = JSON.parse(journal.symptoms || "{}");
+                    return (
+                      <div key={journal.id || idx} className="flex items-start gap-2 bg-purple-950/40 border border-purple-500/30 rounded-xl px-3 py-2 max-w-xl">
+                        <MessageSquare className="w-3.5 h-3.5 text-purple-400 shrink-0 mt-0.5" />
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[9px] uppercase tracking-widest text-purple-400 font-bold mb-0.5">Patient-Shared AI Draft</p>
+                          <div className="text-xs text-purple-200 leading-relaxed italic line-clamp-3">
+                            <span className="font-semibold block">Main Concern:</span> {draft.mainConcern}
+                            {draft.symptoms?.length > 0 && <span className="block mt-1"><span className="font-semibold">Symptoms:</span> {draft.symptoms.join(", ")}</span>}
+                          </div>
+                        </div>
+                        <button
+                          onClick={async () => {
+                            if (draft.mainConcern) {
+                              setCcList((prev: any) => [...prev, { complaint: draft.mainConcern, duration: draft.duration || "Not reported" }]);
+                            }
+                            const hpiText = `Patient Shared AI Draft:\\n` + Object.entries(draft)
+                              .filter(([k]) => k !== 'mainConcern' && k !== 'duration')
+                              .map(([k,v]) => `${k}: ${v}`).join("\\n");
+                              
+                            setHpi((prev: string) => prev ? prev + "\\n\\n" + hpiText : hpiText);
+                            setActiveTab("history");
+                          }}
+                          className="shrink-0 flex items-center gap-1 text-[9px] font-bold bg-purple-500/20 hover:bg-purple-500/40 border border-purple-500/40 text-purple-300 hover:text-white px-2 py-1 rounded-lg transition-all"
+                          title="Import into Chief Complaints and HPI"
+                        >
+                          <Import className="w-3 h-3" />
+                          Import
+                        </button>
+                      </div>
+                    );
+                  } catch (e) {
+                    return null;
+                  }
+                })}
+
                 {/* Chief Complaints Banner from pre-booked intake */}
                 {(() => {
                   const intake = patient.appointments?.[0];
                   if (!intake?.chiefComplaints) return null;
                   return (
-                    <div className="mt-2 flex items-start gap-2 bg-indigo-950/40 border border-indigo-500/30 rounded-xl px-3 py-2 max-w-xl">
+                    <div className="flex items-start gap-2 bg-indigo-950/40 border border-indigo-500/30 rounded-xl px-3 py-2 max-w-xl">
                       <MessageSquare className="w-3.5 h-3.5 text-indigo-400 shrink-0 mt-0.5" />
                       <div className="min-w-0 flex-1">
                         <p className="text-[9px] uppercase tracking-widest text-indigo-400 font-bold mb-0.5">Patient Self-Reported Intake Complaint</p>
@@ -568,9 +609,8 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                       </div>
                       <button
                         onClick={async () => {
-                          setHistoryData(prev => ({ ...prev, clinicalNotes: intake.chiefComplaints || prev.clinicalNotes }));
-                          setAssessmentData(prev => ({ ...prev, chiefAssessment: intake.chiefComplaints || prev.chiefAssessment }));
-                          setActiveTab("assessment");
+                          setCcList((prev: any) => [...prev, { complaint: intake.chiefComplaints, duration: "Recent" }]);
+                          setActiveTab("history");
                           if (intake?.id && currentUserId) {
                             try {
                               await transitionToConsultation(intake.id, currentUserId);
@@ -580,7 +620,7 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
                           }
                         }}
                         className="shrink-0 flex items-center gap-1 text-[9px] font-bold bg-indigo-500/20 hover:bg-indigo-500/40 border border-indigo-500/40 text-indigo-300 hover:text-white px-2 py-1 rounded-lg transition-all"
-                        title="Import complaint into Clinical Notes & Chief Assessment"
+                        title="Import complaint into Chief Complaints"
                       >
                         <Import className="w-3 h-3" />
                         Import
