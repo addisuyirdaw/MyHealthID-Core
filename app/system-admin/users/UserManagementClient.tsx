@@ -203,6 +203,31 @@ export function UserManagementClient({ initialUsers }: { initialUsers: User[] })
     });
   };
 
+  const handleApprove = (user: User) => {
+    startTransition(async () => {
+      const res = await approveUserRegistration(user.id);
+      if (!res.success) {
+        showToast("error", res.error ?? "Failed to approve");
+        return;
+      }
+      setUsers(prev => prev.map(u => u.id === user.id ? { ...u, isApproved: true } : u));
+      showToast("success", "User approved successfully.");
+    });
+  };
+
+  const handleReject = (user: User) => {
+    if (!confirm("Are you sure you want to reject and delete this registration?")) return;
+    startTransition(async () => {
+      const res = await rejectUserRegistration(user.id);
+      if (!res.success) {
+        showToast("error", res.error ?? "Failed to reject");
+        return;
+      }
+      setUsers(prev => prev.filter(u => u.id !== user.id));
+      showToast("success", "Registration rejected.");
+    });
+  };
+
   const handleResetSuccess = (code: string) => {
     setCodeTargetUser(resetTarget);
     setGeneratedCode(code);

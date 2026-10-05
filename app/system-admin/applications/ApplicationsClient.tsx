@@ -98,7 +98,7 @@ export function ApplicationsClient({
   // Approve modal
   const [approveTarget, setApproveTarget] = useState<FacilityApplication | null>(null);
   const [approveLoading, setApproveLoading] = useState(false);
-  const [approveResult, setApproveResult] = useState<{ tenantId: string } | null>(null);
+  const [approveResult, setApproveResult] = useState<{ tenantId: string; adminUsername?: string; adminPassword?: string } | null>(null);
 
   // Reject modal
   const [rejectTarget, setRejectTarget] = useState<FacilityApplication | null>(null);
@@ -131,7 +131,11 @@ export function ApplicationsClient({
     try {
       const res = await approveFacilityApplication(approveTarget.id);
       if (res.success && res.tenantId) {
-        setApproveResult({ tenantId: res.tenantId });
+        setApproveResult({ 
+          tenantId: res.tenantId, 
+          adminUsername: res.adminUsername, 
+          adminPassword: res.adminPassword 
+        });
         setApplications((prev) =>
           prev.map((a) =>
             a.id === approveTarget.id
@@ -371,10 +375,34 @@ export function ApplicationsClient({
                 <p className="text-neutral-400 text-sm text-center mb-4">
                   <strong className="text-white">{approveTarget.officialName}</strong> is now live on the platform.
                 </p>
-                <div className="bg-neutral-800/60 border border-neutral-700/50 rounded-xl p-4 mb-5">
+                <div className="bg-neutral-800/60 border border-neutral-700/50 rounded-xl p-4 mb-3">
                   <p className="text-xs text-neutral-500 mb-1 font-medium uppercase tracking-widest">Tenant ID</p>
                   <code className="text-emerald-400 font-mono text-sm break-all">{approveResult.tenantId}</code>
                 </div>
+                {approveResult.adminUsername && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 mb-5">
+                    <p className="text-xs text-emerald-400 mb-2 font-bold uppercase tracking-widest">Admin Credentials</p>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="text-neutral-400 text-xs">Username</span>
+                      <code className="text-emerald-300 font-mono text-sm select-all">{approveResult.adminUsername}</code>
+                    </div>
+                    {approveResult.adminPassword ? (
+                      <>
+                        <div className="flex justify-between items-center">
+                          <span className="text-neutral-400 text-xs">Temporary Password</span>
+                          <code className="text-emerald-300 font-mono text-sm select-all">{approveResult.adminPassword}</code>
+                        </div>
+                        <p className="text-[10px] text-emerald-500/70 mt-2">
+                          Please copy these credentials and share them with the facility admin. They must change this password upon first login.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-[10px] text-emerald-500/70 mt-3">
+                        The facility admin will use this username along with the password they set during registration to log in.
+                      </p>
+                    )}
+                  </div>
+                )}
                 <p className="text-xs text-neutral-500 text-center mb-5">
                   A notification has been sent to <span className="text-neutral-300">{approveTarget.contactEmail}</span>.
                 </p>

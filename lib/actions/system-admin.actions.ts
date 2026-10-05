@@ -301,6 +301,7 @@ export async function getAllUsers(search?: string) {
       lastName: true,
       fullName: true,
       isActive: true,
+      isApproved: true,
       isTempPassword: true,
       createdAt: true,
       lastLoginAt: true,

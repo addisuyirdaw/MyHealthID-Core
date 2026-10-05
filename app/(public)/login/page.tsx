@@ -14,6 +14,8 @@ import {
   Users,
   HelpCircle,
   ArrowLeft,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
@@ -33,6 +35,7 @@ function LoginForm() {
   const [password, setPassword] = useState("");
   const [sessionCleared, setSessionCleared] = useState(false);
   const [forgotMode, setForgotMode] = useState(false);
+  const [showStaffPassword, setShowStaffPassword] = useState(false);
 
   // Clear session on mount
   useEffect(() => {
@@ -234,14 +237,21 @@ function LoginForm() {
                     <div className="relative">
                       <Key className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                       <input
-                        type="password"
+                        type={showStaffPassword ? "text" : "password"}
                         id="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder="Enter your PIN"
-                        className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
+                        className="w-full px-4 py-3 pl-11 pr-12 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
                         required
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowStaffPassword(!showStaffPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-blue-500 transition-colors"
+                      >
+                        {showStaffPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
                     </div>
                   </div>
 

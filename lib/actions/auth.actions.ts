@@ -188,12 +188,17 @@ export async function registerHealthcareProfessional(data: {
       throw new Error("Hospital / Facility ID Token is required.");
     }
 
-    // Verify Organization exists
-    const org = await prisma.organization.findUnique({
-      where: { id: orgId }
+    // Verify Organization exists by ID or Code
+    const org = await prisma.organization.findFirst({
+      where: {
+        OR: [
+          { id: orgId },
+          { code: { equals: orgId, mode: 'insensitive' } }
+        ]
+      }
     });
     if (!org) {
-      throw new Error("Invalid Hospital/Facility ID Token. Organization not found.");
+      throw new Error("Invalid Hospital/Facility ID Token or Code. Organization not found.");
     }
 
     const ROLE_CODES: Record<string, string> = {
@@ -245,6 +250,7 @@ export async function registerHealthcareProfessional(data: {
         organizationId: org.id,
         nationalId,
         isFirstLogin: false,
+        isApproved: false,
       }
     });
 
@@ -348,6 +354,11 @@ export async function loginUser(formData: FormData | any) {
   // Deactivation guard – admin can suspend accounts via /admin/users
   if (!dbUser.isActive) {
     return { error: "This account has been suspended by your facility administrator. Please contact your system administrator." };
+  }
+
+  // Approval guard - new self-registered users must be approved
+  if (!dbUser.isApproved) {
+    return { error: "Your account is pending approval by a System Administrator." };
   }
 
   // Password check – check activationCode if first login with an activation code, otherwise standard check

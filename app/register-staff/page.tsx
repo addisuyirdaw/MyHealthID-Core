@@ -96,10 +96,10 @@ function RegisterStaffForm() {
             </div>
           </div>
           <h1 className="text-3xl font-black tracking-tight text-white mb-2 text-center">
-            Staff Registration Successful
+            Registration Submitted
           </h1>
           <p className="text-slate-400 font-medium mb-8 text-center">
-            Welcome <span className="font-semibold text-white">{onboardedName}</span>! Your professional account is now registered under Facility ID: <span className="font-mono text-emerald-400 font-bold">{hospitalIdCode}</span>.
+            Welcome <span className="font-semibold text-white">{onboardedName}</span>! Your professional account is now <span className="text-amber-400 font-bold">Pending Approval</span> under Facility ID: <span className="font-mono text-emerald-400 font-bold">{hospitalIdCode}</span>.
           </p>
 
           {/* Generated Login Email */}
@@ -121,18 +121,17 @@ function RegisterStaffForm() {
               </Button>
             </div>
             <p className="text-xs text-slate-500 mt-2">
-              * Note: Your username is automatically derived from your license number. Use it + your PIN + Facility ID to sign in.
+              * Note: Please save this username. You will be able to log in once a System Administrator approves your account request.
             </p>
           </div>
 
           {/* Action buttons */}
           <div className="flex flex-col gap-3">
-            <Link href={`/login?facilityId=${encodeURIComponent(hospitalIdCode)}&identifier=${encodeURIComponent(generatedEmail)}`} className="w-full">
-              <Button className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-xl px-8 h-12 text-md font-bold flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
-                <ShieldCheck className="w-5 h-5" /> Proceed to Login Portal <ArrowRight className="w-4 h-4" />
+            <Link href="/" className="w-full">
+              <Button className="w-full bg-slate-800 hover:bg-slate-700 text-white rounded-xl px-8 h-12 text-md font-bold flex items-center justify-center gap-2 shadow-lg">
+                 Return to Home
               </Button>
             </Link>
-            <p className="text-center text-[10px] text-slate-500">The Organization ID and Username are pre-filled on the login page.</p>
           </div>
         </Card>
       </div>

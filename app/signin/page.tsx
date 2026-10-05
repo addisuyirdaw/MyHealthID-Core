@@ -20,6 +20,8 @@ import {
   Key,
   CheckCircle2,
   Info,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 export default function SignInPage() {
@@ -32,6 +34,7 @@ export default function SignInPage() {
   const [error, setError] = useState<string | null>(null);
   const [noPassword, setNoPassword] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -165,14 +168,21 @@ export default function SignInPage() {
                 <Key className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" />
                 <input
                   id="signin-password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => { setPassword(e.target.value); setError(null); setNoPassword(false); }}
                   placeholder="Enter your password"
                   required
                   autoComplete="current-password"
-                  className="w-full bg-slate-900/50 border border-slate-800 text-white rounded-lg h-12 pl-10 pr-4 outline-none focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-slate-500"
+                  className="w-full bg-slate-900/50 border border-slate-800 text-white rounded-lg h-12 pl-10 pr-12 outline-none focus:ring-2 focus:ring-emerald-500 transition-all placeholder:text-slate-500"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-neutral-500 hover:text-emerald-400 transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
             </div>
 

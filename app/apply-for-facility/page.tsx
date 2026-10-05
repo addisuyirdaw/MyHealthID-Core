@@ -66,6 +66,7 @@ export default function ApplyForFacilityPage() {
   const [facilityType, setFacilityType] = useState("");
   const [ownershipType, setOwnershipType] = useState("PUBLIC");
   const [contactEmail, setContactEmail] = useState("");
+  const [adminPassword, setAdminPassword] = useState("");
 
   // Step 2: Verification
   const [businessLicenseNumber, setBusinessLicenseNumber] = useState("");
@@ -88,6 +89,8 @@ export default function ApplyForFacilityPage() {
       if (!facilityType)         return "Please select a facility type.";
       if (!contactEmail.trim() || !contactEmail.includes("@"))
         return "A valid contact email is required.";
+      if (!adminPassword.trim() || adminPassword.length < 6)
+        return "A secure Admin password (min 6 characters) is required.";
     }
     if (s === 2) {
       if (!businessLicenseNumber.trim())
@@ -117,6 +120,7 @@ export default function ApplyForFacilityPage() {
         zone,
         woreda,
         kebele,
+        adminPassword,
         metadata: {
           license_url: licenseUrl || undefined,
           representative_id_type: representativeIdType || undefined,
@@ -309,17 +313,31 @@ export default function ApplyForFacilityPage() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-xs font-semibold text-neutral-300 mb-1.5 uppercase tracking-wider">Contact Email *</label>
-                  <input
-                    id="contact-email"
-                    type="email"
-                    value={contactEmail}
-                    onChange={(e) => setContactEmail(e.target.value)}
-                    placeholder="admin@yourhospital.gov.et"
-                    className="w-full bg-neutral-800/60 border border-neutral-700/60 rounded-xl px-4 py-3 text-white text-sm placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition"
-                  />
-                  <p className="text-xs text-neutral-500 mt-1.5">Approval/rejection notifications will be sent to this address.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1.5 uppercase tracking-wider">Contact Email *</label>
+                    <input
+                      id="contact-email"
+                      type="email"
+                      value={contactEmail}
+                      onChange={(e) => setContactEmail(e.target.value)}
+                      placeholder="admin@yourhospital.gov.et"
+                      className="w-full bg-neutral-800/60 border border-neutral-700/60 rounded-xl px-4 py-3 text-white text-sm placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition"
+                    />
+                    <p className="text-xs text-neutral-500 mt-1.5">Approval/rejection notifications will be sent to this address.</p>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-neutral-300 mb-1.5 uppercase tracking-wider">Admin Password *</label>
+                    <input
+                      id="admin-password"
+                      type="password"
+                      value={adminPassword}
+                      onChange={(e) => setAdminPassword(e.target.value)}
+                      placeholder="Create your initial password"
+                      className="w-full bg-neutral-800/60 border border-neutral-700/60 rounded-xl px-4 py-3 text-white text-sm placeholder-neutral-600 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500/50 transition"
+                    />
+                    <p className="text-xs text-neutral-500 mt-1.5">Used to log in after the facility is approved.</p>
+                  </div>
                 </div>
               </div>
             )}

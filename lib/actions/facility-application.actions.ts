@@ -152,6 +152,7 @@ export async function submitFacilityApplication(data: {
   zone?: string;
   woreda?: string;
   kebele?: string;
+  adminPassword?: string;
   // Flexible verification payload
   metadata?: {
     license_url?: string;
@@ -176,6 +177,15 @@ export async function submitFacilityApplication(data: {
     return { success: false, error: "Facility type is required." };
 
   try {
+    let adminPasswordHash = null;
+    if (data.adminPassword) {
+      const salt = process.env.PASSWORD_SALT || "myhealthid-dev-salt-only";
+      adminPasswordHash = crypto
+        .createHmac("sha256", salt)
+        .update(data.adminPassword)
+        .digest("hex");
+    }
+
     const application = await prisma.facilityApplication.create({
       data: {
         businessLicenseNumber: data.businessLicenseNumber.trim(),
@@ -198,6 +208,7 @@ export async function submitFacilityApplication(data: {
           ...data.metadata,
         },
         status: "PENDING",
+        adminPasswordHash,
       },
     });
 
@@ -242,7 +253,7 @@ export async function getAllApplications() {
 
 export async function approveFacilityApplication(
   applicationId: string
-): Promise<{ success: boolean; facilityId?: string; tenantId?: string; error?: string }> {
+): Promise<{ success: boolean; facilityId?: string; tenantId?: string; error?: string; adminUsername?: string; adminPassword?: string }> {
   const { userId, userName, userRole } = await requireSysAdminSession();
 
   // 1. Load and validate application
@@ -333,8 +344,9 @@ export async function approveFacilityApplication(
           hospitalName: facility.name,
           organizationId: tenantId,
           nationalId,
-          isFirstLogin: true,
-          activationCode,
+          isFirstLogin: application.adminPasswordHash ? false : true,
+          passwordHash: application.adminPasswordHash || null,
+          activationCode: application.adminPasswordHash ? null : activationCode,
         },
       }),
     ]);
@@ -375,7 +387,7 @@ export async function approveFacilityApplication(
       decision: "approved",
       tenantId,
       adminUsername: adminEmailOrUsername,
-      adminPassword: activationCode,
+      adminPassword: application.adminPasswordHash ? undefined : activationCode,
     }).catch((err) =>
       console.error("[approveFacilityApplication] Notification error:", err)
     );
@@ -384,7 +396,13 @@ export async function approveFacilityApplication(
     revalidatePath("/system-admin/facilities");
     revalidatePath("/system-admin/dashboard");
 
-    return { success: true, facilityId: tenantId, tenantId };
+    return { 
+      success: true, 
+      facilityId: tenantId, 
+      tenantId,
+      adminUsername: adminEmailOrUsername,
+      adminPassword: application.adminPasswordHash ? undefined : activationCode
+    };
   } catch (err: any) {
     if (err.code === "P2002") {
       return {

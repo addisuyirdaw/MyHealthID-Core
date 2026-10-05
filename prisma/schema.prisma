@@ -102,6 +102,7 @@ model User {
   organization   Organization? @relation(fields: [organizationId], references: [id])
 
   isActive           Boolean @default(true)
+  isApproved         Boolean @default(true) // Default true so existing users are not blocked
   canApproveAccounts Boolean @default(false)
   canManageUsers     Boolean @default(false)
   canViewReports     Boolean @default(false)
@@ -723,6 +724,9 @@ model FacilityApplication {
   //   notes:                 string,   // Free-text applicant notes
   // }
   metadata              Json
+
+  // Stores the initial password the facility admin sets during registration
+  adminPasswordHash     String?           @map("admin_password_hash")
 
   // Populated on approval
   approvedFacilityId    String?           @map("approved_facility_id")
