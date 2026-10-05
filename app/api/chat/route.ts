@@ -10,7 +10,7 @@ const HIGH_RISK_HISTORY = [
 
 // Helper to fetch Gemini API
 async function callGemini(systemPrompt: string, userMessage: string, history: any[], apiKey: string): Promise<string> {
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent?key=${apiKey}`;
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
   
   const contents = [
     {

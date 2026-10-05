@@ -304,10 +304,8 @@ export async function approveFacilityApplication(
     });
 
     // 5. Seed the initial admin account for the applicant user
-    //    Derive stable credentials from tenantId (same logic as registerOrganization)
     const adminLicenseNumber = `admin-${tenantId.toLowerCase().replace(/[^a-z0-9]/g, "-")}`;
-    const adminEmail = `${adminLicenseNumber.replace(/[^a-z0-9]/g, "")}@myhealthid.gov.et`;
-    const adminEmailOrUsername = adminLicenseNumber.replace(/[^a-z0-9]/g, "");
+    const adminEmail = application.contactEmail.toLowerCase();
     const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
     const bytes = crypto.randomBytes(8);
     let activationCode = "";
@@ -331,11 +329,21 @@ export async function approveFacilityApplication(
         console.warn(`[approveFacility] Could not link registeredBy user ${application.registeredBy}`);
       }) : Promise.resolve(),
 
-      // Create the dedicated facility admin account
-      prisma.user.create({
-        data: {
+      // Create or update the facility admin account using the contact email
+      prisma.user.upsert({
+        where: { email: adminEmail },
+        update: {
+          role: adminRole as any,
+          organizationId: tenantId,
+          hospitalId: tenantId,
+          hospitalName: facility.name,
+          isFirstLogin: application.adminPasswordHash ? false : true,
+          passwordHash: application.adminPasswordHash || undefined,
+          activationCode: application.adminPasswordHash ? null : activationCode,
+        },
+        create: {
           email: adminEmail,
-          emailOrUsername: adminEmailOrUsername,
+          emailOrUsername: adminEmail,
           role: adminRole as any,
           firstName: "Facility",
           lastName: "Administrator",
@@ -386,7 +394,7 @@ export async function approveFacilityApplication(
       facilityName: application.officialName,
       decision: "approved",
       tenantId,
-      adminUsername: adminEmailOrUsername,
+      adminUsername: adminEmail,
       adminPassword: application.adminPasswordHash ? undefined : activationCode,
     }).catch((err) =>
       console.error("[approveFacilityApplication] Notification error:", err)
@@ -400,7 +408,7 @@ export async function approveFacilityApplication(
       success: true, 
       facilityId: tenantId, 
       tenantId,
-      adminUsername: adminEmailOrUsername,
+      adminUsername: adminEmail,
       adminPassword: application.adminPasswordHash ? undefined : activationCode
     };
   } catch (err: any) {
