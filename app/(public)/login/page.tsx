@@ -222,7 +222,7 @@ function LoginForm() {
                         id="emailOrUsername"
                         value={emailOrUsername}
                         onChange={(e) => setEmailOrUsername(e.target.value)}
-                        placeholder="e.g. 01AD-MH06 or Username"
+                        placeholder=""
                         className="w-full px-4 py-3 pl-11 rounded-lg border border-slate-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition text-slate-900"
                         required
                       />
