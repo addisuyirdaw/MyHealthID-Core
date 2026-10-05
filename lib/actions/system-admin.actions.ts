@@ -439,3 +439,28 @@ export async function getAllCitizens() {
 
   return JSON.parse(JSON.stringify(patients));
 }
+
+export async function approveUserRegistration(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { userRole } = await requireSysAdminSession();
+    await prisma.user.update({
+      where: { id: userId },
+      data: { isApproved: true },
+    });
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to approve user" };
+  }
+}
+
+export async function rejectUserRegistration(userId: string): Promise<{ success: boolean; error?: string }> {
+  try {
+    const { userRole } = await requireSysAdminSession();
+    await prisma.user.delete({
+      where: { id: userId },
+    });
+    return { success: true };
+  } catch (err: any) {
+    return { success: false, error: err.message || "Failed to reject user" };
+  }
+}

@@ -4,6 +4,8 @@ import { useState, useTransition } from "react";
 import {
   resetUserPasswordSysAdmin,
   toggleUserActiveSysAdmin,
+  approveUserRegistration,
+  rejectUserRegistration,
 } from "@/lib/actions/system-admin.actions";
 import {
   Users, Key, ToggleLeft, ToggleRight,
