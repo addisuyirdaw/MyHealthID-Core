@@ -256,7 +256,7 @@ CLINICAL SAFETY MANDATE:
         responseContent = await callGemini(systemPrompt, latestMessageObj.content, messages, apiKey!);
       } catch (err) {
         console.error("Gemini call failed, falling back to rule-based engine:", err);
-        return NextResponse.json({ error: String(err) }, { status: 500 });
+        // Do not return here, let responseContent remain empty to trigger the fallback below
       }
     }
 
