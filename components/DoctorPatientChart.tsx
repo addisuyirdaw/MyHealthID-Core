@@ -207,7 +207,10 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
     setScribeStatus("transcribing");
     try {
       const transRes = await fetch("/api/ai/transcribe", { method: "POST", body: formData });
-      if (!transRes.ok) throw new Error("Transcription failed");
+      if (!transRes.ok) {
+        const errorData = await transRes.json().catch(() => ({}));
+        throw new Error(errorData.error || "Transcription failed");
+      }
       const transData = await transRes.json();
       setScribeTranscript(transData.transcript);
 
@@ -221,14 +224,17 @@ export default function DoctorPatientChart({ patient, currentUserId, activeAppoi
           patientId: patient.id 
         }),
       });
-      if (!scribeRes.ok) throw new Error("Extraction failed");
+      if (!scribeRes.ok) {
+        const errorData = await scribeRes.json().catch(() => ({}));
+        throw new Error(errorData.error || "Extraction failed");
+      }
       const scribeData = await scribeRes.json();
       setScribeDraft(scribeData.draft);
       setScribeStatus("ready");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setScribeStatus("error");
-      alert("AI Scribe processing failed.");
+      alert("AI Scribe processing failed: " + (err.message || "Unknown error"));
     }
   };
 

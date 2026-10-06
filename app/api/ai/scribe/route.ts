@@ -53,7 +53,8 @@ export async function POST(req: Request) {
       }
     } else if (appointmentId) {
       const appointment = await prisma.appointment.findUnique({ where: { id: appointmentId } });
-      if (!appointment || appointment.facilityId !== user?.organizationId) {
+      const isAdmin = user?.role === "SYSTEM_ADMINISTRATOR";
+      if (!appointment || (!isAdmin && appointment.facilityId !== user?.organizationId)) {
         return NextResponse.json({ error: "Unauthorized appointment access" }, { status: 403 });
       }
     } else if (patientId) {
