@@ -75,13 +75,19 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "No ID provided" }, { status: 400 });
       }
 
+      const cleanId = idToVerify.trim();
+
       const patient = await prisma.patient.findFirst({
         where: {
           OR: [
-            { healthId: idToVerify },
-            { nationalId: idToVerify },
-            { faydaId: idToVerify },
-            { hospitalId: idToVerify },
+            { healthId: cleanId },
+            { nationalId: cleanId },
+            { faydaId: cleanId },
+            { hospitalId: cleanId },
+            { internalId: cleanId },
+            { id: cleanId },
+            { fcn: cleanId },
+            { fullName: { equals: cleanId, mode: "insensitive" } }
           ]
         },
         include: {
