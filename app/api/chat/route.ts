@@ -84,10 +84,7 @@ export async function POST(req: Request) {
             { nationalId: cleanId },
             { faydaId: cleanId },
             { hospitalId: cleanId },
-            { internalId: cleanId },
-            { id: cleanId },
-            { fcn: cleanId },
-            { fullName: { equals: cleanId, mode: "insensitive" } }
+            { internalId: cleanId }
           ]
         },
         include: {
@@ -98,7 +95,7 @@ export async function POST(req: Request) {
 
       if (!patient) {
         return NextResponse.json({ 
-          error: language === "AM" ? "መታወቂያው አልተገኘም። እባክዎ የብሔራዊ መታወቂያዎን ያረጋግጡ።" : "ID not recognized. Please check your National ID card.",
+          error: language === "AM" ? `መታወቂያው አልተገኘም። (${cleanId})` : `ID not recognized: '${cleanId}'. Please check your National ID.`,
           success: false 
         });
       }
