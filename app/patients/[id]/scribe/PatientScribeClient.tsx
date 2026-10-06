@@ -48,7 +48,10 @@ export function PatientScribeClient({ patient }: { patient: any }) {
     setStatus("transcribing");
     try {
       const transRes = await fetch("/api/ai/transcribe", { method: "POST", body: formData });
-      if (!transRes.ok) throw new Error("Transcription failed");
+      if (!transRes.ok) {
+        const errorData = await transRes.json().catch(() => ({}));
+        throw new Error(errorData.error || "Transcription failed");
+      }
       const transData = await transRes.json();
 
       setStatus("analyzing");
@@ -64,10 +67,10 @@ export function PatientScribeClient({ patient }: { patient: any }) {
       const scribeData = await scribeRes.json();
       setDraft(scribeData.draft);
       setStatus("ready");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setStatus("error");
-      alert("AI Scribe processing failed.");
+      alert("AI Scribe processing failed: " + (err.message || "Unknown error"));
     }
   };
 
@@ -93,14 +96,17 @@ export function PatientScribeClient({ patient }: { patient: any }) {
           patientId: patient.id 
         }),
       });
-      if (!scribeRes.ok) throw new Error("Extraction failed");
+      if (!scribeRes.ok) {
+        const errorData = await scribeRes.json().catch(() => ({}));
+        throw new Error(errorData.error || "Extraction failed");
+      }
       const scribeData = await scribeRes.json();
       setDraft(scribeData.draft);
       setStatus("ready");
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
       setStatus("error");
-      alert("AI Scribe processing failed.");
+      alert("AI Scribe processing failed: " + (err.message || "Unknown error"));
     }
   };
 
